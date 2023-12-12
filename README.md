@@ -4,7 +4,7 @@ Install instructions:
 
 1. Install a UserScript extension, such as TamperMonkey on the Chrome Web Store. https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo
 Other (untested) extensions are ViolentMonkey and GreaseMonkey.
-2. Open https://github.com/MECH2-at-Github/MEC2/raw/main/MEC2Navigation.user.js and click the [ Install ] button
+2. Open https://github.com/MECH2-at-Github/MEC2Functions-PROD/raw/main/MEC2Functions.user.js and click the [ Install ] button
 3. Done!
 
 Navigation:
