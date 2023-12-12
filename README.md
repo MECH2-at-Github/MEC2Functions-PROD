@@ -5,7 +5,8 @@ Install instructions:
 
 1. Install a UserScript extension, such as [ TamperMonkey on the Chrome Web Store.](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo). Other (untested) extensions are ViolentMonkey and GreaseMonkey.
 2. Open [MEC2Functions Install](https://github.com/MECH2-at-Github/MEC2Functions-PROD/raw/main/MEC2Functions.user.js) and click the [ Install ] button
-3. Done!
+3. Install [MEC2Stylus](https://userstyles.world/style/13359/mec2stylus), if not yet installed
+4. Done!
 
 # Features
 * Navigation buttons added to the top of MEC2
