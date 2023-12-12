@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.1.8
+// @version      0.1.9
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2211,10 +2211,16 @@ if (("CaseMember.htm").includes(thisPageNameHtm)) {
             .attr('style','width: var(--dateInput)')
             .after('<div style="display: inline-flex; margin-left: 5px;" id="birthMonths">')
         $('#raceCheckBoxes').parent().addClass('collapse')
+        // $('#caseMemberTable').click(function() {
+        //     if ($('#caseMemberTable .selected>td:eq(2)').text() < 6) {
+        //         let monthsAge = fMonthDifference( new Date(), new Date($('#memberBirthDate').val()) )
+        //         $('#birthMonths').text(monthsAge + ' months / ' + Math.floor(monthsAge/12) +'y '+ Number(monthsAge/12).toFixed(1) +'m')
+        //     } else { $('#birthMonths').text("") }
+        // })
         $('#caseMemberTable').click(function() {
             if ($('#caseMemberTable .selected>td:eq(2)').text() < 6) {
                 let monthsAge = fMonthDifference( new Date(), new Date($('#memberBirthDate').val()) )
-                $('#birthMonths').text(monthsAge + ' months / ' + Math.floor(monthsAge/12) +'y '+ Number(monthsAge/12).toFixed(1) +'m')
+                $('#birthMonths').text(monthsAge + ' months / ' + Math.floor((monthsAge -1)/12) +'y '+ (monthsAge -1)%12 +'m')
             } else { $('#birthMonths').text("") }
         })
     }
@@ -3506,7 +3512,7 @@ function snackBar(text, title="Copied!", textAlign="left") {
 //
 
 //SECTION START Duplicate buttons above H1 row
-if (!(thisPageNameHtm).match("List.htm") && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm"].includes(thisPageNameHtm)) {
+if (!(thisPageNameHtm).match("List.htm") && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm"].includes(thisPageNameHtm)) {
     function checkDBclickability() {
         $('.mutable').each(function() { //optimize
             let oldButtonId = $(this).attr('id').split('DB')[0];
