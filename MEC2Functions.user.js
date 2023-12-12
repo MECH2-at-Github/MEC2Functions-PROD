@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.1.9
+// @version      0.2.0
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -478,6 +478,23 @@ $('#selectPeriod:not([disabled], [readonly], [type=hidden])').length && nextPrev
 // =========================================================================================================
 // END CUSTOM_NAVIGATION SECTION  (THE MEC2NAVIGATION SCRIPT SHOULD MIMIC THE ABOVE)  END NAVIGATION SECTION
 // =========================================================================================================
+if (("Login.htm").includes(thisPageNameHtm)) {
+    let errorDiv = document.querySelectorAll('.error_alertbox_new')
+    errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
+
+    if (document.getElementById("terms")) {
+        document.getElementById("userId").value = userXnumber;
+        document.getElementById("terms").click();
+        document.getElementById("password").focus();
+        addEventListener('beforeunload', (event) => {
+            if (document.getElementById("userId").value !== '') {
+                let enteredUserId = document.getElementById("userId").value
+                localStorage.setItem('MECH2.userIdNumber', enteredUserId)
+            };
+        });
+    };
+} //SECTION END Login.htm
+
 let periodDates = {}
 let selectPeriod = document.getElementById('selectPeriod')?.value
 if (selectPeriod?.length) {
@@ -486,7 +503,7 @@ if (selectPeriod?.length) {
 let caseId = document.getElementById('caseId')?.value
 let providerId = document.getElementById('providerId')?.value
 
-let userXnumber = localStorage.getItem('MECH2.userIdNumber');
+let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? "X127000"
 const countyNumbersNeighbors = [
     { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] },
     { county: "Anoka", code: "102", neighbors: ["Sherburne", "Wright", "Hennepin", "Ramsey", "Washington", "Chisago", "Isanti"] },
@@ -579,7 +596,7 @@ const countyNumbersNeighbors = [
     { county: "Red Lake Nation", code: "194", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods", "Beltrami"] },
 ]
 const userCountyObject = countyNumbersNeighbors.find((countylist) => {
-    return countylist.code === userXnumber.slice(1, 4)
+    return countylist.code === userXnumber?.slice(1, 4)
 })
 
 const changeEvent = new Event('change')
@@ -1882,20 +1899,22 @@ if (("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) {
 
 //SECTION START Fill Child Support PDF Forms
 if (("CaseCSE.htm").includes(thisPageNameHtm)) {
-    $('#cseDetailsFormsCompleted').parent().after('<button type="button" class="cButton centered-text float-right" tabindex="-1" id="csForms">Generate CS Forms</button>');
-    $('#csForms').click(function() {
-        let caseNumber = caseId
-        let cpInfo = $('#csePriTable .selected td').eq(1).text();
-        let ncpInfo = $('#csePriTable .selected td').eq(2).text();
-        let childList = {};
-        $('#childrenTable tbody tr').each(function(index) {
-            if ($(this).children('td').eq(1).text().length > 0) {
-                childList["child" + index] = $(this).children('td').eq(1).text();
-            };
+    if (userCountyObject.code === 169) {
+        $('#cseDetailsFormsCompleted').parent().after('<button type="button" class="cButton centered-text float-right" tabindex="-1" id="csForms">Generate CS Forms</button>');
+        $('#csForms').click(function() {
+            let caseNumber = caseId
+            let cpInfo = $('#csePriTable .selected td').eq(1).text();
+            let ncpInfo = $('#csePriTable .selected td').eq(2).text();
+            let childList = {};
+            $('#childrenTable tbody tr').each(function(index) {
+                if ($(this).children('td').eq(1).text().length > 0) {
+                    childList["child" + index] = $(this).children('td').eq(1).text();
+                };
+            });
+            const formInfo = {pdfType:"csForms", xNumber:userXnumber, caseNumber:caseNumber, cpInfo:cpInfo, ncpInfo:ncpInfo, ...childList};
+            window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank");
         });
-        const formInfo = {pdfType:"csForms", xNumber:userXnumber, caseNumber:caseNumber, cpInfo:cpInfo, ncpInfo:ncpInfo, ...childList};
-        window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank");
-    });
+    }
 //SECTION END Fill Child Support PDF Forms
 
 //SECTION START Remove unnecessary fields from Child Support Enforcement
@@ -2495,8 +2514,9 @@ if (("CaseRedetermination.htm").includes(thisPageNameHtm)) {
 
 //SECTION START Fill manual Billing PDF Forms, also nav to Provider Address
 if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
-    $('body').append('<div id="hiddenLoadDiv" style="display: none"></div>');
-    $('#csicTableData1').before(`
+    if (userCountyObject.code === 169) {
+        $('body').append('<div id="hiddenLoadDiv" style="display: none"></div>');
+        $('#csicTableData1').before(`
         <div style="overflow: hidden" id="billingFormDiv">
             <div class="form-group">
                 <button type="button" class="cButton" tabindex="-1" id="billingForm" style="display: inline-flex;">Create Billing Form</button>
@@ -2506,83 +2526,84 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
             </div>
         </div>
     `);
-    // $('#copyProviderMailing').click(function() { //todo
-    //     console.log( $('#providerInfoTable .selected td').eq(0).text() )
-    // });
-    $('#providerAddressButton').click(function() {
-        window.open("/ChildCare/ProviderAddress.htm?providerId=" + $('#providerInfoTable .selected td:eq(0)').text(), "_blank");
-    });
-    // let providerId = $('#providerInfoTable .selected td:eq(0)').html();
+        // $('#copyProviderMailing').click(function() { //todo
+        //     console.log( $('#providerInfoTable .selected td').eq(0).text() )
+        // });
+        $('#providerAddressButton').click(function() {
+            window.open("/ChildCare/ProviderAddress.htm?providerId=" + $('#providerInfoTable .selected td:eq(0)').text(), "_blank");
+        });
+        // let providerId = $('#providerInfoTable .selected td:eq(0)').html();
 
-    // function getCopay(caseNumber, periodRange) { // how to implement a timeout here? https://www.w3schools.com/js/js_async.asp
-    //     $.get('/ChildCare/CaseCopayDistribution.htm?parm2=' + caseNumber + '&parm3=' + periodRange, function (result, status, json) {
-    //         let dataObject = result.slice(result.indexOf("var data = eval('[")+18);
-    //         dataObject = dataObject.substring(0, dataObject.indexOf("]');"));
-    //         dataObject = dataObject.replace(/},{/g, "}splithere{");
-    //         let copayData = dataObject.split("splithere");
-    //         for (let i = copayData.length-1; i >= 0; i--) {
-    //             let tempObject = JSON.parse(copayData[i]);
-    //             if ($('#providerInfoTable>tbody>tr.selected>td:eq(0)').text() == tempObject.providerId) {
-    //                 if (tempObject.version == $('#versionInDropdown').val()) {
-    //                     $('#copayAmountGet').html(tempObject.copay.split(".")[0]);
-    //                     billingFormInfo();
-    //                 };
-    //             };
-    //         };
-    //     });
-    // };
+        // function getCopay(caseNumber, periodRange) { // how to implement a timeout here? https://www.w3schools.com/js/js_async.asp
+        //     $.get('/ChildCare/CaseCopayDistribution.htm?parm2=' + caseNumber + '&parm3=' + periodRange, function (result, status, json) {
+        //         let dataObject = result.slice(result.indexOf("var data = eval('[")+18);
+        //         dataObject = dataObject.substring(0, dataObject.indexOf("]');"));
+        //         dataObject = dataObject.replace(/},{/g, "}splithere{");
+        //         let copayData = dataObject.split("splithere");
+        //         for (let i = copayData.length-1; i >= 0; i--) {
+        //             let tempObject = JSON.parse(copayData[i]);
+        //             if ($('#providerInfoTable>tbody>tr.selected>td:eq(0)').text() == tempObject.providerId) {
+        //                 if (tempObject.version == $('#versionInDropdown').val()) {
+        //                     $('#copayAmountGet').html(tempObject.copay.split(".")[0]);
+        //                     billingFormInfo();
+        //                 };
+        //             };
+        //         };
+        //     });
+        // };
 
-    $('#billingForm').click(function() { getCopay( caseId, periodDates.parm3 ) })
-    function getCopay(caseNumber, periodRange) {
-        $.get('/ChildCare/CaseCopayDistribution.htm?parm2=' + caseNumber + '&parm3=' + periodRange, function (result, status, json) {
-            let dataObject = result.slice(result.indexOf("var data = eval('[")+18);
-            dataObject = dataObject.substring(0, dataObject.indexOf("]');"));
-            dataObject = dataObject.replace(/},{/g, "}splithere{");
-            let copayData = dataObject.split("splithere");
-            for (let i = copayData.length-1; i >= 0; i--) {
-                let tempObject = JSON.parse(copayData[i]);
-                if ($('#providerInfoTable>tbody>tr.selected>td:eq(0)').text() == tempObject.providerId) {
-                    if (tempObject.version == $('#versionInDropdown').val()) {
-                        $('#copayAmountGet').html(tempObject.copay.split(".")[0]);
+        $('#billingForm').click(function() { getCopay( caseId, periodDates.parm3 ) })
+        function getCopay(caseNumber, periodRange) {
+            $.get('/ChildCare/CaseCopayDistribution.htm?parm2=' + caseNumber + '&parm3=' + periodRange, function (result, status, json) {
+                let dataObject = result.slice(result.indexOf("var data = eval('[")+18);
+                dataObject = dataObject.substring(0, dataObject.indexOf("]');"));
+                dataObject = dataObject.replace(/},{/g, "}splithere{");
+                let copayData = dataObject.split("splithere");
+                for (let i = copayData.length-1; i >= 0; i--) {
+                    let tempObject = JSON.parse(copayData[i]);
+                    if ($('#providerInfoTable>tbody>tr.selected>td:eq(0)').text() == tempObject.providerId) {
+                        if (tempObject.version == $('#versionInDropdown').val()) {
+                            $('#copayAmountGet').html(tempObject.copay.split(".")[0]);
+                        };
                     };
                 };
+            }).done(function() { billingFormInfo() })
+        }
+        function billingFormInfo() {
+            if ($('#copayAmountGet').text() === '') {
+                $('#copayAmountGet').replaceWith('<input class="centered-text" style="height: 22px; width: 40px;" id="copayAmountManual"></input><a href="/ChildCare/CaseCopayDistribution.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3 + '" target="_blank">Copay Page</a>');
+                snackBar('Auto-retrieval of copay failed.', 'blank')
+                return
             };
-        }).done(function() { billingFormInfo() })
+            let childList = {};
+            $('#childInfoTable tbody tr').each(function(index) {//child#.name:, child#.authHours:, child#.ageCat0:, child#.ageCat1:
+                $('#childInfoTable tbody tr').click().eq([index]);
+                childList["child" + index] = {};
+                childList["child" + index].name = reorderCommaName( toTitleCase($(this).children('td').eq(1).text()) );
+                childList["child" + index].authHours = $(this).children('td').eq(3).text();
+                childList["child" + index].ageCat0 = $('#ageRateCategory').val();
+                childList["child" + index].ageCat1 = $('#ageRateCategory2').val();
+            });
+            let oCaseName = fCaseName()
+            const formInfo = {
+                pdfType: "BillingForm",
+                xNumber: userXnumber,
+                caseFirstName: oCaseName.first,
+                caseLastName: oCaseName.last,
+                caseName: oCaseName.first + " " + oCaseName.last,
+                caseNumber: caseId,
+                startDate: periodDates.start,
+                endDate: periodDates.end,
+                providerId: $('#providerInfoTable .selected td:eq(0)').text(),
+                providerName: $('#providerInfoTable .selected td:eq(1)').text(),
+                copayAmount: $('#copayAmountGet').text().length ? $('#copayAmountGet').text() : $('#copayAmountManual').val(),
+                attendance0: new Date(periodDates.start).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
+                attendance7: addDays(periodDates.start, 7).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
+                ...childList
+            };
+            if (formInfo.copayAmount.length) { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank") }
+        };
     }
-    function billingFormInfo() {
-        if ($('#copayAmountGet').text() === '') {
-            $('#copayAmountGet').replaceWith('<input class="centered-text" style="height: 22px; width: 40px;" id="copayAmountManual"></input><a href="/ChildCare/CaseCopayDistribution.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3 + '" target="_blank">Copay Page</a>');
-            snackBar('Auto-retrieval of copay failed.', 'blank')
-            return
-        };
-        let childList = {};
-        $('#childInfoTable tbody tr').each(function(index) {//child#.name:, child#.authHours:, child#.ageCat0:, child#.ageCat1:
-            $('#childInfoTable tbody tr').click().eq([index]);
-            childList["child" + index] = {};
-            childList["child" + index].name = reorderCommaName( toTitleCase($(this).children('td').eq(1).text()) );
-            childList["child" + index].authHours = $(this).children('td').eq(3).text();
-            childList["child" + index].ageCat0 = $('#ageRateCategory').val();
-            childList["child" + index].ageCat1 = $('#ageRateCategory2').val();
-        });
-        let oCaseName = fCaseName()
-        const formInfo = {
-            pdfType: "BillingForm",
-            xNumber: userXnumber,
-            caseFirstName: oCaseName.first,
-            caseLastName: oCaseName.last,
-            caseName: oCaseName.first + " " + oCaseName.last,
-            caseNumber: caseId,
-            startDate: periodDates.start,
-            endDate: periodDates.end,
-            providerId: $('#providerInfoTable .selected td:eq(0)').text(),
-            providerName: $('#providerInfoTable .selected td:eq(1)').text(),
-            copayAmount: $('#copayAmountGet').text().length ? $('#copayAmountGet').text() : $('#copayAmountManual').val(),
-            attendance0: new Date(periodDates.start).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
-            attendance7: addDays(periodDates.start, 7).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
-            ...childList
-        };
-        if (formInfo.copayAmount.length) { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank") }
-    };
 };
 //SECTION END Fill manual Billing PDF Forms, also nav to Provider Address
 
@@ -2974,23 +2995,6 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
     }
 };
 //SECTION END Close case transfer to closed case bank; Changing dates to links
-
-if (("Login.htm").includes(thisPageNameHtm)) {
-    let errorDiv = document.querySelectorAll('.error_alertbox_new')
-    errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
-
-    if (document.getElementById("terms")) {
-        document.getElementById("userId").value = userXnumber;
-        document.getElementById("terms").click();
-        document.getElementById("password").focus();
-        addEventListener('beforeunload', (event) => {
-            if (document.getElementById("userId").value !== '') {
-                let enteredUserId = document.getElementById("userId").value
-                localStorage.setItem('MECH2.userIdNumber', enteredUserId)
-            };
-        });
-    };
-} //SECTION END Login.htm
 
 if (("MaximumRates.htm").includes(thisPageNameHtm)) {
     let maxRatesCounty = document.getElementById('maximumRatesCounty')
