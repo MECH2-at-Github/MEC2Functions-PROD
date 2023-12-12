@@ -1,13 +1,13 @@
+# Installation
 This script includes all user functions for MEC2 and is not meant to be used with MEC2Navigation. If MEC2Navigation is installed, disable or uninstall before using or it will cause double navigation bars.
 
 Install instructions:
 
-1. Install a UserScript extension, such as TamperMonkey on the Chrome Web Store. https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo
-Other (untested) extensions are ViolentMonkey and GreaseMonkey.
-2. Open https://github.com/MECH2-at-Github/MEC2Functions-PROD/raw/main/MEC2Functions.user.js and click the [ Install ] button
+1. Install a UserScript extension, such as [ TamperMonkey on the Chrome Web Store.](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo). Other (untested) extensions are ViolentMonkey and GreaseMonkey.
+2. Open [MEC2Functions Install](https://github.com/MECH2-at-Github/MEC2Functions-PROD/raw/main/MEC2Functions.user.js) and click the [ Install ] button
 3. Done!
 
-Navigation:
+# Features
 * Navigation buttons added to the top of MEC2
   * [+] buttons open the page in a new tab.
   * Buttons will highlight the current category and page in blue.
