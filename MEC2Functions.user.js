@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.0
+// @version      0.2.1
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -478,23 +478,6 @@ $('#selectPeriod:not([disabled], [readonly], [type=hidden])').length && nextPrev
 // =========================================================================================================
 // END CUSTOM_NAVIGATION SECTION  (THE MEC2NAVIGATION SCRIPT SHOULD MIMIC THE ABOVE)  END NAVIGATION SECTION
 // =========================================================================================================
-if (("Login.htm").includes(thisPageNameHtm)) {
-    let errorDiv = document.querySelectorAll('.error_alertbox_new')
-    errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
-
-    if (document.getElementById("terms")) {
-        document.getElementById("userId").value = userXnumber;
-        document.getElementById("terms").click();
-        document.getElementById("password").focus();
-        addEventListener('beforeunload', (event) => {
-            if (document.getElementById("userId").value !== '') {
-                let enteredUserId = document.getElementById("userId").value
-                localStorage.setItem('MECH2.userIdNumber', enteredUserId)
-            };
-        });
-    };
-} //SECTION END Login.htm
-
 let periodDates = {}
 let selectPeriod = document.getElementById('selectPeriod')?.value
 if (selectPeriod?.length) {
@@ -503,7 +486,7 @@ if (selectPeriod?.length) {
 let caseId = document.getElementById('caseId')?.value
 let providerId = document.getElementById('providerId')?.value
 
-let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? "X127000"
+let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? ""
 const countyNumbersNeighbors = [
     { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] },
     { county: "Anoka", code: "102", neighbors: ["Sherburne", "Wright", "Hennepin", "Ramsey", "Washington", "Chisago", "Isanti"] },
@@ -2995,6 +2978,25 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
     }
 };
 //SECTION END Close case transfer to closed case bank; Changing dates to links
+
+if (("Login.htm").includes(thisPageNameHtm)) {
+    let errorDiv = document.querySelectorAll('.error_alertbox_new')
+    errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
+
+    if (userXnumber.length && document.getElementById("terms")) {
+        document.getElementById("userId").value = userXnumber;
+        document.getElementById("terms").click();
+        document.getElementById("password").focus();
+    } else {
+        eleFocus('#userId')
+        addEventListener('beforeunload', (event) => {
+            if (document.getElementById("userId").value !== '') {
+                let enteredUserId = document.getElementById("userId").value
+                localStorage.setItem('MECH2.userIdNumber', enteredUserId)
+            };
+        });
+    }
+} //SECTION END Login.htm
 
 if (("MaximumRates.htm").includes(thisPageNameHtm)) {
     let maxRatesCounty = document.getElementById('maximumRatesCounty')
