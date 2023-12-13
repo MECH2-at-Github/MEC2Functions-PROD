@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.1
+// @version      0.2.2
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -307,7 +307,7 @@ function findPageParent() {
 $('#primaryNavigation').click(function(event) {
     if (event.target.tagName === 'BUTTON') {
         if (event.target.parentNode.id !== "buttonPanelThree") { $('.cButton__nav__browsing').removeClass('cButton__nav__browsing') }
-        $('button#' + event.target.id + ':not(.cButton__nav__open-page):not(#buttonPanelOneNTF>button):not([data-how-to-open="_blank"])').addClass("cButton__nav__browsing")
+        $('.primary-navigation-row > button#' + event.target.id + ':not(.cButton__nav__open-page):not(#buttonPanelOneNTF>button):not([data-how-to-open="_blank"])').addClass("cButton__nav__browsing")
         if ($('#eligibilityButtons.cButton__nav__open-page, #eligibilityButtons.cButton__nav__browsing').length && !reviewingEligibility) { $('#buttonPanelThree > button[id^="CaseEligibilityResult"]:not(#CaseEligibilityResultSelectionSelf)').addClass('hidden') } //.addClass('cButton__disabled') //.attr('disabled', 'disabled')
     }
 })
@@ -1308,7 +1308,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     textIncludes: /Redetermination has not been received/,
                     noteCategory: "Redetermination",
                     noteSummary: "Closing: Redetermination not received/incomplete",
-                    page: "",
+                    page: "Overview",
+                    pageFilter: "result[0][0].programBeginDateHistory",
                 },
                 autoDenied: {
                     textIncludes: /This case has been auto-denied/,
@@ -1882,7 +1883,7 @@ if (("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) {
 
 //SECTION START Fill Child Support PDF Forms
 if (("CaseCSE.htm").includes(thisPageNameHtm)) {
-    if (userCountyObject.code === 169) {
+    if (typeof userCountyObject !== undefined && userCountyObject.code === "169") {
         $('#cseDetailsFormsCompleted').parent().after('<button type="button" class="cButton centered-text float-right" tabindex="-1" id="csForms">Generate CS Forms</button>');
         $('#csForms').click(function() {
             let caseNumber = caseId
@@ -2361,8 +2362,10 @@ if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
                     let signatureName
                     let workerName = localStorage.getItem('MECH2.userName')
                     if ( ["CaseNotes.htm"].includes(thisPageNameHtm) ) {
-                        signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? workerName : workerName + " for " + noteInfo.worker
-                    } else { signatureName = workerName }
+                        if (noteInfo.xNumber?.length) {
+                            signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? workerName : workerName + " for " + noteInfo.worker
+                        } else { signatureName = workerName }
+                    }
                     setTimeout(function() {
                         noteInfo.intendedPerson?.length && $('#noteMemberReferenceNumber').val($('#noteMemberReferenceNumber>option:contains(' + noteInfo.intendedPerson + ')').val())
                         document.getElementById("noteCategory").value = noteInfo.noteCategory
@@ -2497,7 +2500,7 @@ if (("CaseRedetermination.htm").includes(thisPageNameHtm)) {
 
 //SECTION START Fill manual Billing PDF Forms, also nav to Provider Address
 if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
-    if (userCountyObject.code === 169) {
+    if (typeof userCountyObject !== undefined && userCountyObject.code === "169") {
         $('body').append('<div id="hiddenLoadDiv" style="display: none"></div>');
         $('#csicTableData1').before(`
         <div style="overflow: hidden" id="billingFormDiv">
@@ -3003,7 +3006,7 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
     let ratesProviderType = document.getElementById('ratesProviderType')
     let maximumRatesPeriod = document.getElementById('maximumRatesPeriod')
     let firstNonBlankPeriod = maximumRatesPeriod.querySelector('option:nth-child(2)')
-    if (maxRatesCounty.value === "" && userCountyObject?.length) { maxRatesCounty.value = userCountyObject.county ; doEvent('#maximumRatesCounty') }
+    if (maxRatesCounty.value === "" && typeof userCountyObject !== undefined) { maxRatesCounty.value = userCountyObject.county ; doEvent('#maximumRatesCounty') }
     if (ratesProviderType.value === '') { ratesProviderType.value = "Child Care Center" ; doEvent('#ratesProviderType') }
     if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value ; doEvent('#maximumRatesPeriod') }
     ratesProviderType.addEventListener('change', function() { maximumRatesPeriod.value = firstNonBlankPeriod.value ; doEvent('#maximumRatesPeriod') })
@@ -3038,7 +3041,7 @@ if (("ProviderAddress.htm").includes(thisPageNameHtm)) {
         if ($('#mailingSiteHomeCountry').val()?.length === 0) {
             $('#mailingSiteHomeCountry').val('USA').addClass('prefilled-field')
             $('#mailingSiteHomeState').val('Minnesota').addClass('prefilled-field')
-            userCountyObject?.length && $('#mailingSiteHomeCounty').val(userCountyObject.county).addClass('prefilled-field')
+            typeof userCountyObject !== undefined && $('#mailingSiteHomeCounty').val(userCountyObject.county).addClass('prefilled-field')
         }
         $('#mailingCountry').change(function() {
             if (('#mailingState').val()?.length === 0) {
@@ -3095,8 +3098,8 @@ if (("ProviderSearch.htm").includes(thisPageNameHtm)) {
     let searchByNumbers = $('#ssn, #providerIdNumber, #itin, #fein, #licenseNumber').filter(function() { return this.value > 0 }).length
     let justOneResult = $('h5:contains("Search Results: 1 matches found.")').length
     if (!searchByNumbers && !justOneResult) {
-        const localCounties = userCountyObject?.neighbors
-        if (localCounties !== undefined) {
+        if (typeof userCountyObject !== undefined) {
+            const localCounties = userCountyObject.neighbors
             localCounties.push(userCountyObject.county)
             waitForTableText('#providerSearchTable > tbody > tr > td').then(() => {
                 $('tbody tr:contains("Inactive")').addClass('inactive inactive-hidden')
@@ -3134,9 +3137,11 @@ if (("ProviderSpecialLetter.htm").includes(thisPageNameHtm)) {
 
 if (("ProviderRegistrationAndRenewal.htm").includes(thisPageNameHtm)) {
     if (notEditMode) {
-        if (userCountyObject?.length && $('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject?.county + ' County)').length > 0) {
-            $('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject.county + ' County)').click()
-            eleFocus('#editDB')
+        if (typeof userCountyObject !== undefined) {
+            if ($('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject?.county + ' County)').length > 0) {
+                $('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject.county + ' County)').click()
+                eleFocus('#editDB')
+            }
         } else { eleFocus('#newDB') }
     } else { eleFocus('#nextRenewalDue') }
 } //SECTION END ProviderRegistrationAndRenewal
