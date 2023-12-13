@@ -1945,7 +1945,7 @@ if (("CaseCSIA.htm").includes(thisPageNameHtm)) {
         },100) })
         $('#birthplaceStateOrProvince').change(function() {
             setTimeout(function() {
-                if ($('#birthplaceCounty').val() === "") {
+                if ($('#birthplaceCounty').val() === "" && countyName?.length) {
                     $('#birthplaceCounty').val(countyName).addClass('prefilled-field')
                     doEvent('#birthplaceCounty')
                     eleFocus('#birthplaceStateOrProvince')
@@ -3003,7 +3003,7 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
     let ratesProviderType = document.getElementById('ratesProviderType')
     let maximumRatesPeriod = document.getElementById('maximumRatesPeriod')
     let firstNonBlankPeriod = maximumRatesPeriod.querySelector('option:nth-child(2)')
-    if (maxRatesCounty.value === "") { maxRatesCounty.value = userCountyObject.county ; doEvent('#maximumRatesCounty') }
+    if (maxRatesCounty.value === "" && userCountyObject?.length) { maxRatesCounty.value = userCountyObject.county ; doEvent('#maximumRatesCounty') }
     if (ratesProviderType.value === '') { ratesProviderType.value = "Child Care Center" ; doEvent('#ratesProviderType') }
     if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value ; doEvent('#maximumRatesPeriod') }
     ratesProviderType.addEventListener('change', function() { maximumRatesPeriod.value = firstNonBlankPeriod.value ; doEvent('#maximumRatesPeriod') })
@@ -3038,7 +3038,7 @@ if (("ProviderAddress.htm").includes(thisPageNameHtm)) {
         if ($('#mailingSiteHomeCountry').val()?.length === 0) {
             $('#mailingSiteHomeCountry').val('USA').addClass('prefilled-field')
             $('#mailingSiteHomeState').val('Minnesota').addClass('prefilled-field')
-            $('#mailingSiteHomeCounty').val(userCountyObject.county).addClass('prefilled-field')
+            userCountyObject?.length && $('#mailingSiteHomeCounty').val(userCountyObject.county).addClass('prefilled-field')
         }
         $('#mailingCountry').change(function() {
             if (('#mailingState').val()?.length === 0) {
@@ -3134,7 +3134,7 @@ if (("ProviderSpecialLetter.htm").includes(thisPageNameHtm)) {
 
 if (("ProviderRegistrationAndRenewal.htm").includes(thisPageNameHtm)) {
     if (notEditMode) {
-        if ($('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject.county + ' County)').length > 0) {
+        if (userCountyObject?.length && $('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject?.county + ' County)').length > 0) {
             $('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject.county + ' County)').click()
             eleFocus('#editDB')
         } else { eleFocus('#newDB') }
