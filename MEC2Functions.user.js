@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.3
+// @version      0.2.4
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -648,10 +648,10 @@ setTimeout(function() { resetTabIndex() }, 200)
 //
 // $('.required-field').blur(function(event) { if (event.target.value !== '') { event.target.classList.remove('required-field') } })
 
-$('img[src="images/error_alert_small.png"]').replaceWith('<span class="alerts-error" style="margin: 0 4px;">❗</span>')
-$('img[src="images/warning_alert_small.png"]').replaceWith('<span class="alerts-warning" style="color: yellow; margin: 0 4px; font-size: large;">⚠</span>')
+// $('img[src="images/error_alert_small.png"]').replaceWith('<span class="alerts-error" style="margin: 0 4px;">❗</span>')
+// $('img[src="images/warning_alert_small.png"]').replaceWith('<span class="alerts-warning" style="color: yellow; margin: 0 4px; font-size: large;">⚠</span>')
 
-$('errordiv.error_warningImage').replaceWith('<span style="color: yellow; margin: 0 4px; font-size: large;">⚠</span>')
+// $('errordiv.error_warningImage').replaceWith('<span style="color: black; margin: 0 4px; font-size: large;">⚠</span>')
 
 
 
@@ -1549,8 +1549,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
     $('#autoCaseNote').click(function() { fAutoCaseNote().then( function(returnedAlert) {
         let readiedAlert = {}
         readiedAlert[returnedAlert.number] = structuredClone(returnedAlert)
-        // localStorage.setItem( "MECH2.note", JSON.stringify( readiedAlert ) )
-        // window.open('/ChildCare/' + returnedAlert.page + returnedAlert.parameters, '_blank')
+        localStorage.setItem( "MECH2.note", JSON.stringify( readiedAlert ) )
+        window.open('/ChildCare/' + returnedAlert.page + returnedAlert.parameters, '_blank')
     } ) })
 //function in Object
 //let testObj = { groupId: function() { return document.getElementById('groupId') }}
