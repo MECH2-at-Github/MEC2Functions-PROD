@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.2
+// @version      0.2.3
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -486,7 +486,7 @@ if (selectPeriod?.length) {
 let caseId = document.getElementById('caseId')?.value
 let providerId = document.getElementById('providerId')?.value
 
-let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? ""
+let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? ''
 const countyNumbersNeighbors = [
     { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] },
     { county: "Anoka", code: "102", neighbors: ["Sherburne", "Wright", "Hennepin", "Ramsey", "Washington", "Chisago", "Isanti"] },
@@ -1330,7 +1330,7 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                 memberLeft: {
                     textIncludes: /Member Left date/,
                     noteCategory: "Household Change",
-                    personName: "true",
+                    intendedPerson: true,
                     noteSummary: "doReplace",
                     page: "",
                 },
@@ -1522,7 +1522,7 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                 if (oAlertCategoriesLowerCase[alertCategory]?.messages[message].noteSummary === "doReplace") {
                     foundAlert.noteSummary = await fGetNoteSummary(alertCategory + ".messages." + message + ".noteSummary", foundAlert.noteMessage, foundAlert.personName)
                 } else if (oAlertCategoriesLowerCase[alertCategory]?.messages[message].noteSummary === "") { foundAlert.noteSummary = messageText }
-                if ( Object.hasOwn(foundAlert, "personName") ) { foundAlert.personName = reorderCommaName(document.querySelector('#alertTable_wrapper #alertTable > tbody > tr.selected > td:nth-of-type(3)').textContent) }
+                if ( Object.hasOwn(foundAlert, "personName") ) { foundAlert.personName = reorderCommaName(document.querySelector('#alertTable_wrapper #alertTable > tbody > tr.selected > td:nth-of-type(3)').textContent) } // this needs to be above line 1524
             }
         }
         if (foundAlert === 'undefined' || !Object.keys(foundAlert)?.length) { foundAlert = { noteSummary: messageText.slice(0, 50),/* noteMessage: messageText,*/ noteCategory: "Other" } }
@@ -1537,7 +1537,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
         foundAlert.page = oWhatAlertType.page
         foundAlert.parameters = oWhatAlertType.parameters
         foundAlert.number = oWhatAlertType.number
-        foundAlert.intendedPerson ? foundAlert.intendedPerson = document.querySelector('#alertTable>tbody>tr.selected>td:nth-of-type(3)').textContent : ''
+        console.log(foundAlert)
+        foundAlert.personName ? foundAlert.intendedPerson = document.querySelector('#alertTable>tbody>tr.selected>td:nth-of-type(3)').textContent : ''
         // fLoadAnotherPageInfo()//blurg
         return foundAlert
     }
@@ -1548,8 +1549,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
     $('#autoCaseNote').click(function() { fAutoCaseNote().then( function(returnedAlert) {
         let readiedAlert = {}
         readiedAlert[returnedAlert.number] = structuredClone(returnedAlert)
-        localStorage.setItem( "MECH2.note", JSON.stringify( readiedAlert ) )
-        window.open('/ChildCare/' + returnedAlert.page + returnedAlert.parameters, '_blank')
+        // localStorage.setItem( "MECH2.note", JSON.stringify( readiedAlert ) )
+        // window.open('/ChildCare/' + returnedAlert.page + returnedAlert.parameters, '_blank')
     } ) })
 //function in Object
 //let testObj = { groupId: function() { return document.getElementById('groupId') }}
@@ -2205,25 +2206,18 @@ if (("CaseMember.htm").includes(thisPageNameHtm)) {
         function fMonthDifference(today, birthdate) {
             var months;
             months = (today.getFullYear() - birthdate.getFullYear()) * 12;
-            months -= birthdate.getMonth() + 1;
-            months += today.getMonth() +1;
+            months -= birthdate.getMonth();
+            months += today.getMonth();
             return months <= 0 ? 0 : months;
         }
-        // $('#memberBirthDate').parent().addClass('flex-horizontal')
         $('#memberBirthDate')
             .attr('style','width: var(--dateInput)')
             .after('<div style="display: inline-flex; margin-left: 5px;" id="birthMonths">')
         $('#raceCheckBoxes').parent().addClass('collapse')
-        // $('#caseMemberTable').click(function() {
-        //     if ($('#caseMemberTable .selected>td:eq(2)').text() < 6) {
-        //         let monthsAge = fMonthDifference( new Date(), new Date($('#memberBirthDate').val()) )
-        //         $('#birthMonths').text(monthsAge + ' months / ' + Math.floor(monthsAge/12) +'y '+ Number(monthsAge/12).toFixed(1) +'m')
-        //     } else { $('#birthMonths').text("") }
-        // })
         $('#caseMemberTable').click(function() {
             if ($('#caseMemberTable .selected>td:eq(2)').text() < 6) {
                 let monthsAge = fMonthDifference( new Date(), new Date($('#memberBirthDate').val()) )
-                $('#birthMonths').text(monthsAge + ' months / ' + Math.floor((monthsAge -1)/12) +'y '+ (monthsAge -1)%12 +'m')
+                $('#birthMonths').text(monthsAge + ' months / ' + Math.floor((monthsAge)/12) +'y '+ (monthsAge)%12 +'m')
             } else { $('#birthMonths').text("") }
         })
     }
@@ -2815,17 +2809,13 @@ if (("FinancialBilling.htm").includes(thisPageNameHtm)) {
     if (!notEditMode) {
         let weekOneMonday = document.querySelector('#weekOneMonday')
         let billedHoursPanel = document.querySelector('div.panel-box-format:has(#weekOneMonday)')
-        //todo blarg if table = empty, scroll to Billed Registration Fees
-        //if table = hasData, scroll to Billed Time
         $('#billedTimeTableData').nextAll('div.form-group').eq(0).keydown(function(e) {
             if (e.target.id === "billedTimeType" && e.key === 'Tab' && e.shiftKey && e.target.value === '') {
                 e.preventDefault()
-                document.querySelector('div.panel-box-format:has(input#registrationFee)').scrollIntoView(true, { behavior: "smooth" })
                 eleFocus('#registrationFee')
             }
             else if (e.target.id === "billedTimeType" && e.key === 'Tab' && !e.shiftKey && e.target.value === '') {
                 e.preventDefault()
-                billedHoursPanel.scrollIntoView(true, { behavior: "smooth" })
                 eleFocus('#weekOneMonday')
                 document.querySelector('#weekOneMonday').select()
             }
@@ -2982,7 +2972,7 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
 };
 //SECTION END Close case transfer to closed case bank; Changing dates to links
 
-if (("Login.htm").includes(thisPageNameHtm)) {
+if (["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm)) {
     let errorDiv = document.querySelectorAll('.error_alertbox_new')
     errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
 
