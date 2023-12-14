@@ -1405,6 +1405,7 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteCategory: "Provider Change",
                     noteSummary: "Provider deactivated. Renewal was not received.",
                     page: "",
+                    intendedPerson: true,
                 },
             },
         },
@@ -1519,13 +1520,16 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
         for (let message in oAlertCategoriesLowerCase[alertCategory]?.messages) {
             if (Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "noteSummary") && oAlertCategoriesLowerCase[alertCategory]?.messages[message]?.textIncludes.test(messageText) === true) {
                 foundAlert = structuredClone(oAlertCategoriesLowerCase[alertCategory].messages[message])
+                if ( Object.hasOwn(foundAlert, "intendedPerson") ) {
+                    foundAlert.personName = reorderCommaName(document.querySelector('#alertTable_wrapper #alertTable > tbody > tr.selected > td:nth-of-type(3)').textContent)
+                    foundAlert.intendedPerson = foundAlert.personName.replace(/(\b\w+\b)(?:.+)/, "$1").toUpperCase()
+                }
                 if (oAlertCategoriesLowerCase[alertCategory]?.messages[message].noteSummary === "doReplace") {
                     foundAlert.noteSummary = await fGetNoteSummary(alertCategory + ".messages." + message + ".noteSummary", foundAlert.noteMessage, foundAlert.personName)
                 } else if (oAlertCategoriesLowerCase[alertCategory]?.messages[message].noteSummary === "") { foundAlert.noteSummary = messageText }
-                if ( Object.hasOwn(foundAlert, "personName") ) { foundAlert.personName = reorderCommaName(document.querySelector('#alertTable_wrapper #alertTable > tbody > tr.selected > td:nth-of-type(3)').textContent) } // this needs to be above line 1524
             }
         }
-        if (foundAlert === 'undefined' || !Object.keys(foundAlert)?.length) { foundAlert = { noteSummary: messageText.slice(0, 50),/* noteMessage: messageText,*/ noteCategory: "Other" } }
+        if (foundAlert === 'undefined' || !Object.keys(foundAlert)?.length) { foundAlert = { noteSummary: messageText.slice(0, 50), noteCategory: "Other" } }
         foundAlert.noteMessage = messageText
         let longWorkerName = document.getElementById('workerName').value
         let workerName = longWorkerName.replace(/\w\./,)
@@ -1537,9 +1541,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
         foundAlert.page = oWhatAlertType.page
         foundAlert.parameters = oWhatAlertType.parameters
         foundAlert.number = oWhatAlertType.number
-        console.log(foundAlert)
-        foundAlert.personName ? foundAlert.intendedPerson = document.querySelector('#alertTable>tbody>tr.selected>td:nth-of-type(3)').textContent : ''
         // fLoadAnotherPageInfo()//blurg
+        console.log(foundAlert)
         return foundAlert
     }
     $('h4:contains(Alert Detail)')
