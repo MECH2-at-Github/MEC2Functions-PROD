@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.5
+// @version      0.2.6
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2674,7 +2674,6 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
     if ($('strong.rederrortext:contains("Transfer From Worker ID cannot be the same as Transfer To Worker ID.")').length) { $('#cancel').click() }
     if ($('strong.rederrortext:contains("Transfer To Worker ID is invalid.")').length) {
         localStorage.removeItem('MECH2.closedCaseBank')
-        $('#cancel').click()
     }
     function closedButtonText() { closedCaseBank ? "Transfer case to " + closedCaseBank : "Enter Closed Bank ID" }
     $('#footer_links').append('<span style="margin: 0 .3rem; pointer-events: none;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
@@ -2685,7 +2684,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
 // if (transferToWorker) {
 
     function doCaseTransfer() {
-        if (!notEditMode && closedCaseBank) {
+        if (!notEditMode && closedCaseBank !== null) {
             localStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferDone')
             $('#caseTransferFromType:contains("Worker To Worker")').val('Worker To Worker')
             doEvent('#caseTransferFromType')
@@ -2726,7 +2725,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
 
     //Semi-manual transfer with a button
     function checkForClosedCaseBank() {
-        if (closedCaseBank) {
+        if (closedCaseBank !== null) {
             buttonClosedTransfer()
         } else {
             eleFocus('#transferWorker')
@@ -2740,9 +2739,10 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
         ($('#caseTransferToName').parents('.form-group').after(`
             <div class="col-lg-6 col-md-6" style="vertical-align: middle;">
                 <button type="button" class="cButton" tabindex="-1" style="float: left;" id="closedTransfer">Transfer to:</button>
-                <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
+                <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #"></input>
             </div>
         `))
+        if (closedCaseBank !== null) { document.getElementById('transferWorker').value = closedCaseBank }
         document.getElementById('closedTransfer')?.addEventListener('click', function() { checkForClosedCaseBank() })
         document.getElementById('transferWorker')?.addEventListener('blur', function() {
             if (this.value?.length) {
