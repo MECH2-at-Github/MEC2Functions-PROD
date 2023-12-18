@@ -2670,7 +2670,8 @@ if (("CaseSupportActivity.htm").includes(thisPageNameHtm)) {
 
 //SECTION START Close case AutoTransfer to closed case bank; Auto enter transfer info if have localStorage value; Add button to notEditMode page to do transfer;
 if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
-    let closedCaseBank = localStorage.getItem('MECH2.closedCaseBank')
+    let closedCaseLS = localStorage.getItem('MECH2.closedCaseBank')
+    let closedCaseBank = closedCaseLS !== null ? closedCaseLS : ''
     if ($('strong.rederrortext:contains("Transfer From Worker ID cannot be the same as Transfer To Worker ID.")').length) { $('#cancel').click() }
     if ($('strong.rederrortext:contains("Transfer To Worker ID is invalid.")').length) {
         localStorage.removeItem('MECH2.closedCaseBank')
@@ -2684,7 +2685,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
 // if (transferToWorker) {
 
     function doCaseTransfer() {
-        if (!notEditMode && closedCaseBank !== null) {
+        if (!notEditMode && closedCaseBank) {
             localStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferDone')
             $('#caseTransferFromType:contains("Worker To Worker")').val('Worker To Worker')
             doEvent('#caseTransferFromType')
@@ -2725,7 +2726,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
 
     //Semi-manual transfer with a button
     function checkForClosedCaseBank() {
-        if (closedCaseBank !== null) {
+        if (closedCaseBank) {
             buttonClosedTransfer()
         } else {
             eleFocus('#transferWorker')
@@ -2739,17 +2740,17 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
         ($('#caseTransferToName').parents('.form-group').after(`
             <div class="col-lg-6 col-md-6" style="vertical-align: middle;">
                 <button type="button" class="cButton" tabindex="-1" style="float: left;" id="closedTransfer">Transfer to:</button>
-                <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #"></input>
+                <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
             </div>
         `))
-        if (closedCaseBank !== null) { document.getElementById('transferWorker').value = closedCaseBank }
+        // if (closedCaseBank) { document.getElementById('transferWorker').value = closedCaseBank }
         document.getElementById('closedTransfer')?.addEventListener('click', function() { checkForClosedCaseBank() })
         document.getElementById('transferWorker')?.addEventListener('blur', function() {
             if (this.value?.length) {
                 localStorage.setItem('MECH2.closedCaseBank', this.value)
             }
             else {
-                closedCaseBank = null
+                closedCaseBank = ''
                 localStorage.removeItem('MECH2.closedCaseBank')
             }
         })
