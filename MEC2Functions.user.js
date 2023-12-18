@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.4
+// @version      0.2.5
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -627,7 +627,7 @@ if (!notEditMode) {
     let actualDateField = document.getElementById('actualDate')
     let storedActualDate = sessionStorage.getItem('actualDate')
     if (actualDateField) {
-        if (storedActualDate === null) {
+        if (storedActualDate === null || storedActualDate === '') {
             document.getElementById('save').addEventListener('click', function() {
                 sessionStorage.setItem('actualDate', actualDateField.value)
             })
@@ -933,7 +933,6 @@ try {
                 eleFocus('#editDB')
             } else {
                 setTimeout(function() {
-                    document.querySelector('div.panel-box-format:has(#registrationFee)').scrollIntoView(true, { behavior: "smooth" })
                     eleFocus('#billedTimeType')
                 }, 1000)
             }
@@ -943,10 +942,14 @@ try {
         if (("FinancialAbsentDayHolidayTracking.htm").includes(thisPageNameHtm)) { notEditMode ? eleFocus('#addDB') : eleFocus('#caseTransferFromType') }
         if (("FinancialManualPayment.htm").includes(thisPageNameHtm)) { notEditMode ? eleFocus('#mpProviderId') : eleFocus('#mpProviderId') }
 
-        if ($('strong:contains("Actual Date is missing")').length) {
-            eleFocus('#actualDate')
-            let today = new Date()
-            if ( new Date(periodDates.start) < today && today < new Date(periodDates.end) ) { $('#actualDate').val(today.toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit" }) )}
+        if (!notEditMode && $('strong').length) {
+            if ($('strong:contains("Actual Date is missing")').length) {
+                eleFocus('#actualDate')
+                let today = new Date()
+                if ( new Date(periodDates.start) < today && today < new Date(periodDates.end) ) { $('#actualDate').val(today.toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit" }) )}
+            } else if ($('strong:contains("is missing")')) {
+                eleFocus($('errordiv').prev('div').find('select, input'))
+            }
         }
     }
 
@@ -963,7 +966,7 @@ try {
     }
 //SUB-SECTION START Non-collection pages
     if (("/AlertWorkerCreatedAlert.htm").includes(thisPageNameHtm)) { eleFocus('#delayNextMonth') }
-    if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm)) { if (notEditMode) { eleFocus('#newDB') } else { $('#pmiNumber').attr('disabled') === 'disabled' ? eleFocus('#next') : eleFocus('#pmiNumber') } };
+    if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm)) { if (notEditMode) { eleFocus('#new') } else { $('#pmiNumber').attr('disabled') === 'disabled' ? eleFocus('#next') : eleFocus('#pmiNumber') } };
     if (("CaseReapplicationAddCcap.htm").includes(thisPageNameHtm)) {
         if ($('#next').attr('disabled') === 'disabled') {
             let unchecked = $('#countiesTable td>input.form-check-input').filter(function() { return $(this).prop('checked') === false }).addClass('required-field')
@@ -1009,8 +1012,12 @@ $('#footer_links>#contactInformation')
 if (("ActiveCaseList.htm").includes(thisPageNameHtm)) {
     $('h5').append(" " + $('td:contains("Active")').length + " active. " + ($('td:contains("Suspended")').length + $('td:contains("Temporarily Ineligible")').length) + " suspended/TI.")
 
+    // function checkCaseInfo(caseNumber) {
+    //     // blarg
+    // }
+
     function getResidenceCity(caseNumber, ele) {
-        $.get('/ChildCare/CaseAddress.htm?parm2=' + caseNumber + '&parm3=1226202201082023', function(result) {
+        $.get('/ChildCare/CaseAddress.htm?parm2=' + caseNumber, function(result) {
             let dataObject = result.slice(result.indexOf('\"residenceCity\"')+17);
             dataObject = dataObject.slice(0, dataObject.indexOf(",") -1);
             $(ele).parent().next().append(" - ").append(dataObject);
@@ -2070,7 +2077,7 @@ if (!("CaseEligibilityResultActivity.htm").includes(thisPageNameHtm) && thisPage
     }
 }
 
-//SECTION START Highlight "Fail||Ineligible" in eligibility results
+//SECTION START Highlight "Fail|Ineligible" in eligibility results
 if (slashThisPageNameHtm.indexOf("/CaseEligibilityResult") > -1) {
     let tableBody = $('table tbody').parent().DataTable()
     let $isNo = $('tbody > tr > td').filter(function() { return $(this).text() === 'No' });
@@ -2081,9 +2088,30 @@ if (slashThisPageNameHtm.indexOf("/CaseEligibilityResult") > -1) {
     function eligHighlight() {
         $('.eligibility-highlight').removeClass('eligibility-highlight')
         $('div>input[type="text"]').filter(function() {return $(this).val() === "Fail" }).addClass('eligibility-highlight')
+        // $('select').filter(function() {
+        //     return $(this).val() === "F"
+        // }).addClass('eligibility-highlight')
         $('div[title="Family Result"]:contains("Ineligible")').addClass('eligibility-highlight')
         $('div:contains("Fail"):not(:has("option")):last-child').addClass('eligibility-highlight')
-        $('option:selected:contains("Fail")').parents('select').addClass('eligibility-highlight')
+        $('option:selected:contains("F"), option:selected:contains("Fail")').parents('select').addClass('eligibility-highlight')
+        document.querySelectorAll('#caseEligibilityResultPersonTable > tbody > tr').forEach(function(e) {
+            if (['PRI', 'Child'].includes(e.querySelector('td:nth-child(5)').textContent) ) {
+                if (e.querySelector('td:nth-child(4)').textContent === "Ineligible") {
+                    e.classList.add('eligibility-highlight')
+                }
+            }
+        })
+        document.querySelectorAll('#caseEligibilityResultPersonTable > tbody > tr, #caseEligibilityResultOverviewTable > tbody > tr').forEach(function(e) {
+            if (['PRI', 'Child'].includes(e.querySelector('td:nth-child(4)').textContent) ) {
+                if (e.querySelector('td:nth-child(3)').textContent === "Ineligible") {
+                    e.classList.add('eligibility-highlight')
+                }
+            }
+        })
+        document.querySelectorAll('#caseEligibilityResultActivityTable > tbody > tr').forEach(function(e) {
+            let result = e.querySelector('td:nth-child(7)')
+            if (result.textContent === "Ineligible") { result.classList.add('eligibility-highlight') }
+        })
     }
     eligHighlight()
     $('table').click(function() { eligHighlight(); eleFocus('#nextDB') })
@@ -2209,8 +2237,10 @@ if (("CaseMember.htm").includes(thisPageNameHtm)) {
         function fMonthDifference(today, birthdate) {
             var months;
             months = (today.getFullYear() - birthdate.getFullYear()) * 12;
-            months -= birthdate.getMonth();
-            months += today.getMonth();
+            let datePassed = (birthdate.getDate() >= today.getDate()) ? 1 : 0
+            months -= birthdate.getMonth()
+            months += today.getMonth()
+            months -= datePassed
             return months <= 0 ? 0 : months;
         }
         $('#memberBirthDate')
@@ -2656,6 +2686,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
 
     function doCaseTransfer() {
         if (!notEditMode && closedCaseBank) {
+            localStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferDone')
             $('#caseTransferFromType:contains("Worker To Worker")').val('Worker To Worker')
             doEvent('#caseTransferFromType')
             $('#caseTransferToWorkerId').val(closedCaseBank);
@@ -2829,7 +2860,6 @@ if (("FinancialBilling.htm").includes(thisPageNameHtm)) {
                 $(this).html($(this).html() + ' ' + childAndProviderNames)
             })
         }, 100)
-        // if ($('strong:contains("Warning: Rate entered")').length) { $('#save').click() }
         function addBillingRows(changedId) {
             let weekOneDays = [parseInt($('#weekOneMonday').val()), parseInt($('#weekOneTuesday').val()), parseInt($('#weekOneWednesday').val()), parseInt($('#weekOneThursday').val()), parseInt($('#weekOneFriday').val()), parseInt($('#weekOneSaturday').val()), parseInt($('#weekOneSunday').val())]
             let weekTwoDays = [parseInt($('#weekTwoMonday').val()), parseInt($('#weekTwoTuesday').val()), parseInt($('#weekTwoWednesday').val()), parseInt($('#weekTwoThursday').val()), parseInt($('#weekTwoFriday').val()), parseInt($('#weekTwoSaturday').val()), parseInt($('#weekTwoSunday').val())]
@@ -2895,16 +2925,6 @@ if (("FinancialBillingApproval.htm").includes(thisPageNameHtm)) {
 if (("FinancialManualPayment.htm").includes(thisPageNameHtm)) {
     let manualSelectPeriodToReverse = document.getElementById('mpSelectBillingPeriod')
     selectPeriodReversal(manualSelectPeriodToReverse)
-    //leftover CSS? Maybe with Stylus!
-    // $('#manualPaymentTopPanelData').removeAttr('style')
-    // $('#workerInformation, #manualPaymentMainPanel, div.col-lg-9, #childrenTableAddChildArea>.form-group, #manualPaymentTopPanelData>.panel-box-format>div, div.col-lg-9, #serviceTableAddServiceArea').attr('class', 'flex-vertical')
-    // $('.row>.col-lg-5, .row>.col-lg-7').attr('class', 'col-6 form-group')
-    // $('#serviceTableAddServiceArea label.col-lg-3').attr('class', 'col-4 centered-right-label')
-    // $('.col-lg-8').attr('class','col-7')
-    // $('label[for="mpChildRefNumToAdd"]').attr('class', 'col-3 centered-right-label')
-    // $('label[for="mpChildRefNumToAdd"]~div').attr('class', 'col-6 form-group')
-    // $('#childrenTableAddChildArea .row~.row>.col-lg-4').attr('class', 'col-3')
-    // $('#childrenTableAddChildArea .row~.row input, #serviceTableAddServiceArea>.col-lg-8 input, #addService, #removeService').unwrap()
 };
 //SECTION END FinancialManualPayment
 
@@ -2976,8 +2996,9 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
 //SECTION END Close case transfer to closed case bank; Changing dates to links
 
 if (["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm)) {
-    let errorDiv = document.querySelectorAll('.error_alertbox_new')
-    errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
+    //leftover CSS fix
+    // let errorDiv = document.querySelectorAll('.error_alertbox_new')
+    // errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
 
     if (userXnumber.length && document.getElementById("terms")) {
         document.getElementById("userId").value = userXnumber;
@@ -3016,10 +3037,17 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
     //https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=CCAP_0927 // Accreditations
 }
 
+if (("PendingCaseList.htm").includes(thisPageNameHtm)) {
+    document.querySelectorAll('#pendingCaseTable > tbody > tr > td:nth-child(8)').forEach(function(e) {
+        if (e.textContent === '') {
+            let lastExtPendDate = addDays(new Date(e.previousSibling.textContent), 15).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit" })
+            e.textContent = 'Plus 15 days: ' + lastExtPendDate
+        }
+    })
+}
+
     //SECTION START ProviderAddress Default values for Country, State, County
 if (("ProviderAddress.htm").includes(thisPageNameHtm)) {
-    //leftover CSS? No!
-    // $('div.col-lg-2:has(>input#effectiveDate), label[for=effectiveDate]').wrapAll('<div class="form-group">')
     if (notEditMode) {
         function removeNoEntryRows() {
             $('#providerData :is(input, select):not(#mailingZipCodePlus4, #mailingSiteHomeZipCodePlus4)').filter(function() { return this.value === '' }).closest('.form-group').addClass('collapse noEntry')
@@ -3061,18 +3089,6 @@ if (("ProviderAddress.htm").includes(thisPageNameHtm)) {
     });
 };
     //SECTION END ProviderAddress Copy Provider mailto Address
-
-    //SECTION START Fix multiple CSS issues on ProviderInformation
-if (("ProviderInformation.htm").includes(thisPageNameHtm)) {
-    //leftover CSS? No!
-    // $('h4:contains(Provider Type History)').closest('.panel-box-format').attr('style','flex-direction: column;')
-}; //SECTION END
-
-if (("ProviderFeesAndAccounts.htm").includes(thisPageNameHtm)) {
-    //leftover CSS? No!
-    document.querySelector('.panel-box-format').classList.add('panel')
-}
-
 if (("ProviderNotices.htm").includes(thisPageNameHtm)) {
     if ($('#remove').length && $('#providerNoticesSearchData>tbody>tr>td').text() !== "No records found") {
         function addRemDisabled(event) {
@@ -3086,8 +3102,6 @@ if (("ProviderNotices.htm").includes(thisPageNameHtm)) {
 
 if (("ProviderSearch.htm").includes(thisPageNameHtm)) {
     tabIndxNegOne('#ssn, #itin, #fein, #licenseNumber, #middleInitName')
-    // fRemoveWhitespace( $('#providerSearchData') )
-    // fRemoveWhitespace( $('#providerSearchData>.panel') )
     let searchByNumbers = $('#ssn, #providerIdNumber, #itin, #fein, #licenseNumber').filter(function() { return this.value > 0 }).length
     let justOneResult = $('h5:contains("Search Results: 1 matches found.")').length
     if (!searchByNumbers && !justOneResult) {
@@ -3118,15 +3132,6 @@ if (("ProviderSearch.htm").includes(thisPageNameHtm)) {
 
     if (!['CaseChildProvider.htm?', 'ProviderSearch.htm?'].includes(document.referrer.substring(document.referrer.indexOf("/ChildCare/") + 11, document.referrer.indexOf(".htm")+5))) { $('#back, #select, #backDB, #selectDB').hide() }
 }; //SECTION END Auto-filter ProviderSearch results
-
-
-if (("ProviderSpecialLetter.htm").includes(thisPageNameHtm)) {
-//leftover CSS? Nope!
-    $('label:not([class])').each(function() {
-        $(this).attr('for', $(this).children('input.checkbox[type="checkbox"]').attr('id'))
-        $(this).children('input').prependTo($(this).parent())
-    })
-}
 
 if (("ProviderRegistrationAndRenewal.htm").includes(thisPageNameHtm)) {
     if (notEditMode) {
