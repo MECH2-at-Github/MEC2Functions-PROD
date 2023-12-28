@@ -1,5 +1,5 @@
 # Installation
-This script includes all user functions for MEC2 and is not meant to be used with [MEC2Navigation](https://github.com/MECH2-at-Github/MEC2Navigation-PROD). If MEC2Navigation is installed, disable or uninstall before using or it will cause double navigation bars.
+This script includes all user functions for MEC2 including the navigation menu and is not meant to be used with [MEC2Navigation](https://github.com/MECH2-at-Github/MEC2Navigation-PROD). If MEC2Navigation is installed, disable or uninstall before using or it will cause double navigation bars.
 
 Install instructions:
 
