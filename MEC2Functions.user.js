@@ -7,7 +7,7 @@
 // @version      0.2.8
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
-// (function() {
+
 'use strict';
 // ====================================================================================================
 // PRIMARY_NAVIGATION BUTTONS SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -1234,9 +1234,9 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
 
     //AutoCaseNoting; Alert page section
     let pagesData = []
-    const oAlertCategoriesLowerCase = {//categories are alpha-sorted
         //categories: Absent Days, Activity Change, Appeal, Application, Child Support Note, Email Contact, Expense Change, Fraud, Household Change, Income Change,
         //Medical Leave, NCP Information, Office Contact, Phone Contact, Provider Change, Redetermination, Special Needs, Other
+    const oAlertCategoriesLowerCase = {//categories are alpha-sorted
         childsupport: {
             messages: {
                 nameChange: {
@@ -1306,16 +1306,12 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     textIncludes: /Redetermination has not been received/,
                     noteCategory: "Redetermination",
                     noteSummary: "Closing %0: Redet not complete/received",
-                    // noteSummary: "Closing: Redetermination not received/incomplete",
-                    page: "CaseOverview",
-                    pageFilter: "0.0.programBeginDateHistory",
                     pages: ["CaseOverview:0.0.programBeginDateHistory"],
                 },
                 autoDenied: {
                     textIncludes: /This case has been auto-denied/,
                     noteCategory: "Application",
                     noteSummary: "This case has been auto-denied",
-                    page: "",
                 },
                 servicingEnd: {
                     textIncludes: /The Servicing Ends date/,
@@ -1407,9 +1403,15 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     textIncludes: /Provider has been deactivated/,
                     noteCategory: "Provider Change",
                     noteSummary: "Provider deactivated. Renewal was not received.",
+                    pages: ["CaseServiceAuthorizationOverview:1"],
+                    pageFilter: "Provider No Longer Eligible",
+                },
+                providerRegistrationClosed: {
+                    textIncludes: /Provider's Registration Status is closed/,
+                    noteCategory: "Provider Change",
+                    noteSummary: "Provider's Registration Status is closed.",
                     page: "",
                     pageFilter: "",
-                    intendedPerson: true,
                 },
             },
         },
@@ -1510,9 +1512,6 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
         }
     }
     window.addEventListener("beforeunload", () => localStorage.removeItem( "MECH2.note") )
-    async function fLoadAnotherPageInfo() {
-        return
-    }
     function findAlertCategory() {}
     async function fAutoCaseNote() {
         pagesData = []
@@ -1530,18 +1529,25 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                 if (foundAlert.noteSummary === "doReplace") {
                     foundAlert.noteSummary = await fGetNoteSummary(alertCategory + ".messages." + message + ".noteSummary", foundAlert.noteMessage, foundAlert.personName)
                 } else if (foundAlert.noteSummary === "") { foundAlert.noteSummary = messageText }
-                // if (oAlertCategoriesLowerCase[alertCategory]?.messages[message].noteSummary === "doReplace") {
-                //     foundAlert.noteSummary = await fGetNoteSummary(alertCategory + ".messages." + message + ".noteSummary", foundAlert.noteMessage, foundAlert.personName)
-                // } else if (oAlertCategoriesLowerCase[alertCategory]?.messages[message].noteSummary === "") { foundAlert.noteSummary = messageText }
-            }
-            if (Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "pages")) {
-                let pages = oAlertCategoriesLowerCase[alertCategory]?.messages[message].pages
-                for (let page of pages) {
-                    let pageSplit = page.split(":")
-                    pagesData.push(await evalData(oWhatAlertType.number, pageSplit[0], pageSplit[1]))
-                }
-                for (let i = 0; i < pagesData.length; i++) {
-                    foundAlert.noteSummary = foundAlert.noteSummary.replace("%"+i, pagesData[i])
+                if (Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "pages")) {
+                    let dateRange = undefined
+                    if (Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "dateRange")) {
+                        let startDate = document.getElementById('periodBeginDate').value
+                        let endDate = document.getElementById('periodEndDate').value
+                        if (dateRange !== 0) {
+                            startDate = addDays(startDate, dateRange*14)
+                            endDate = addDays(endDate, dateRange*14)
+                            dateRange = (startDate.toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit" })+endDate.toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit" })).replaceAll(/\//g, '')
+                        }
+                    }
+                    let pages = oAlertCategoriesLowerCase[alertCategory]?.messages[message].pages
+                    for (let page of pages) {
+                        let pageSplit = page.split(":")
+                        pagesData.push(await evalData(oWhatAlertType.number, pageSplit[0], dateRange, pageSplit[1]))
+                    }
+                    for (let i = 0; i < pagesData.length; i++) {
+                        foundAlert.noteSummary = foundAlert.noteSummary.replace("%"+i, pagesData[i])
+                    }
                 }
             }
         }
@@ -1623,13 +1629,6 @@ if (["/AlertWorkerCreatedAlert.htm"].includes(slashThisPageNameHtm)) {
     }
 };
 //SECTION END Add date delay to approving MFIP close and TY/BSF open
-
-//
-// if (("ApplicationInformation.htm").includes(thisPageNameHtm)) {
-//     $('#signatureDate, #receivedDate').addClass('hasDatepicker').wrap('<div>')
-//     $('#retroAppDate').parent().addClass('collapse')
-// }
-
 //
 if (("CaseAction.htm").includes(thisPageNameHtm)) {
     document.getElementById('failHomeless').addEventListener('click', (() => eleFocus('#saveDB') ))
@@ -1693,7 +1692,6 @@ if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm) && !notEditMode)
         }
     })
 };
-
 
 //SECTION START auto-fill, Open provider information page from Child's Provider page
 if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
@@ -3360,10 +3358,11 @@ try {
 } catch(error) { console.error(error) }
 //
 
-async function getEvalData(caseNumber, pageName) {
+async function getEvalData(caseNumber, pageName, parm3 = '') {
     return new Promise((resolve) => {
         if (caseNumber !== caseId || pageName !== thisPageName) {
-            $.get('/ChildCare/' + pageName + '.htm?parm2=' + caseNumber, function (result, status, json) {
+            console.log('/ChildCare/' + pageName + '.htm?parm2=' + caseNumber + parm3)
+            $.get('/ChildCare/' + pageName + '.htm?parm2=' + caseNumber + parm3, function (result, status, json) {
                 resolve(result)
             })
         } else {
@@ -3374,18 +3373,16 @@ async function getEvalData(caseNumber, pageName) {
 }
 function parseEvalData(dataObject) {
     return new Promise((resolve) => {
-    let parsedEvalData = {}
-    dataObject = dataObject.match(/\[(\{.*\})\]/gi)
-    for (let i = 0; i < dataObject.length; i++) {
-        dataObject[i] = dataObject[i].replace(/\[|\]/g,'')
-        dataObject[i] = dataObject[i].replace(/\},\{/g, "}splithere{");
-        let tempObject = dataObject[i].split("splithere");
-        for (let j = 0; j < tempObject.length; j++) {
-            tempObject[j] = JSON.parse(tempObject[j])
+        let parsedEvalData = {}
+        let dataObjectMatches = dataObject.match(/eval\(\'\[\{.*?\}\]\'\)\;/g)
+        for (let i = 0; i < dataObjectMatches.length; i++) {
+            let dataObjectReplacements = dataObjectMatches[i]
+            .replaceAll(/eval\(\'|\'\)\;/g,'')
+            .replaceAll(/:,/g, ':"",')
+            .replaceAll(/\\'/g, "'")
+            parsedEvalData[i] = JSON.parse(dataObjectReplacements)
         }
-        parsedEvalData[i] = tempObject
-    }
-    resolve(parsedEvalData)
+        resolve(parsedEvalData)
     })
 }
 function resolveEvalData(parsedEvalData, evalString){
@@ -3396,11 +3393,14 @@ function resolveEvalData(parsedEvalData, evalString){
     }
     return parsedEvalData;
 }
-async function evalData(caseNumber = caseId, pageName = thisPageName, evalString = '') {
-    let parsedEvalData = await getEvalData(caseNumber, pageName)
-    parsedEvalData = await parseEvalData(parsedEvalData)
-    if (evalString) { parsedEvalData = await resolveEvalData(parsedEvalData, evalString) }
-    console.log(parsedEvalData)
+async function evalData(caseNumber = caseId, pageName = thisPageName, dateRange = '', evalString = '') {
+    if (dateRange.length) { dateRange = "&parm3=" + dateRange }
+    console.log(dateRange)
+    let parsedEvalData = await getEvalData(caseNumber, pageName, dateRange)
+    parsedEvalData = await parseEvalData(parsedEvalData).catch((err) => { console.log(err); $('h1').append('<div style="display: inline-block;"> EvalDataBorkBorkBork</div>'); return false })
+    if (evalString) {
+        parsedEvalData = await resolveEvalData(parsedEvalData, evalString)
+    }
     return parsedEvalData
 }
 //let caseEvalData = evalData('casenumber', 'pagename', 'key.key.key...') //keys:
@@ -3509,21 +3509,6 @@ function tableCapitalize(tableName) {
     })
 }
 //
-// function toTitleCase(value, ...excludedWordList) {
-//     let hasDigits = new RegExp("[^a-zA-Z]")
-//     const exceptions = excludedWordList
-//     .flat(Infinity)
-//     .map(item => String(item).trim())
-//     .join('\\b|\\b');
-//     return String(value)
-//     // console.log(String(value).trim().replace(/\s+/g, ' '))
-//     .trim()
-//     .replace(/\s+/g, ' ')
-//     .replace(
-//       RegExp(`\\b(?!\\b${ exceptions }\\b)(?<upper>[\\w])(?<lower>[\\w]+)\\b`, 'g'),
-//       (match, upper, lower) => `${ upper.toUpperCase() }${ lower.toLowerCase() }`,
-//     )
-// }
 function toTitleCase(value, ...excludedWordList) {
     // const exceptions = excludedWordList
     // .flat(Infinity)
@@ -3698,13 +3683,6 @@ function waitForElmHeight(selector) {
 Or with async/await:
     const elm = await waitForElm('.some-class'); */
 //SECTION END Wait for something to be available
-
-// window.onerror = function(error) {
-//     if (error.message.indexOf("Bad escaped character in JSON") > -1) {//"Uncaught SyntaxError: Bad escaped character in JSON"
-//         $('#memberReferenceNumberNewMember').closest('.form-group').after('<div class="form-group" id="stateErrorNotInYourFavor"></div>')
-//         $('#stateErrorNotInYourFavor').text("Something has a special character and it\'s causing an issue on the state\'s side of code.")
-//     }
-// };
 
 function tempIncomes(tempIncome, endDate) {
     if (!notEditMode) {
@@ -3882,16 +3860,7 @@ if (!notEditMode && $(':is(#next, #previous):not([disabled="disabled"])').length
 // function showOutlineLegend() {
 // if ($('.prefilled-field, .tabindex-negative-one, .required-field').length) { $('.auto-fill-formatting').removeClass() }
 // }
-//
-
-//SECTION START Remove spaces as margins after labels //testing negative margins
-// fRemoveWhitespace(document.querySelector('div:has(>input[name="submit"]'))
-//SECTION END Remove spaces as margins after labels
-
 setTimeout(function() {
     window.dispatchEvent(new Event('resize'))
     $('buttonPanelOneNTF>*').removeAttr('tabindex')
 },200)//fixes table headers being wrongly sized due to the container size change in ReStyle
-// Enables the duplicate delete button if hovered for 4 seconds
-
-// })();
