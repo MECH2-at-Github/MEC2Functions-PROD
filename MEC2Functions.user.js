@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.8
+// @version      0.2.9
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
