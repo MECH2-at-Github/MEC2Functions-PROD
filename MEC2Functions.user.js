@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.2.9
+// @version      0.3.0
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -487,7 +487,14 @@ if (selectPeriod?.length) {
     periodDates = { range: selectPeriod, parm3: selectPeriod.replace(' - ', '').replaceAll('/',''), start: selectPeriod.slice(0, 10), end: selectPeriod.slice(13) }
 }
 let caseId = document.getElementById('caseId')?.value
-let providerId = document.getElementById('providerId')?.value
+let providerId = caseId === undefined ? document.getElementById('providerId')?.value : undefined
+
+//eval parsing variables
+let dateRange = undefined
+let evalString = undefined
+let evalNum = undefined
+let page = undefined
+let parm2providerId = undefined
 
 let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? ''
 const countyNumbersNeighbors = [
@@ -762,7 +769,8 @@ try {
             }
             else if (notEditMode) {
                 if ($('strong').text().indexOf('Each child must be listed') > -1) { $('table').click(function() { eleFocus('#addDB') }) }
-                if (!$('#add:disabled').length) { eleFocus('#addDB') }
+                if (document.referrer.indexOf(thisPageNameHtm) > -1) { eleFocus('#newDB') }
+                else if (!$('#add:disabled').length) { eleFocus('#addDB') }
                 else { eleFocus('#newDB') } }
         }
         if (("CaseRemoveMember.htm").includes(thisPageNameHtm)) {
@@ -945,7 +953,7 @@ try {
         if (("FinancialAbsentDayHolidayTracking.htm").includes(thisPageNameHtm)) { notEditMode ? eleFocus('#addDB') : eleFocus('#caseTransferFromType') }
         if (("FinancialManualPayment.htm").includes(thisPageNameHtm)) { notEditMode ? eleFocus('#mpProviderId') : eleFocus('#mpProviderId') }
 
-        if (!notEditMode && $('strong').length) {
+        if (!notEditMode && document.querySelectorAll('strong').length) {
             if ($('strong:contains("Actual Date is missing")').length) {
                 eleFocus('#actualDate')
                 let today = new Date()
@@ -1701,6 +1709,11 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     $('label[for="relatedToChild"]').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
     $('label[for="relatedToChild"]').add($('label[for="relatedToChild"]').siblings()).appendTo($('label[for="careInHome"]').parent());
     $('div.form-group:has(div.col-lg-12:not(:has(*)))').remove()
+    let $lnlGroup = $('#careInHome, #providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate, #formSent, #signedFormReceived').parents('.form-group')
+    let $lnlTrainingDivs = $('#emptyDiv')
+    let $licensedGroup = $('#primaryBeginDate, #secondaryBeginDate').parents('.form-group')
+    let $careInHomeGroup = $('#exemptionReason, #exemptionPeriodBeginDate').parents('.form-group')
+    let $livesWithChildGroup = $('label[for=providerLivesWithChild], label[for=providerLivesWithChild]+div.col-lg-2').removeAttr('style')
     document.getElementById('reporterType').setAttribute('disabled', 'disabled')
     // Buttons for added functionality
     if (notEditMode) {
@@ -1733,10 +1746,10 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     }
     //
 
-
+    // Copy/paste start/end dates
     if (notEditMode) {
         queueMicrotask(() => {
-        // setTimeout(function() {
+            // setTimeout(function() {
             document.getElementById('wrapUpDB').insertAdjacentHTML("afterend", "<button type='button' id='copyStart' class='form-button hidden'>Copy Start</button><button type='button' id='copyEndings' class='form-button hidden'>Copy Endings</button>")
             let copyStartButton = document.getElementById('copyStart')
             let copyEndingsButton = document.getElementById('copyEndings')
@@ -1811,36 +1824,163 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                     }
                 }
             }
-        // }, 100)
+            // }, 100)
         })
     }
 
 
 
     //SECTION END Open provider information page from Child's Provider page
-    function childProviderPage() {
-        let $lnlGroup = $('#careInHome, #providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate, #formSent, #signedFormReceived').parents('.form-group');
-        let $licensedGroup = $('#primaryBeginDate, #secondaryBeginDate').parents('.form-group')
-        let $careInHomeGroup = $('#exemptionReason, #exemptionPeriodBeginDate').parents('.form-group')
+    function childProviderPage() { // duplicated, will replace original
         if ($('#providerType').val() !== "Legal Non-licensed" && $('#providerType').val()?.length > 0) {//not LNL
-            $lnlGroup.addClass('collapse')
-            $careInHomeGroup.addClass('collapse')
-            $licensedGroup.removeClass('collapse')
+            $lnlGroup.addClass('hidden')
+            document.querySelectorAll('.lnlData, .lnlInfo').forEach(function(e) { e.classList.add('hidden') } )
+            $livesWithChildGroup.addClass('hidden')
+            $careInHomeGroup.addClass('hidden')
+            $licensedGroup.removeClass('hidden')
+            $('label[for=childCareMatchesEmployer]').css('visibility','visible')
             if (!notEditMode) {
                 $('#providerLivesWithChild, #careInHome, #relatedToChild').val("N") }//not LNL, edit mode
-            else { $lnlGroup.addClass('collapse') }//not LNL, view mode
+            else { $lnlGroup.addClass('hidden') }//not LNL, view mode
         } else if ($('#providerType').val() === "Legal Non-licensed") {//is LNL
-            $licensedGroup.addClass('collapse')
-            if ($('#careInHome').val() === 'N') { $careInHomeGroup.addClass('collapse') }
-            if (!notEditMode) { $lnlGroup.removeClass('collapse') }//is LNL, edit mode
-            else {//is LNL, view mode
-                $('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').each(function() {
-                    if ($(this).val()?.length === 0) { $(this).parents('.form-group').addClass('collapse') }
-                    else { $(this).parents('.form-group').removeClass('collapse') }
-                })
-            }
+            lnlTraining()
+            document.querySelectorAll('.lnlInfo').forEach(function(e) { e.classList.remove('hidden') } )
+            $licensedGroup.addClass('hidden')
+            // if ($('#careInHome').val() === 'N') { $careInHomeGroup.addClass('collapse') }
+            // if (!notEditMode) { $lnlGroup.removeClass('collapse') }//is LNL, edit mode
+            $lnlGroup.removeClass('hidden')
+            document.getElementById('')
+            $careInHomeGroup.removeClass('hidden')
+            $livesWithChildGroup.removeClass('hidden')
+            $('label[for=childCareMatchesEmployer]').css('visibility','hidden')
+            // else {//is LNL, view mode
+            $('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').each(function() {
+                if ($(this).val()?.length === 0) { $(this).parents('.form-group').addClass('collapse') }
+                else { $(this).parents('.form-group').removeClass('collapse') }
+            })
+            // }
         }
     };
+    function lnlTraining() {
+        let providerId = document.getElementById('providerId').value
+        let lnlDataProviderId = "lnlData" + providerId
+        if (document.getElementById(lnlDataProviderId)) {
+            document.getElementById(lnlDataProviderId).classList.remove('hidden')
+            return false
+        }
+        let lnlSS = sessionStorage.getItem('lnlSS.' + providerId)
+        if (lnlSS) {
+            let lnlDiv = document.querySelector('.form-group:has(#providerType)').insertAdjacentHTML('afterend','<div class="lnlData" id=' + lnlDataProviderId + '>' + lnlSS + '</div>')
+            return false
+        }
+        if (!document.getElementById(lnlDataProviderId)) {
+            let lnlDiv = document.querySelector('.form-group:has(#providerType)').insertAdjacentHTML('afterend','<div class="lnlData" id=' + lnlDataProviderId + '></div>')
+            $( "#" + lnlDataProviderId ).load('/ChildCare/ProviderTraining.htm?providerId=' + providerId + ' #providerTrainingData', function() {
+                let ptd = document.querySelector('#' + lnlDataProviderId + ' > #providerTrainingData')
+                ptd.querySelector('div.form-group:has(input.form-button)').remove()
+                ptd.querySelectorAll('h4, br').forEach(function(e) { e.remove() })
+                ptd.querySelectorAll('input, select').forEach(function(e) { e.setAttribute('disabled', 'disabled'); e.classList.add('borderless') })
+                ptd.querySelectorAll('div.col-lg-2').forEach(function(e) { e.removeAttribute('style') })
+                let trainingDateNodes = ptd.querySelectorAll('.panel-box-format input[id]')
+                let trainingMap = new Map([
+                    [ "cardio", {name: "CPR", verified: "cardioVerification"} ],
+                    [ "firstAid", {name: "First Aid", verified: "firstAidVerification"} ],
+                    [ "suids", {name: "SUIDS", verified: "suidsVerification", related: "Yes", careForRelated: "Any related child < 1 year" } ],
+                    [ "headTrauma", {name: "AHT", verified: "headTraumaVerification", related: "Yes", careForRelated: "Any related child < 5 years" } ],
+                    [ "orientation", {name: "Supervising for Safety", related: "No", verified: "orientationVerification", careForRelated: "All related children instead of AHT if < 5 years and SUIDS if < 1 year", careForUnrelated: "All unrelated children < 5 years, all unrelated children > 5 years after 90 days" } ],
+                    [ "ongoing", {name: "Ongoing Training", verified: "ongoingVerification"} ],
+                    [ "annual", {name: "Annual Inspection", verified: undefined} ]
+                ])
+                trainingDateNodes.forEach(function(e) {
+                    let trainingName = e.id.slice(0, -4)
+                    document.querySelector('label[for=' + e.id + ']').textContent = trainingMap.get(trainingName).name + ": "
+                    if (e.value?.length) {
+                    }
+                })
+                $(ptd.querySelectorAll('.form-group')).unwrap()
+                ptd.classList.remove('displayNone')
+                let childUnderFive
+                let childUnderOne
+                let todayDate = new Date()
+
+                let userCountyObject = {
+                    county: "St. Louis"
+                }
+                let resultsHTML = `
+                                <div class="form-group"> <div class="col-lg-12 textInherit">
+                                        <label for="registration" class="col-lg-2control-label textR textInherit marginTop10">Registration:</label>
+                                        <div class="col-lg-6 padL0 textInherit">
+                                            <div id="registration" type="text" name="registration" title="LNL Registration Status and Effective Date"></div>
+                                        </div>
+                                </div> </div>
+                                <div class="form-group"> <div class="col-lg-12 textInherit">
+                                        <label for="relatedCare" class="col-lg-2 control-label textR textInherit marginTop10">Related Care:</label>
+                                        <div class="col-lg-7 padL0 textInherit">
+                                            <div id="relatedCare" type="text" name="relatedCare" class="inline-text" title="LNL Related Care Breakdown"></div>
+                                            <span class="tooltips">ⓘ
+                                                <span class="tooltips-text tooltips-topleft">Child’s sibling, grandparent, great-grandparent, aunt, or uncle of the child, based on blood relationship, marriage or court decree.</span>
+                                            </span>
+                                        </div>
+                                </div> </div>
+                                <div class="form-group"> <div class="col-lg-12 textInherit">
+                                        <label for="unrelatedCare" class="col-lg-2 control-label textR textInherit marginTop10">Unrelated Care:</label>
+                                        <div class="col-lg-7 padL0 textInherit">
+                                            <div class="inline-text" id="unrelatedCare" type="text" name="unrelatedCare" title="LNL Unrelated Care Breakdown"></div>
+                                            <span class="tooltips">ⓘ
+                                                <span class="tooltips-text tooltips-topleft">Provider is eligible to be paid for children over five for up to 90 days without training. The 90 days is NOT tracked by MEC2 automatically.</span>
+                                            </span>
+                                        </div>
+                                </div> </div>
+                                `
+                ptd.insertAdjacentHTML('beforeend', resultsHTML)
+                document.querySelector('label[for=carePeriodBeginDate]').insertAdjacentHTML('beforebegin', `
+                                <span class="tooltips lnlInfo" style="position: absolute; width: 24%; text-align: right;">ⓘ
+                                    <span class="tooltips-text tooltips-top">Provider is eligible to be registered and paid effective the date CPR and First Aid trainings are complete. The age and relationship based trainings are required before the Service Authorization approval.</span>
+                                </span>
+                `)
+                let registrationArray = evalData(providerId, "ProviderRegistrationAndRenewal", dateRange, "0", "providerId").then(function(resultObject) {
+                    for (let results in resultObject) {
+                        if (resultObject[results].financiallyResponsibleAgency === userCountyObject?.county + ' County') {
+                            let resultsArray = [resultObject[results].registrationStatus, resultObject[results].statusEffective] // status, date
+
+                            ptd.querySelector('#registration').textContent = resultsArray[0] + ' ' + resultsArray[1]
+                            return(resultsArray)
+                        }
+                    }
+                })
+                let careBreakdown = { relatedLTfive: "Under 5: ❌. ", relatedLTone: "Under 1: ❌. ", relatedGTfive: "Over 5: ✅", unrelatedLTfive: "Under 5: ❌. ", unrelatedLTone: "Under 1: ❌. ", unrelatedGTfive: "Over 5: Up to 90 days", sfsValue: 0 }
+                if ( ptd.querySelector('#orientationVerification').value === "Yes") {
+                    let sfsDate = ptd.querySelector('#orientationDate')
+                    if ( dateDiff(sfsDate.value) > 730) {
+                        sfsDate.classList.add('rederrortext')
+                    } else {
+                        careBreakdown.sfsValue = 1
+                        careBreakdown.relatedLTfive = "Under 5: ✅. "
+                        careBreakdown.relatedLTone = "Under 1: ✅. "
+                        careBreakdown.unrelatedLTfive = "Under 5: ✅. "
+                        careBreakdown.unrelatedLTone = "Under 1: ✅. "
+                        careBreakdown.unrelatedGTfive = "Over 5: ✅."
+                    }
+                }
+                let ahtDate = ptd.querySelector('#headTraumaDate')
+                let ahtDateDiff = dateDiff(ahtDate.value)
+                let suidsDate = ptd.querySelector('#suidsDate')
+                let suidsDateDiff = dateDiff(suidsDate.value)
+                if (ptd.querySelector('#headTraumaVerification').value === "Yes") {
+                    if (ahtDateDiff < 730) { careBreakdown.relatedLTfive = "Under 5: ✅. " }
+                    else { ahtDate.classList.add('rederrortext') }
+                }
+                if (ptd.querySelector('#suidsVerification').value === "Yes") {
+                    if (suidsDateDiff < 730) { careBreakdown.relatedLTone = "Under 1: ✅. " }
+                    else { suidsDate.classList.add('rederrortext') }
+                }
+                ptd.querySelector('#relatedCare').textContent = careBreakdown.relatedLTone + careBreakdown.relatedLTfive + careBreakdown.relatedGTfive
+                ptd.querySelector('#unrelatedCare').textContent = careBreakdown.unrelatedLTone + careBreakdown.unrelatedLTfive + careBreakdown.unrelatedGTfive
+                sessionStorage.setItem('lnlSS.' + providerId, document.getElementById(lnlDataProviderId).outerHTML)
+            })
+        }
+        if (document.getElementById('relatedToChild').value === "N") { document.querySelector('div.col-lg-12:has(#relatedCare)').classList.add('rederrortext') } else { document.querySelector('div.col-lg-12:has(#relatedCare)')?.classList.remove('rederrortext') }
+    }
     if (!notEditMode) {
         const beginEndFields = {
             primary: { start: '#primaryBeginDate', end: '#primaryEndDate' },
@@ -2517,7 +2657,7 @@ if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
 // ////////////////////////////////////////////////////////////////////////// Notes end (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ================================================================================================================================================================================================
 
-if (["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) {
+if (notEditMode && ["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) {
     addDateControls('#selectionBeginDate')
     addDateControls('#selectionEndDate')
 }
@@ -2876,7 +3016,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
             }
         })
         document.getElementById('closedTransfer')?.addEventListener('click', function() { checkForClosedCaseBank() })
-        document.getElementById('transferWorker')?.addEventListener('keydown', function(e) { if (e.key === 'enter') { checkForClosedCaseBank() } })
+        document.getElementById('transferWorker')?.addEventListener('keydown', function(e) { if (e.key === 'enter') { e.preventDefault; checkForClosedCaseBank() } })
     }
 } //SECTION END Case Transfer
 
@@ -3007,20 +3147,22 @@ if (("FinancialBilling.htm").includes(thisPageNameHtm)) {
             }
         })
     }
-    document.getElementById('FinancialBillingApprovalSelf').addEventListener('click', function() {
-        if (caseId.length && document.querySelectorAll('#billingProviderTable>tbody>tr.selected')?.length) {
-            console.log('MECH2.billingApproval.' + caseId, document.querySelector('#billingProviderTable>tbody>tr.selected>td:nth-child(5)')?.textContent)
+    if (notEditMode) {
+        document.getElementById('FinancialBillingApprovalSelf').addEventListener('click', function() {
+            if (caseId.length && document.querySelectorAll('#billingProviderTable>tbody>tr.selected')?.length) {
+                console.log('MECH2.billingApproval.' + caseId, document.querySelector('#billingProviderTable>tbody>tr.selected>td:nth-child(5)')?.textContent)
+                sessionStorage.setItem('MECH2.billingApproval.' + caseId, document.querySelector('#billingProviderTable>tbody>tr.selected>td:nth-child(5)')?.textContent)
+            }
+        })
+        function setActiveProvider() {
             sessionStorage.setItem('MECH2.billingApproval.' + caseId, document.querySelector('#billingProviderTable>tbody>tr.selected>td:nth-child(5)')?.textContent)
         }
-    })
-    function setActiveProvider() {
-            sessionStorage.setItem('MECH2.billingApproval.' + caseId, document.querySelector('#billingProviderTable>tbody>tr.selected>td:nth-child(5)')?.textContent)
-    }
-    let lastSelectedProvider = sessionStorage.getItem('MECH2.billingApproval.' + caseId)
-    if (document.referrer.indexOf("FinancialBillingApproval.htm") > -1) {
-        waitForTableCells('#billingProviderTable').then(() => {
-            if (lastSelectedProvider?.length) { $('#billingProviderTable>tbody>tr>td:contains(' + lastSelectedProvider + ')').click() }
-        })
+        let lastSelectedProvider = sessionStorage.getItem('MECH2.billingApproval.' + caseId)
+        if (document.referrer.indexOf("FinancialBillingApproval.htm") > -1) {
+            waitForTableCells('#billingProviderTable').then(() => {
+                if (lastSelectedProvider?.length) { $('#billingProviderTable>tbody>tr>td:contains(' + lastSelectedProvider + ')').click() }
+            })
+        }
     }
 }; //SECTION END Financial Billing
 
@@ -3358,11 +3500,22 @@ try {
 } catch(error) { console.error(error) }
 //
 
-async function getEvalData(caseNumber, pageName, parm3 = '') {
+async function evalData(caseProviderNumber = caseId, pageName = thisPageName, dateRange = '', evalString = '', parm2providerId = 'parm2') {
+    let parmDateRange = dateRange.length ? "&parm3=" + dateRange : undefined
+    let unParsedEvalData = await getEvalData(caseProviderNumber, pageName, parmDateRange, parm2providerId).catch((err) => { console.log(err); $('h1').append('<div style="display: inline-block; margin-left: 5px;"> GetEvalDataBorkBorkBork</div>'); return false })
+    // return unParsedEvalData
+    let parsedEvalData = await parseEvalData(unParsedEvalData).catch((err) => { console.log(err); $('h1').append('<div style="display: inline-block; margin-left: 5px;"> ParseEvalDataBorkBorkBork</div>'); return false })
+    if (evalString) {
+        parsedEvalData = await resolveEvalData(parsedEvalData, evalString)
+    }
+    return parsedEvalData
+}
+
+async function getEvalData(caseProviderNumber, pageName, parm3 = '', parm2providerId) {
+    let idNumber = parm2providerId === "parm2" ? caseId : providerId
     return new Promise((resolve) => {
-        if (caseNumber !== caseId || pageName !== thisPageName) {
-            console.log('/ChildCare/' + pageName + '.htm?parm2=' + caseNumber + parm3)
-            $.get('/ChildCare/' + pageName + '.htm?parm2=' + caseNumber + parm3, function (result, status, json) {
+        if (caseProviderNumber !== idNumber || pageName !== thisPageName) {
+            $.get('/ChildCare/' + pageName + '.htm?' + parm2providerId + '=' + caseProviderNumber + parm3, function (result, status, json) {
                 resolve(result)
             })
         } else {
@@ -3393,19 +3546,6 @@ function resolveEvalData(parsedEvalData, evalString){
     }
     return parsedEvalData;
 }
-async function evalData(caseNumber = caseId, pageName = thisPageName, dateRange = '', evalString = '') {
-    if (dateRange.length) { dateRange = "&parm3=" + dateRange }
-    console.log(dateRange)
-    let parsedEvalData = await getEvalData(caseNumber, pageName, dateRange)
-    parsedEvalData = await parseEvalData(parsedEvalData).catch((err) => { console.log(err); $('h1').append('<div style="display: inline-block;"> EvalDataBorkBorkBork</div>'); return false })
-    if (evalString) {
-        parsedEvalData = await resolveEvalData(parsedEvalData, evalString)
-    }
-    return parsedEvalData
-}
-//let caseEvalData = evalData('casenumber', 'pagename', 'key.key.key...') //keys:
-// CaseOverview, last program change date: "0.0.programBeginDateHistory"
-// CaseMember, Age: "if (0.i.memberReferenceNumber = ##) { 0.i.memberBirthDate }
 
 const stateData = {
     AZ: 'Arizona', AL: 'Alabama', AK: 'Alaska', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DC: 'District of Columbia', DE: 'Delaware', FL: 'Florida',
@@ -3553,7 +3693,7 @@ function addDateControls(element, insideDiv=1) {
     let elementName = element.replace(/\#/,'')
     let prevMonth = "-"
     let nextMonth = "+"
-    if (insideDiv) { document.querySelector(element).parentNode.classList.add('has-controls') }
+    if (insideDiv) { document.querySelector(element)?.parentNode?.classList.add('has-controls') }
     document.querySelector(element).insertAdjacentHTML('beforebegin', '<button type="button" class="controls prev-control" id="prev.'+elementName+'">'+prevMonth+'</button>')
     document.getElementById('prev.'+elementName).addEventListener('click', function(e) { controlDatePicker(e.target.id) })
     document.querySelector(element).insertAdjacentHTML('afterend', '<button type="button" class="controls next-control" id="next.'+elementName+'">'+nextMonth+'</button>')
@@ -3710,7 +3850,14 @@ function addDays(date, days) {
     result.setDate(result.getDate() + days);
     return result;
 };
-
+//
+function dateDiff(date1, date2) {
+    let daysInMS = 86400000
+    date1 = new Date(date1)
+    date2 = "" ? new Date(date2) : new Date()
+    return Math.abs( Math.floor(( date1 - date2 ) / daysInMS ) )
+}
+//
 function tabIndxNegOne(elements) {
     setTimeout(function(e) { document.querySelectorAll(elements).forEach((element) => element.setAttribute('tabindex', '-1')) },400)
 }
