@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.3.0
+// @version      0.3.1
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3502,9 +3502,9 @@ try {
 
 async function evalData(caseProviderNumber = caseId, pageName = thisPageName, dateRange = '', evalString = '', parm2providerId = 'parm2') {
     let parmDateRange = dateRange.length ? "&parm3=" + dateRange : undefined
-    let unParsedEvalData = await getEvalData(caseProviderNumber, pageName, parmDateRange, parm2providerId).catch((err) => { console.log(err); $('h1').append('<div style="display: inline-block; margin-left: 5px;"> GetEvalDataBorkBorkBork</div>'); return false })
+    let unParsedEvalData = await getEvalData(caseProviderNumber, pageName, parmDateRange, parm2providerId).catch((err) => { console.log(err); return false })
     // return unParsedEvalData
-    let parsedEvalData = await parseEvalData(unParsedEvalData).catch((err) => { console.log(err); $('h1').append('<div style="display: inline-block; margin-left: 5px;"> ParseEvalDataBorkBorkBork</div>'); return false })
+    let parsedEvalData = await parseEvalData(unParsedEvalData).catch((err) => { console.log(err); return false })
     if (evalString) {
         parsedEvalData = await resolveEvalData(parsedEvalData, evalString)
     }
