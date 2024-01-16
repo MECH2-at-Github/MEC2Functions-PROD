@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.3.2
+// @version      0.3.3
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -46,7 +46,7 @@ let buttonDivOne = document.getElementById('buttonPanelOne');
 let buttonDivTwo = document.getElementById('buttonPanelTwo');
 let buttonDivThree = document.getElementById('buttonPanelThree');
 let searchIcon = "<span style='font-size: 80%'>🔍</span>"
-let thisPageName = window.location.pathname.substring(window.location.pathname.lastIndexOf("/") + 1, window.location.pathname.lastIndexOf("."));
+let thisPageName = window.location.pathname.substring(window.location.pathname.lastIndexOf("/") + 1, window.location.pathname.lastIndexOf("."))
 let thisPageNameHtm = thisPageName + ".htm"
 let slashThisPageNameHtm = "/" + thisPageNameHtm
 if (("Welcome.htm").includes(thisPageNameHtm)) {
@@ -1021,7 +1021,7 @@ $('#footer_links').contents().filter(function() { return this.nodeType === 3 }).
 if (("ActiveCaseList.htm").includes(thisPageNameHtm)) {
     $('h5').append(" " + $('td:contains("Active")').length + " active. " + ($('td:contains("Suspended")').length + $('td:contains("Temporarily Ineligible")').length) + " suspended/TI.")
 
-    // function checkCaseInfo(caseNumber) {
+    // function checkCaseInfo(caseNumber) { // evalData!
     //     // blarg
     // }
 
@@ -1063,7 +1063,30 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
     let $caseOrProviderAlertsTable = $('#caseOrProviderAlertsTable >tbody')
     let preCreated = sessionStorage.getItem('MECH2.preCreated')
     document.getElementById('new').addEventListener('click', function() { sessionStorage.setItem('MECH2.preCreated', document.getElementById("groupId").value) })
+    if (localStorage.getItem('MECH2.userName') === null || localStorage.getItem('MECH2.userName') === undefined && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
+        let userNameObserver = new MutationObserver(function(mutations) {
+            mutations.forEach((mutation) => {
+                let workerName = mutation.target.value
+                workerName = reorderCommaName(workerName)
+                let truncatedWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
+                localStorage.setItem('MECH2.userName', truncatedWorkerName)
+                userNameObserver.disconnect()
+            })
+        })
+        const workerName = document.querySelector('#workerName')
+        userNameObserver.observe(workerName, { attributeFilter: ["tabindex"] })
+    }
+    // setTimeout(function() {
+    //     if (preCreated?.length && caseOrProviderAlertsTable.querySelectorAll('tr')?.length > 1) {
+    //         $('td:contains(' + preCreated + ')', $caseOrProviderAlertsTable).parent('tr').attr('id','preCreated')
+    //         let activeCase = document.getElementById('preCreated')
+    //         activeCase.click()
+    //         activeCase.scrollIntoView({ behavior: "smooth", block: "center" })
+    //         sessionStorage.removeItem('MECH2.preCreated')
+    //     }
+    // }, 200)
     setTimeout(function() {
+        if ($('#alertTotal').val() > 0 && $('td.dataTables_empty', $caseOrProviderAlertsTable).length) { $('#alertInputSubmit').click() }
         if (preCreated?.length && caseOrProviderAlertsTable.querySelectorAll('tr')?.length > 1) {
             $('td:contains(' + preCreated + ')', $caseOrProviderAlertsTable).parent('tr').attr('id','preCreated')
             let activeCase = document.getElementById('preCreated')
@@ -1071,18 +1094,6 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
             activeCase.scrollIntoView({ behavior: "smooth", block: "center" })
             sessionStorage.removeItem('MECH2.preCreated')
         }
-    }, 200)
-    if (localStorage.getItem('MECH2.userName') === null || localStorage.getItem('MECH2.userName') === undefined && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
-        setTimeout(async function() {
-            if ( userXnumber === document.getElementById('inputWorkerId').value.toLowerCase() ) {
-                let workerName = await reorderCommaName(document.getElementById('workerName').value)
-                let shortWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
-                localStorage.setItem('MECH2.userName', shortWorkerName)
-            }
-        }, 1)
-    }
-    setTimeout(function() {
-        if ($('#alertTotal').val() > 0 && $('td.dataTables_empty', $caseOrProviderAlertsTable).length) { $('#alertInputSubmit').click() }
     }, 300)
     $('#delete').after($('#new'))
     $('#alertTotal').after('<button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>')
@@ -2932,10 +2943,9 @@ if (("CaseSupportActivity.htm").includes(thisPageNameHtm)) {
 if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
     let closedCaseLS = localStorage.getItem('MECH2.closedCaseBank')
     let closedCaseBank = closedCaseLS.length === 7 ? closedCaseLS : ''
-    if ($('strong.rederrortext:contains("Transfer From Worker ID cannot be the same as Transfer To Worker ID.")').length) { $('#cancel').click() }
-    if ($('strong.rederrortext:contains("Transfer To Worker ID is invalid.")').length) {
-        localStorage.removeItem('MECH2.closedCaseBank')
-    }
+
+    if ($('strong.rederrortext:contains("Transfer From Worker ID cannot be the same as Transfer To Worker ID.")').length) { localStorage.setItem('MECH2.caseTransfer', 'transferError'); $('#cancel').click() }
+    if ($('strong.rederrortext:contains("Transfer To Worker ID is invalid.")').length) { localStorage.removeItem('MECH2.closedCaseBank') }
     $('#footer_links').append('<span style="margin: 0 .3rem; pointer-events: none;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
     tabIndxNegOne('#caseTransferFromAllowedUREndsDate, #caseTransferFromAssignmentServicingEndsDate, #caseTransferFromVoid, #caseTransferFromTransferImmediately, #caseTransferToTransferEffectiveDate, #caseTransferToEarlyAcceptance, #caseTransferToName')
 
@@ -2959,6 +2969,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
     if (transferLS?.length) {
         if (notEditMode) {
             switch (transferLS) {
+                case "transferError":
                 case "transferDone":
                     localStorage.removeItem('MECH2.caseTransfer.' + caseId)
                     if (localStorage.getItem('closeAfter')?.length ) { localStorage.removeItem('closeAfter'); window.open('about:blank', '_self'); }
@@ -3295,11 +3306,7 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
     document.getElementById('closedTransfer')?.addEventListener('click', function() { checkForClosedCaseBank() })
 }; //SECTION END Inactive Case List
 
-if (["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm)) {
-    //leftover CSS fix
-    // let errorDiv = document.querySelectorAll('.error_alertbox_new')
-    // errorDiv?.length && document.querySelector('form').insertAdjacentElement('beforebegin', errorDiv[0])
-
+if ( ["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm) || ("/ChildCare/").includes(thisPageName) ) {
     if (userXnumber.length && document.getElementById("terms")) {
         document.getElementById("userId").value = userXnumber;
         document.getElementById("terms").click();
@@ -3668,10 +3675,13 @@ function toTitleCase(value, ...excludedWordList) {
 //
 function reorderCommaName(commaName) {
     try {
-        let caseNameBackwards = toTitleCase(commaName).replace(/\b\w\W*$/,'').trim() // removing MI (word boundry, single character, punctuation, end of line
-        let caseName = caseNameBackwards.split(",")[1].trim() + " " + caseNameBackwards.split(",")[0].replace(/,/,'')
-        return caseName
-    } catch(error) {}
+        commaName = commaName.replace(/\b\w\b|\./g, '')
+        commaName = commaName.trim()
+        commaName = toTitleCase(commaName)
+        let commaNameSplit = commaName.split(",")
+        commaName = commaNameSplit[1].trim() + " " + commaNameSplit[0].replace(/,/,'')
+        return commaName
+    } catch(error) { console.trace(error) }
 };
 //
 function getFirstName(commaName) {
