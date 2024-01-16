@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.3.1
+// @version      0.3.2
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -12,7 +12,7 @@
 // ====================================================================================================
 // PRIMARY_NAVIGATION BUTTONS SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ====================================================================================================
-
+// console.time('MEC2Functions')
 let pageWrap = document.querySelector('#page-wrap')
 let notEditMode = document.querySelectorAll('#page-wrap').length;
 document.querySelector('.container:has(.line_mn_green)').insertAdjacentHTML('afterend', `
@@ -1902,10 +1902,6 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 let childUnderFive
                 let childUnderOne
                 let todayDate = new Date()
-
-                let userCountyObject = {
-                    county: "St. Louis"
-                }
                 let resultsHTML = `
                                 <div class="form-group"> <div class="col-lg-12 textInherit">
                                         <label for="registration" class="col-lg-2control-label textR textInherit marginTop10">Registration:</label>
@@ -3502,9 +3498,15 @@ try {
 
 async function evalData(caseProviderNumber = caseId, pageName = thisPageName, dateRange = '', evalString = '', parm2providerId = 'parm2') {
     let parmDateRange = dateRange.length ? "&parm3=" + dateRange : undefined
-    let unParsedEvalData = await getEvalData(caseProviderNumber, pageName, parmDateRange, parm2providerId).catch((err) => { console.log(err); return false })
-    // return unParsedEvalData
-    let parsedEvalData = await parseEvalData(unParsedEvalData).catch((err) => { console.log(err); return false })
+    let unParsedEvalData = await getEvalData(caseProviderNumber, pageName, parmDateRange, parm2providerId).catch((err) => {
+        console.trace(err);
+        return false
+    })
+    if (!unParsedEvalData?.length) { return false }
+    let parsedEvalData = await parseEvalData(unParsedEvalData).catch((err) => {
+        console.trace(err);
+        return false
+    })
     if (evalString) {
         parsedEvalData = await resolveEvalData(parsedEvalData, evalString)
     }
@@ -4011,3 +4013,4 @@ setTimeout(function() {
     window.dispatchEvent(new Event('resize'))
     $('buttonPanelOneNTF>*').removeAttr('tabindex')
 },200)//fixes table headers being wrongly sized due to the container size change in ReStyle
+// console.timeEnd('MEC2Functions')
