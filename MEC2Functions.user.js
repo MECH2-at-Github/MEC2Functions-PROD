@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.3.4
+// @version      0.3.5
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -488,7 +488,7 @@ if (selectPeriod?.length) {
 }
 let caseId = document.getElementById('caseId')?.value
 let providerId = caseId === undefined ? document.getElementById('providerId')?.value : undefined
-let providerId = caseId === undefined ? document.getElementById('providerId')?.value : undefined
+let caseIdORproviderId = caseId === undefined ? providerId : caseId
 
 //eval parsing variables
 let dateRange = undefined
