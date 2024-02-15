@@ -488,13 +488,14 @@ if (selectPeriod?.length) {
 }
 let caseId = document.getElementById('caseId')?.value
 let providerId = caseId === undefined ? document.getElementById('providerId')?.value : undefined
+let providerId = caseId === undefined ? document.getElementById('providerId')?.value : undefined
 
 //eval parsing variables
 let dateRange = undefined
-let evalString = undefined
-let evalNum = undefined
-let page = undefined
-let parm2providerId = undefined
+//let evalString = undefined
+//let evalNum = undefined
+//let page = undefined
+//let parm2providerId = undefined
 
 let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? ''
 const countyNumbersNeighbors = [
@@ -1711,7 +1712,6 @@ if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm) && !notEditMode)
         }
     })
 };
-
 //SECTION START auto-fill, Open provider information page from Child's Provider page
 if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     //custom CSS to rearrange the page
@@ -1877,11 +1877,13 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
         let lnlDataProviderId = "lnlData" + providerId
         if (document.getElementById(lnlDataProviderId)) {
             document.getElementById(lnlDataProviderId).classList.remove('hidden')
+            checkIfRelated()
             return false
         }
         let lnlSS = sessionStorage.getItem('lnlSS.' + providerId)
         if (lnlSS) {
             let lnlDiv = document.querySelector('.form-group:has(#providerType)').insertAdjacentHTML('afterend','<div class="lnlData" id=' + lnlDataProviderId + '>' + lnlSS + '</div>')
+            checkIfRelated()
             return false
         }
         if (!document.getElementById(lnlDataProviderId)) {
@@ -1920,7 +1922,7 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                                             <div id="registration" type="text" name="registration" title="LNL Registration Status and Effective Date"></div>
                                         </div>
                                 </div> </div>
-                                <div class="form-group"> <div class="col-lg-12 textInherit">
+                                <div class="form-group"> <div class="col-lg-12 textInherit" id="hasRelatedCare">
                                         <label for="relatedCare" class="col-lg-2 control-label textR textInherit marginTop10">Related Care:</label>
                                         <div class="col-lg-7 padL0 textInherit">
                                             <div id="relatedCare" type="text" name="relatedCare" class="inline-text" title="LNL Related Care Breakdown"></div>
@@ -1929,12 +1931,12 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                                             </span>
                                         </div>
                                 </div> </div>
-                                <div class="form-group"> <div class="col-lg-12 textInherit">
+                                <div class="form-group"> <div class="col-lg-12 textInherit" id="hasUnrelatedCare">
                                         <label for="unrelatedCare" class="col-lg-2 control-label textR textInherit marginTop10">Unrelated Care:</label>
                                         <div class="col-lg-7 padL0 textInherit">
                                             <div class="inline-text" id="unrelatedCare" type="text" name="unrelatedCare" title="LNL Unrelated Care Breakdown"></div>
                                             <span class="tooltips">ⓘ
-                                                <span class="tooltips-text tooltips-topleft">Provider is eligible to be paid for children over five for up to 90 days without training. The 90 days is NOT tracked by MEC2 automatically.</span>
+                                                <span class="tooltips-text tooltips-topleft">Provider is eligible to be paid for children over five for up to 90 days without Supervising for Safety training. The 90 days is NOT tracked by MEC2 automatically.</span>
                                             </span>
                                         </div>
                                 </div> </div>
@@ -1942,7 +1944,7 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 ptd.insertAdjacentHTML('beforeend', resultsHTML)
                 document.querySelector('label[for=carePeriodBeginDate]').insertAdjacentHTML('beforebegin', `
                                 <span class="tooltips lnlInfo" style="position: absolute; width: 24%; text-align: right;">ⓘ
-                                    <span class="tooltips-text tooltips-top">Provider is eligible to be registered and paid effective the date CPR and First Aid trainings are complete. The age and relationship based trainings are required before the Service Authorization approval.</span>
+                                    <span class="tooltips-text tooltips-top">Provider is eligible to be registered and paid effective the date CPR and First Aid trainings are complete. Age and relationship based trainings are required before the Service Authorization approval.</span>
                                 </span>
                 `)
                 let registrationArray = evalData(providerId, "ProviderRegistrationAndRenewal", dateRange, "0", "providerId").then(function(resultObject) {
@@ -1984,9 +1986,14 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 ptd.querySelector('#relatedCare').textContent = careBreakdown.relatedLTone + careBreakdown.relatedLTfive + careBreakdown.relatedGTfive
                 ptd.querySelector('#unrelatedCare').textContent = careBreakdown.unrelatedLTone + careBreakdown.unrelatedLTfive + careBreakdown.unrelatedGTfive
                 sessionStorage.setItem('lnlSS.' + providerId, document.getElementById(lnlDataProviderId).outerHTML)
+                checkIfRelated()
             })
         }
-        if (document.getElementById('relatedToChild').value === "N") { document.querySelector('div.col-lg-12:has(#relatedCare)').classList.add('rederrortext') } else { document.querySelector('div.col-lg-12:has(#relatedCare)')?.classList.remove('rederrortext') }
+    }
+    function checkIfRelated() {
+        let relatedToChild = document.getElementById('relatedToChild')
+        let hasRelatedCare = document.getElementById('hasRelatedCare')
+        if (relatedToChild.value === "Y") { hasRelatedCare.classList.remove('rederrortext'); relatedToChild.classList.remove('rederrortext') } else { hasRelatedCare.classList.add('rederrortext'); relatedToChild.classList.add('rederrortext') }
     }
     if (!notEditMode) {
         const beginEndFields = {
@@ -1996,7 +2003,8 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
         }
         function caseChildProviderTabindex() { for (let fields in beginEndFields) { document.querySelector(beginEndFields[fields].start).value === '' && document.querySelector(beginEndFields[fields].end).setAttribute('tabindex', '-1') } }
     };
-    childProviderPage();
+    childProviderPage()
+    document.getElementById('relatedToChild').addEventListener('change', function() { checkIfRelated() } )
     $('#childProviderTable').click(function() { childProviderPage() });
     $('#providerId').change(function() {
         setTimeout(function() {
@@ -2004,7 +2012,7 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 childProviderPage()
                 if ($('#providerType').val() !== "Legal Non-licensed") { eleFocus('#primaryBeginDate') }
                 else if ($('#providerType').val() === "Legal Non-licensed") { eleFocus('#providerLivesWithChild') }
-                else if ($('#providerType').val()?.length === 0) { console.log('Something went wrong.') }
+                else if ($('#providerType').val()?.length === 0) { console.trace('CaseChildProvider.htm section') }
             }
         }, 200)
     });
@@ -2743,7 +2751,35 @@ if (("CaseReinstate.htm").includes(thisPageNameHtm)) {
     $('#caseData .panel-box-format label+input').wrap('<div class="col-lg-4 col-md-4">').removeAttr('style').removeAttr('size')
     $('.form-group>textarea').wrap('<div>')
 } ////SECTION END Case Reinstate
-
+// SECTION START Case School
+if (["CaseSchool.htm"].includes(thisPageNameHtm)) {
+    if (document.getElementById('memberReferenceNumberNewMember')) {
+        let memberArray = await evalData(undefined, "CaseMember", undefined, "0")
+        async function kindergartenStartDate() {
+            let memberNumber = document.getElementById('memberReferenceNumberNewMember').value
+            // await evalData(undefined, "CaseMember", undefined, "0").then((memberArray) => {
+                let memberMatch = memberArray.filter((obj) => obj.memberReferenceNumber === memberNumber)
+                let birthDate = new Date(memberMatch[0].memberBirthDate)
+                let approxAge = new Date().getFullYear() - birthDate.getFullYear()
+                if (approxAge < 17) {
+                    let eightteenButStillHHmember = document.getElementById('memberFinancialSupport50PercentOrMore')
+                    eightteenButStillHHmember.value = ""
+                    eightteenButStillHHmember.setAttribute("disabled", "disabled")
+                }
+                if (approxAge > 9) { return false }
+                let fifthBirthDate = new Date(birthDate.setFullYear(birthDate.getFullYear() + 5))
+                let laborDay = getDateofDay(fifthBirthDate.getFullYear(), 8, 0, 1)
+                if (fifthBirthDate > laborDay) { laborDay = getDateofDay(fifthBirthDate.getFullYear() + 1, 8, 0, 1) }
+                // let kindergartenStartDate = addDays(laborDay, 3).toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
+                // document.getElementById('memberKindergartenStart').value = kindergartenStartDate
+                document.getElementById('memberKindergartenStart').value = formatDate(addDays(laborDay, 3), "mmddyyyy")
+            // })
+        }
+        document.getElementById('memberReferenceNumberNewMember').addEventListener('blur', function(e) {
+            if ( Number(e.target.value) > 2 ) { kindergartenStartDate() }
+        })
+    }
+} // SECTION END Case School
 //SECTION START Hide DBs when no results
 if (["CaseServiceAuthorizationOverview.htm", "CaseCopayDistribution.htm", "CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm)) {
     queueMicrotask(() => {
@@ -3375,6 +3411,51 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
     document.querySelector('div.panel-box-format > div.form-group').insertAdjacentHTML('afterend', '<div id="ageCategories">'+ ageDefinitions +'</div>')
     //https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=CCAP_0927 // Accreditations
 } //SECTION END Maximum Rates
+
+if (thisPageNameHtm.indexOf("Notices.htm") > 0) {
+    if (document.getElementById('textbox2') ) {
+        function dynamicallyLoadScript(url) {
+            var script = document.createElement("script")
+            script.src = url
+            document.head.appendChild(script)
+        }
+        dynamicallyLoadScript("https://unpkg.com/downloadjs@1.4.7")
+        /* globals download, PDFLib */
+        async function createPdf(text, fileName) {
+            // await import("https://unpkg.com/downloadjs@1.4.7")
+            const { PDFDocument, StandardFonts, rgb, PageSizes } = await import("https://unpkg.com/pdf-lib")
+            // const fontkit = await import("https://unpkg.com/@pdf-lib/fontkit")
+            text = text.replaceAll(/(\n)(?=.+Page \d)/g, '\nPAGEBREAK\n')
+            text = text.replaceAll(/(?: {74}\n){2,}(?![\s\w])/g, '') // removes the last set of repeated spaces/returns
+            text = text.replaceAll(/(?: {74}\n){1,}(?=PAGEBREAK)/g, '') //removes the others
+            let textArray = text.split("PAGEBREAK")
+            // const url = 'https://github.com/Hopding/pdf-lib/blob/master/assets/fonts/ubuntu/UbuntuMono-R.ttf'
+            // const fontBytes = await fetch(url).then(res => res.arrayBuffer())
+            const pdfDoc = await PDFLib.PDFDocument.create()
+            const courierFont = await pdfDoc.embedFont(PDFLib.StandardFonts.Courier)
+            // pdfDoc.registerFontkit(fontkit)
+            // const customFont = await pdfDoc.embedFont(fontBytes)
+            for await (let pagesText of textArray) {
+
+                const page = pdfDoc.addPage() //PDFLib.PageSizes.Letter)
+                const { width, height } = page.getSize()
+                const fontSize = 12
+                page.drawText(pagesText, {
+                    lineHeight: 12,
+                    x: 35,
+                    y: height-55,
+                    size: 12,
+                    font: courierFont,
+                })
+            }
+            const pdfBytes = await pdfDoc.save()
+            download(pdfBytes, fileName + ".pdf", "application/pdf");
+            // pdfBytes.download(fileName + ".pdf", "application/pdf")
+        }
+        document.querySelector('#textbox2').insertAdjacentHTML('afterend', '<button type="button" class="form-button" style="vertical-align: top;" id="downloadAsPdf">Download as PDF</button>')
+        document.querySelector('#downloadAsPdf').addEventListener('click', function() { createPdf( document.querySelector('#textbox1').textContent, document.querySelector('title').textContent + " " + caseIdORproviderId ) })
+    }
+}
 
 if (("PendingCaseList.htm").includes(thisPageNameHtm)) {
     document.querySelectorAll('#pendingCaseTable > tbody > tr > td:nth-child(8)').forEach(function(e) {
