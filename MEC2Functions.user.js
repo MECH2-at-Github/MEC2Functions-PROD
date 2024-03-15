@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         MEC2Functions
+// @name         mec2functions
 // @namespace    http://github.com/MECH2-at-Github
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.3.5
+// @version      0.3.6
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -13,6 +13,7 @@
 // PRIMARY_NAVIGATION BUTTONS SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ====================================================================================================
 // console.time('MEC2Functions')
+document.getElementById('help')?.insertAdjacentHTML('afterend', '<span style="margin-left: 10px; color: var(--aLinkColor);">' + GM_info.script.name + ' v' + GM_info.script.version + '</span>')
 let pageWrap = document.querySelector('#page-wrap')
 let notEditMode = document.querySelectorAll('#page-wrap').length;
 document.querySelector('.container:has(.line_mn_green)').insertAdjacentHTML('afterend', `
@@ -486,9 +487,9 @@ let selectPeriod = document.getElementById('selectPeriod')?.value
 if (selectPeriod?.length) {
     periodDates = { range: selectPeriod, parm3: selectPeriod.replace(' - ', '').replaceAll('/',''), start: selectPeriod.slice(0, 10), end: selectPeriod.slice(13) }
 }
-let caseId = document.getElementById('caseId')?.value
-let providerId = caseId === undefined ? document.getElementById('providerId')?.value : undefined
-let caseIdORproviderId = caseId === undefined ? providerId : caseId
+let caseId = document.getElementById('caseId')?.value ?? undefined
+let providerId = caseId ?? document.getElementById('providerId')?.value
+let caseIdORproviderId = caseId ?? providerId
 
 //eval parsing variables
 let dateRange = undefined
@@ -654,7 +655,10 @@ if (!notEditMode) {
 if (!notEditMode && sessionStorage.getItem('processingApplication') === "yes" && $('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').length && !$('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').val().length) {
     $('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').val(sessionStorage.getItem('actualDate'))
 }
-function resetTabIndex() { $(':is(select, input, textarea, td.sorting)[tabindex]').removeAttr('tabindex') }
+function resetTabIndex() {
+    const nonResetPages = ["CaseSpecialLetter.htm"]
+    if ( !nonResetPages.includes(thisPageNameHtm) ) { $(':is(select, input, textarea, td.sorting)[tabindex]').removeAttr('tabindex') }
+}
 setTimeout(function() { resetTabIndex() }, 200)
 
 
