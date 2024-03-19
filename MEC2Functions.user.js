@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.3.6
+// @version      0.3.7
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2916,12 +2916,14 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
 
 if (["CaseSpecialLetter.htm", "ProviderSpecialLetter.htm"].includes(thisPageNameHtm)) {
     //click checkbox if clicking label
-    $('.panel.panel-default.panel-box-format').click(function(e) {
-        let previousCheckbox = $(e.target).closest('label').prevAll('input[type="checkbox"]')
-        if (e.target.tagName.toLowerCase() === "input" && $(e.target).closest('label').prevAll('input[type="checkbox"]').length) {
-            e.target.closest('label').prevAll('input[type="checkbox"]').filter(function() { return $(this).prop('disabled') === false }).click()
-        }
-    })
+    if ( document.querySelector('.panel-box-format') ) {
+        document.querySelector('.panel-default.panel-box-format').addEventListener('click', function(e) {
+            if (e.target.tagName === "STRONG") {
+                let checkboxParent = e.target.closest('div.col-lg-4')
+                checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
+            }
+        })
+    }
     $('#caseData input#other').click(function() {
         if ($(this).prop('checked')) {
             $('#otherTextbox')
