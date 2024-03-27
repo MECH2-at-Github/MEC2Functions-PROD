@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.3.8
+// @version      0.4.1
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3106,11 +3106,10 @@ if (("CaseWrapUp.htm").includes(thisPageNameHtm) && $('#done').attr('Disabled'))
     localStorage.removeItem('MECH2.copiedNote')
 }; //SECTION END Case Wrap Up
 
-//SECTION START Client Search
+// SECTION_START Client_Search
 if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     $('#clientSearchTable>tbody').click(function() { eleFocus('#selectBtnDB') })
-    let resetbtn = document.getElementById('resetbtn')
-    if (resetbtn) {
+    if (document.getElementById('resetbtn')) {
         document.querySelectorAll('input.form-control, select.form-control').forEach(function(e) {
             e.removeAttribute('disabled')
         })
@@ -3119,34 +3118,39 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         let searchTable = document.querySelector('#clientSearchTable')
         for (let field in clientSearchNthChild) {
             let fieldValue = document.getElementById([field]).value
-            if ([field][0] === "genderReq") {
+            if (field === "genderReq") {
                 if (fieldValue === 'M') { fieldValue = "Male" }
                 else if (fieldValue === 'F') { fieldValue = "Female" }
             }
             let segmentedFields = ['ssnReq', 'birthdateReq']
             if (fieldValue) {
-                searchTable.querySelectorAll('tbody > tr > td:nth-child('+ clientSearchNthChild[field] +')').forEach(function(e, f) {
-                    if ( fieldValue.length && e.textContent === fieldValue) { e.classList.add('wholeMatch') }// { e.style.color = 'red' }
-                    if ( fieldValue.length && !e.classList.contains('wholeMatch') && e.textContent.length && segmentedFields.includes([field][0]) ) {
-                        let fieldValueSplit = (/-/).test(fieldValue) ? fieldValue.split('-') : fieldValue.split('/')
-                        // let splitTest = new RegExp(fieldValueSplit[0])
-                        let splitTest = new RegExp('(?:/b' + fieldValueSplit[0] + '/b|/b' + fieldValueSplit[1] + '/b|/b' +fieldValueSplit[2] + '/b)')
-                        console.log( e.textContent.match(splitTest) )
-                        // if ( splitTest.test(fieldValue) ) { e.classList.add('partialMatch'); return }
-                        // let ssnSplit = (/-/).test(e.textContent) ? e.textContent.split('-') : ''
-                        // let birthdateSplit = (/\//).test(e.textContent) ? e.textContent.split('/') : ''
-                        // console.log( splitTest.test(fieldValue) )
-                        // console.log(splitTest)
+                searchTable.querySelectorAll('tbody > tr > td:nth-child('+ clientSearchNthChild[field] +')').forEach(function(ele, row) {
+                    if ( fieldValue.length && ele.textContent === fieldValue) { ele.classList.add('match') }
+
+                    if ( fieldValue.length && !ele.classList.contains('match') && ele.textContent.length && segmentedFields.includes(field) ) {
+                        let haystack = ele.textContent.split(/-|\//)
+                        let needle = fieldValue.split(/-|\//)
+                        // for (let i = 0; i < haystack.length; i++) {
+                        //     if (haystack[i] === needle[i]) {
+                        //         if (needle[0] !== needle[1] && haystack.filter((e) => e.match(needle[i])).length > 1) {
+                        //             let firstHay = new RegExp("(?:"+haystack[i]+")"+haystack[i]) // blarg can't figure out how to target a specific instance... maybe with an index?!
+                        //             ele.innerHTML = ele.innerHTML.replace(/(?:haystack[i])/, '<span class="match">'+haystack[i]+'</span>')
+                        //         }
+                        //         ele.innerHTML = ele.innerHTML.replace(haystack[i], '<span class="match">'+haystack[i]+'</span>')
+                        //     }
+                        // }
+                        let filteredSplit = haystack.filter( (split) => needle.includes(split) )
+                        if (filteredSplit.length) {
+                            filteredSplit.forEach((match) => { ele.innerHTML = ele.innerHTML.replace(match, '<span class="match">'+match+'</span>') })
+                        }
                     }
                 })
             }
         }
-
     }
     let resultTable = document.querySelector('#clientSearchProgramResults')
     if (resultTable) {
         waitForTableCells('#clientSearchProgramResults').then(() => {
-        // waitForElmHeight('#clientSearchProgramResults > tbody > tr > td').then(() => {
             $('#clientSearchProgramResults td:contains("Child Care")').parent().addClass('stickyRow stillNeedsBottom')
             document.querySelectorAll('.stickyRow').forEach(function(element, index) {
                 element.style.bottom = ((document.querySelectorAll('.stillNeedsBottom').length -1) * (resultTable.getBoundingClientRect().height / resultTable.querySelectorAll('tbody tr').length)) + "px"
@@ -3154,7 +3158,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             })
         })
     }
-}; //SECTION END Client Search
+}; // SECTION_END Client_Search
 
 //SECTION START FinancialBilling Fix to display table, edit h4 for billing worker
 if (("FinancialBilling.htm").includes(thisPageNameHtm)) {
@@ -4113,6 +4117,7 @@ setTimeout(function() {
 // console.timeEnd('MEC2Functions')
 //
 function starFall() {
+    document.querySelector('body').classList.add('fourOne')
     let start = new Date().getTime();
     const originPosition = { x: 0, y: 0 };
     const last = {
@@ -4184,4 +4189,4 @@ function starFall() {
     window.ontouchmove = e => handleOnMove(e.touches[0]);
     document.body.onmouseleave = () => updateLastMousePosition(originPosition);
 }
-if (new Date().setHours(0, 0, 0, 0) === new Date("4/1/24").setHours(0, 0, 0, 0) && thisPageNameHtm.indexOf("Notes.htm") > -1 ) { starFall() }
+if (new Date().setHours(0, 0, 0, 0) === new Date("4/1/24").setHours(0, 0, 0, 0) && Math.ceil(Math.random()*4) / 4 === 1 ) { starFall() }
