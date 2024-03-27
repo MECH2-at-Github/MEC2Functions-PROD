@@ -1716,7 +1716,9 @@ if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm) && !notEditMode)
         }
     })
 };
-//SECTION START auto-fill, Open provider information page from Child's Provider page
+
+// =================================================================================================================================================================================================
+// /////////////////////////////////////////////////////////////////////// CaseChildProvider (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     //custom CSS to rearrange the page
     $('label[for="providerLivesWithChild"]').text('Lives with Child: ').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
@@ -1764,7 +1766,7 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     // Copy/paste start/end dates
     if (notEditMode) {
         queueMicrotask(() => {
-            // setTimeout(function() {
+            document.getElementById('childProviderTable').addEventListener('click', () => childProviderPage() )
             document.getElementById('wrapUpDB').insertAdjacentHTML("afterend", "<button type='button' id='copyStart' class='form-button hidden'>Copy Start</button><button type='button' id='copyEndings' class='form-button hidden'>Copy Endings</button>")
             let copyStartButton = document.getElementById('copyStart')
             let copyEndingsButton = document.getElementById('copyEndings')
@@ -1772,8 +1774,8 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 document.getElementById('carePeriodBeginDate')?.value?.length && !document.getElementById('carePeriodEndDate')?.value?.length ? copyStartButton.classList.remove('hidden') : copyStartButton.classList.add('hidden')
                 document.getElementById('carePeriodEndDate')?.value?.length ? copyEndingsButton.classList.remove('hidden') : copyEndingsButton.classList.add('hidden')
             }
-            document.getElementById('childProviderTable').addEventListener('click', checkForDates)
-            copyStartButton.addEventListener('click', copyStartToSS )
+            document.getElementById('childProviderTable').addEventListener('click', () => checkForDates)
+            copyStartButton.addEventListener('click', (() => copyStartToSS() ))
             function copyStartToSS() {
                 if (document.getElementById('carePeriodBeginDate')?.value?.length && document.querySelectorAll('.selected')?.length) {
                     let oProviderStart = {
@@ -1782,12 +1784,14 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                         secondaryBeginDate: document.getElementById("secondaryBeginDate").value,
                         carePeriodBeginDate: document.getElementById("carePeriodBeginDate").value,
                         hoursOfCareAuthorized: document.getElementById("hoursOfCareAuthorized").value,
+                        lnlAckSigned: document.getElementById('signedFormReceived').value,
+                        livesWithProvider: document.getElementById('providerLivesWithChild').value,
                     }
                     sessionStorage.setItem("MECH2.providerStart", JSON.stringify(oProviderStart))
                     snackBar('Copied start data!', 'blank')
                 } else if (!document.querySelectorAll('.selected')?.length) { snackBar('No entry selected') }
             }
-            copyEndingsButton.addEventListener('click', copyEndingsToSS )
+            copyEndingsButton.addEventListener('click', (() => copyEndingsToSS() ))
             function copyEndingsToSS() {
                 if (document.getElementById('carePeriodEndDate')?.value?.length && document.querySelectorAll('.selected')?.length) {
                     let oProviderEndings = {
@@ -1802,9 +1806,7 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
             }
             checkForDates()
         })
-        // }, 100)
     } else if (!notEditMode) {
-        // setTimeout(function() {
         queueMicrotask(() => {
             let oProviderEndings = JSON.parse(sessionStorage.getItem("MECH2.providerEndings"))
             if (oProviderEndings !== null) {
@@ -1827,33 +1829,34 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 document.getElementById('pasteStart').addEventListener('click', pasteStartData )
                 function pasteStartData() {
                     if (!document.getElementById('providerId')?.value?.length) {
+                        document.getElementById("providerId").value = oProviderStart.providerId
+                        doEvent("#providerId")
+                        document.getElementById("primaryBeginDate").value = oProviderStart.primaryBeginDate
+                        document.getElementById("secondaryBeginDate").value = oProviderStart.secondaryBeginDate
+                        document.getElementById("carePeriodBeginDate").value = oProviderStart.carePeriodBeginDate
+                        document.getElementById("hoursOfCareAuthorized").value = oProviderStart.hoursOfCareAuthorized
+                        document.getElementById('signedFormReceived').value = oProviderStart.lnlAckSigned
+                        document.getElementById('providerLivesWithChild').value = oProviderStart.livesWithProvider
+                        setTimeout(() => { $('.hasDatepicker').datepicker("hide") }, 600)
                         if (childDropDown.value.length) {
-                            document.getElementById("providerId").value = oProviderStart.providerId
-                            doEvent("#providerId")
-                            document.getElementById("primaryBeginDate").value = oProviderStart.primaryBeginDate
-                            document.getElementById("secondaryBeginDate").value = oProviderStart.secondaryBeginDate
-                            document.getElementById("carePeriodBeginDate").value = oProviderStart.carePeriodBeginDate
-                            document.getElementById("hoursOfCareAuthorized").value = oProviderStart.hoursOfCareAuthorized
-                            setTimeout(function() { document.getElementById("save").click() }, 500)
-                        } else { childDropDown.animate(redBorder, redBorderTiming) }
+                            setTimeout(() => { eleFocus('#save') }, 800)
+                        } else {
+                            setTimeout(() => { eleFocus(childDropDown) }, 800)
+                        }
                     }
                 }
             }
-            // }, 100)
         })
     }
-
-
-
-    //SECTION END Open provider information page from Child's Provider page
-    function childProviderPage() { // duplicated, will replace original
-        if ($('#providerType').val() !== "Legal Non-licensed" && $('#providerType').val()?.length > 0) {//not LNL
+    // SECTION_END Open provider information page from Child's Provider page
+    function childProviderPage() {
+        if (document.getElementById('providerType').value !== "Legal Non-licensed" && document.getElementById('providerType').value) {//not LNL
             $lnlGroup.addClass('hidden')
             document.querySelectorAll('.lnlData, .lnlInfo').forEach(function(e) { e.classList.add('hidden') } )
             $livesWithChildGroup.addClass('hidden')
             $careInHomeGroup.addClass('hidden')
             $licensedGroup.removeClass('hidden')
-            $('label[for=childCareMatchesEmployer]').css('visibility','visible')
+            $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility','visible')
             if (!notEditMode) {
                 $('#providerLivesWithChild, #careInHome, #relatedToChild').val("N") }//not LNL, edit mode
             else { $lnlGroup.addClass('hidden') }//not LNL, view mode
@@ -1861,19 +1864,15 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
             lnlTraining()
             document.querySelectorAll('.lnlInfo').forEach(function(e) { e.classList.remove('hidden') } )
             $licensedGroup.addClass('hidden')
-            // if ($('#careInHome').val() === 'N') { $careInHomeGroup.addClass('collapse') }
-            // if (!notEditMode) { $lnlGroup.removeClass('collapse') }//is LNL, edit mode
             $lnlGroup.removeClass('hidden')
             document.getElementById('')
             $careInHomeGroup.removeClass('hidden')
             $livesWithChildGroup.removeClass('hidden')
-            $('label[for=childCareMatchesEmployer]').css('visibility','hidden')
-            // else {//is LNL, view mode
-            $('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').each(function() {
-                if ($(this).val()?.length === 0) { $(this).parents('.form-group').addClass('collapse') }
-                else { $(this).parents('.form-group').removeClass('collapse') }
+            $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility','hidden')
+            document.querySelectorAll('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').forEach((e) => {
+                if (!e.value) { e.closest('.form-group').classList.add('collapse') }
+                else { e.closest('.form-group').classList.remove('collapse') }
             })
-            // }
         }
     };
     function lnlTraining() {
@@ -1918,40 +1917,39 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 ptd.classList.remove('displayNone')
                 let childUnderFive
                 let childUnderOne
-                let todayDate = new Date()
                 let resultsHTML = `
-                                <div class="form-group"> <div class="col-lg-12 textInherit">
-                                        <label for="registration" class="col-lg-2control-label textR textInherit marginTop10">Registration:</label>
-                                        <div class="col-lg-6 padL0 textInherit">
-                                            <div id="registration" type="text" name="registration" title="LNL Registration Status and Effective Date"></div>
-                                        </div>
-                                </div> </div>
-                                <div class="form-group"> <div class="col-lg-12 textInherit" id="hasRelatedCare">
-                                        <label for="relatedCare" class="col-lg-2 control-label textR textInherit marginTop10">Related Care:</label>
-                                        <div class="col-lg-7 padL0 textInherit">
-                                            <div id="relatedCare" type="text" name="relatedCare" class="inline-text" title="LNL Related Care Breakdown"></div>
-                                            <span class="tooltips">ⓘ
-                                                <span class="tooltips-text tooltips-topleft">Child’s sibling, grandparent, great-grandparent, aunt, or uncle of the child, based on blood relationship, marriage or court decree.</span>
-                                            </span>
-                                        </div>
-                                </div> </div>
-                                <div class="form-group"> <div class="col-lg-12 textInherit" id="hasUnrelatedCare">
-                                        <label for="unrelatedCare" class="col-lg-2 control-label textR textInherit marginTop10">Unrelated Care:</label>
-                                        <div class="col-lg-7 padL0 textInherit">
-                                            <div class="inline-text" id="unrelatedCare" type="text" name="unrelatedCare" title="LNL Unrelated Care Breakdown"></div>
-                                            <span class="tooltips">ⓘ
-                                                <span class="tooltips-text tooltips-topleft">Provider is eligible to be paid for children over five for up to 90 days without Supervising for Safety training. The 90 days is NOT tracked by MEC2 automatically.</span>
-                                            </span>
-                                        </div>
-                                </div> </div>
-                                `
+    <div class="form-group"> <div class="col-lg-12 textInherit">
+            <label for="registration" class="col-lg-2control-label textR textInherit marginTop10">Registration:</label>
+            <div class="col-lg-6 padL0 textInherit">
+                <div id="registration" type="text" name="registration" title="LNL Registration Status and Effective Date"></div>
+            </div>
+    </div> </div>
+    <div class="form-group"> <div class="col-lg-12 textInherit related" id="hasRelatedCare">
+            <label for="relatedCare" class="col-lg-2 control-label textR textInherit marginTop10 related">Related Care:</label>
+            <div class="col-lg-7 padL0 textInherit">
+                <div id="relatedCare" type="text" name="relatedCare" class="inline-text related" title="LNL Related Care Breakdown"></div>
+                <span class="tooltips">ⓘ
+                    <span class="tooltips-text tooltips-topleft">Child’s sibling, grandparent, great-grandparent, aunt, or uncle of the child, based on blood relationship, marriage or court decree.</span>
+                </span>
+            </div>
+    </div> </div>
+    <div class="form-group"> <div class="col-lg-12 textInherit unrelated" id="hasUnrelatedCare">
+            <label for="unrelatedCare" class="col-lg-2 control-label textR textInherit marginTop10 unrelated">Unrelated Care:</label>
+            <div class="col-lg-7 padL0 textInherit">
+                <div class="inline-text unrelated" id="unrelatedCare" type="text" name="unrelatedCare" title="LNL Unrelated Care Breakdown"></div>
+                <span class="tooltips">ⓘ
+                    <span class="tooltips-text tooltips-topleft">Provider is eligible to be paid for up to 90 days without Supervising for Safety training (for children under 5, they must have age related trainings if they haven't completed SfS. The 90 days is NOT tracked by MEC2 automatically.</span>
+                </span>
+            </div>
+    </div> </div>
+    `
                 ptd.insertAdjacentHTML('beforeend', resultsHTML)
                 document.querySelector('label[for=carePeriodBeginDate]').insertAdjacentHTML('beforebegin', `
                                 <span class="tooltips lnlInfo" style="position: absolute; width: 24%; text-align: right;">ⓘ
-                                    <span class="tooltips-text tooltips-top">Provider is eligible to be registered and paid effective the date CPR and First Aid trainings are complete. Age and relationship based trainings are required before the Service Authorization approval.</span>
+                                    <span class="tooltips-text tooltips-top">Provider is eligible to be registered and paid effective the date CPR and First Aid trainings are complete; however, the Service Authorization start date is the completion date for any required age-based trainings.</span>
                                 </span>
                 `)
-                let registrationArray = evalData(providerId, "ProviderRegistrationAndRenewal", dateRange, "0", "providerId").then(function(resultObject) {
+                let registrationArray = evalData(providerId, "ProviderRegistrationAndRenewal", undefined, "0", "provider").then(function(resultObject) {
                     for (let results in resultObject) {
                         if (resultObject[results].financiallyResponsibleAgency === userCountyObject?.county + ' County') {
                             let resultsArray = [resultObject[results].registrationStatus, resultObject[results].statusEffective] // status, date
@@ -1961,43 +1959,51 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                         }
                     }
                 })
-                let careBreakdown = { relatedLTfive: "Under 5: ❌. ", relatedLTone: "Under 1: ❌. ", relatedGTfive: "Over 5: ✅", unrelatedLTfive: "Under 5: ❌. ", unrelatedLTone: "Under 1: ❌. ", unrelatedGTfive: "Over 5: Up to 90 days", sfsValue: 0 }
-                if ( ptd.querySelector('#orientationVerification').value === "Yes") {
-                    let sfsDate = ptd.querySelector('#orientationDate')
-                    if ( dateDiff(sfsDate.value) > 730) {
-                        sfsDate.classList.add('rederrortext')
-                    } else {
-                        careBreakdown.sfsValue = 1
-                        careBreakdown.relatedLTfive = "Under 5: ✅. "
-                        careBreakdown.relatedLTone = "Under 1: ✅. "
-                        careBreakdown.unrelatedLTfive = "Under 5: ✅. "
-                        careBreakdown.unrelatedLTone = "Under 1: ✅. "
-                        careBreakdown.unrelatedGTfive = "Over 5: ✅."
-                    }
-                }
-                let ahtDate = ptd.querySelector('#headTraumaDate')
-                let ahtDateDiff = dateDiff(ahtDate.value)
-                let suidsDate = ptd.querySelector('#suidsDate')
-                let suidsDateDiff = dateDiff(suidsDate.value)
-                if (ptd.querySelector('#headTraumaVerification').value === "Yes") {
-                    if (ahtDateDiff < 730) { careBreakdown.relatedLTfive = "Under 5: ✅. " }
-                    else { ahtDate.classList.add('rederrortext') }
-                }
-                if (ptd.querySelector('#suidsVerification').value === "Yes") {
-                    if (suidsDateDiff < 730) { careBreakdown.relatedLTone = "Under 1: ✅. " }
-                    else { suidsDate.classList.add('rederrortext') }
-                }
-                ptd.querySelector('#relatedCare').textContent = careBreakdown.relatedLTone + careBreakdown.relatedLTfive + careBreakdown.relatedGTfive
-                ptd.querySelector('#unrelatedCare').textContent = careBreakdown.unrelatedLTone + careBreakdown.unrelatedLTfive + careBreakdown.unrelatedGTfive
-                sessionStorage.setItem('lnlSS.' + providerId, document.getElementById(lnlDataProviderId).outerHTML)
                 checkIfRelated()
+                sessionStorage.setItem('lnlSS.' + providerId, document.getElementById(lnlDataProviderId).outerHTML)
             })
         }
     }
     function checkIfRelated() {
+        document.getElementById('unrelatedCare').replaceChildren()
+        let todayDate = new Date()
+        let underOne = '<span style="display: inline-block;">Under 1:&nbsp;</span>'
+        let underFive = '<span style="display: inline-block;">Under 5:&nbsp;</span>'
+        let overFive = '<span style="display: inline-block;">Over 5:&nbsp;</span>'
+        let yieldSign = '<div style="background: center center / cover; line-height: 14px;"><span style="background: yellow; color: black;">⚠</span>.&nbsp;</div>'
+        let careStartDate = document.getElementById('carePeriodBeginDate').value
+        let careBreakdown = { relatedLTfive: "Under 5: ❌. ", relatedLTone: "Under 1: ❌. ", relatedGTfive: "Over 5: ✅", unrelatedLTfive: "<span>Under 5: ❌.&nbsp;</span>", unrelatedLTone: "<span>Under 1: ❌.&nbsp;</span>", unrelatedGTfive: overFive + yieldSign, sfsValue: 0 }
+        if ( document.querySelector('#orientationVerification').value === "Yes") {
+            let sfsDate = document.querySelector('#orientationDate')
+            if ( dateDiffInDays(todayDate, sfsDate.value) > 730) {
+                sfsDate.classList.add('rederrortext')
+            } else {
+                careBreakdown.sfsValue = 1
+                careBreakdown.relatedLTfive = "Under 5: ✅. "
+                careBreakdown.relatedLTone = "Under 1: ✅. "
+                careBreakdown.unrelatedLTfive = "<span>Under 5: ✅.&nbsp;</span>"
+                careBreakdown.unrelatedLTone = "<span>Under 1: ✅.&nbsp;</span>"
+                careBreakdown.unrelatedGTfive = "<span>Over 5: ✅.</span>"
+            }
+        }
+        let ahtDate = document.querySelector('#headTraumaDate')
+        let ahtDateDiff = dateDiffInDays(careStartDate, ahtDate.value)
+        let suidsDate = document.querySelector('#suidsDate')
+        let suidsDateDiff = dateDiffInDays(careStartDate, suidsDate.value)
+        if (document.querySelector('#headTraumaVerification').value === "Yes") {
+            if (ahtDateDiff !== NaN && ahtDateDiff < 730) { careBreakdown.relatedLTfive = "Under 5: ✅. " }
+            if (ahtDateDiff !== NaN && ahtDateDiff < 730) { careBreakdown.unrelatedLTfive = underFive + yieldSign }
+            else { ahtDate.classList.add('rederrortext') }
+        }
+        if (document.querySelector('#suidsVerification').value === "Yes") {
+            if (suidsDateDiff !== NaN && suidsDateDiff < 730) { careBreakdown.relatedLTone = "Under 1: ✅. " }
+            if (suidsDateDiff !== NaN && suidsDateDiff < 730) { careBreakdown.unrelatedLTone = underOne + yieldSign }
+            else { suidsDate.classList.add('rederrortext') }
+        }
+        document.querySelector('#relatedCare').textContent = careBreakdown.relatedLTone + careBreakdown.relatedLTfive + careBreakdown.relatedGTfive
+        document.querySelector('#unrelatedCare').insertAdjacentHTML('afterbegin', careBreakdown.unrelatedLTone + careBreakdown.unrelatedLTfive + careBreakdown.unrelatedGTfive)
         let relatedToChild = document.getElementById('relatedToChild')
-        let hasRelatedCare = document.getElementById('hasRelatedCare')
-        if (relatedToChild.value === "Y") { hasRelatedCare.classList.remove('rederrortext'); relatedToChild.classList.remove('rederrortext') } else { hasRelatedCare.classList.add('rederrortext'); relatedToChild.classList.add('rederrortext') }
+        if (relatedToChild.value !== "Y") { document.querySelectorAll('.related').forEach(function(elem) { elem.style.textDecoration = "line-through" }) } else { document.querySelectorAll('.related').forEach(function(elem) { elem.style.textDecoration = "unset" }) }
     }
     if (!notEditMode) {
         const beginEndFields = {
@@ -2009,7 +2015,6 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     };
     childProviderPage()
     document.getElementById('relatedToChild').addEventListener('change', function() { checkIfRelated() } )
-    $('#childProviderTable').click(function() { childProviderPage() });
     $('#providerId').change(function() {
         setTimeout(function() {
             if ($('#providerId').val()?.length > 0) {
@@ -2040,8 +2045,10 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
             queueMicrotask(() => { $('.hasDatepicker').datepicker("hide") })
         }
     })
-};
-//SECTION END CaseChildProvider hiding fields if provider type is not LNL
+}
+// ///////////////////////////////////////////////////////////////////// CaseChildProvider end (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// =================================================================================================================================================================================================
+
 
 if (("CaseCopayDistribution.htm").includes(thisPageNameHtm)) {
     if (!notEditMode) {
@@ -2821,98 +2828,160 @@ if (("CaseServiceAuthorizationApprovalPackage.htm").includes(thisPageNameHtm)) {
     })
 } //SECTION END Case SA Approval Package
 
-//SECTION START Fill manual Billing PDF Forms, also nav to Provider Address
 if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
-    if (!notEditMode) {
-        if (sessionStorage.getItem( 'MECH2.ageCategory.' + caseId ) !== null) {
-            let ageCategory = JSON.parse( sessionStorage.getItem( 'MECH2.ageCategory.' + caseId ))
-            document.getElementById('ageRateCategory').value = ageCategory.ageRateWeekOne
-            document.getElementById('ageRateCategory2').value = ageCategory.ageRateWeekTwo
-            document.getElementById('overrideReason').value = ageCategory.overrideReason
-            document.getElementById('atRiskPopulationFacility').value = ageCategory.atRiskWeekOne
-            document.getElementById('atRiskPopulationFacility2').value = ageCategory.atRiskWeekTwo
-            eleFocus('#save')
-        }
-        document.getElementById('save').addEventListener("click", function() {
-            let ageCategory = {
-                ageRateWeekOne: document.getElementById('ageRateCategory').value,
-                ageRateWeekTwo: document.getElementById('ageRateCategory2').value,
-                overrideReason: document.getElementById('overrideReason').value,
-                atRiskWeekOne: document.getElementById('atRiskPopulationFacility').value,
-                atRiskWeekTwo: document.getElementById('atRiskPopulationFacility2').value
-            }
-            sessionStorage.setItem('MECH2.ageCategory.' + caseId, JSON.stringify(ageCategory))
-        })
-    }
+    // if (!notEditMode) {
+    //     if (sessionStorage.getItem( 'MECH2.ageCategory.' + caseId ) !== null) {
+    //         let ageCategory = JSON.parse( sessionStorage.getItem( 'MECH2.ageCategory.' + caseId ))
+    //         document.getElementById('ageRateCategory').value = ageCategory.ageRateWeekOne
+    //         document.getElementById('ageRateCategory2').value = ageCategory.ageRateWeekTwo
+    //         document.getElementById('overrideReason').value = ageCategory.overrideReason
+    //         document.getElementById('atRiskPopulationFacility').value = ageCategory.atRiskWeekOne
+    //         document.getElementById('atRiskPopulationFacility2').value = ageCategory.atRiskWeekTwo
+    //         eleFocus('#save')
+    //     }
+    //     document.getElementById('save').addEventListener("click", function() {
+    //         let ageCategory = {
+    //             ageRateWeekOne: document.getElementById('ageRateCategory').value,
+    //             ageRateWeekTwo: document.getElementById('ageRateCategory2').value,
+    //             overrideReason: document.getElementById('overrideReason').value,
+    //             atRiskWeekOne: document.getElementById('atRiskPopulationFacility').value,
+    //             atRiskWeekTwo: document.getElementById('atRiskPopulationFacility2').value
+    //         }
+    //         sessionStorage.setItem('MECH2.ageCategory.' + caseId, JSON.stringify(ageCategory))
+    //     })
+    // }
     if (typeof userCountyObject !== undefined && userCountyObject.code === "169") {
-        $('body').append('<div id="hiddenLoadDiv" style="display: none"></div>');
-        $('#csicTableData1').before(`
+        document.getElementById('csicTableData1')?.insertAdjacentHTML('beforebegin', `
             <div style="overflow: hidden" id="billingFormDiv">
-                <div class="form-group">
+                <div class="form-group" style="display: flex; gap: 15px; margin-left: 10px; align-items: center;">
                     <button type="button" class="cButton" tabindex="-1" id="billingForm" style="display: inline-flex;">Create Billing Form</button>
                     <label for="copayAmount" class="control-label" style="display: inline-flex;"> Copay Amount: $</label>
-                    <output id="copayAmountGet" style="display: inline-flex;">-</output>
-                    <button type="button" class="cButton" tabindex="-1" id="providerAddressButton" style="display: inline-flex;">Open Provider Address Page</button>
+                    <span id="copayAmountGet" style="display: inline-flex; margin-left: -5px;">-</span>
+                    <button type="button" class="cButton" tabindex="-1" id="providerAddressButton" style="display: inline-flex;">Copy Provider Address</button>
                 </div>
             </div>
         `);
-        $('#providerAddressButton').click(function() {
-            window.open("/ChildCare/ProviderAddress.htm?providerId=" + $('#providerInfoTable .selected td:eq(0)').text(), "_blank");
-        });
-
-        $('#billingForm').click(function() { getCopay( caseId, periodDates.parm3 ) })
-        function getCopay(caseNumber, periodRange) {
-            $.get('/ChildCare/CaseCopayDistribution.htm?parm2=' + caseNumber + '&parm3=' + periodRange, function (result, status, json) {
-                let dataObject = result.slice(result.indexOf("var data = eval('[")+18);
-                dataObject = dataObject.substring(0, dataObject.indexOf("]');"));
-                dataObject = dataObject.replace(/},{/g, "}splithere{");
-                let copayData = dataObject.split("splithere");
-                for (let i = copayData.length-1; i >= 0; i--) {
-                    let tempObject = JSON.parse(copayData[i]);
-                    if ($('#providerInfoTable>tbody>tr.selected>td:eq(0)').text() == tempObject.providerId) {
-                        if (tempObject.version == $('#versionInDropdown').val()) {
-                            $('#copayAmountGet').html(tempObject.copay.split(".")[0]);
-                        };
-                    };
-                };
-            }).done(function() { billingFormInfo() })
-        }
-        function billingFormInfo() {
-            if ($('#copayAmountGet').text() === '') {
-                $('#copayAmountGet').replaceWith('<input class="centered-text" style="height: 22px; width: 40px;" id="copayAmountManual"></input><a href="/ChildCare/CaseCopayDistribution.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3 + '" target="_blank">Copay Page</a>');
-                snackBar('Auto-retrieval of copay failed.', 'blank')
-                return
-            };
-            let childList = {};
-            $('#childInfoTable tbody tr').each(function(index) {//child#.name:, child#.authHours:, child#.ageCat0:, child#.ageCat1:
-                $('#childInfoTable tbody tr').click().eq([index]);
-                childList["child" + index] = {};
-                childList["child" + index].name = reorderCommaName( toTitleCase($(this).children('td').eq(1).text()) );
-                childList["child" + index].authHours = $(this).children('td').eq(3).text();
-                childList["child" + index].ageCat0 = $('#ageRateCategory').val();
-                childList["child" + index].ageCat1 = $('#ageRateCategory2').val();
-            });
-            let oCaseName = fCaseName()
-            const formInfo = {
-                pdfType: "BillingForm",
-                xNumber: userXnumber,
-                caseFirstName: oCaseName.first,
-                caseLastName: oCaseName.last,
-                caseName: oCaseName.first + " " + oCaseName.last,
-                caseNumber: caseId,
-                startDate: periodDates.start,
-                endDate: periodDates.end,
-                providerId: $('#providerInfoTable .selected td:eq(0)').text(),
-                providerName: $('#providerInfoTable .selected td:eq(1)').text(),
-                copayAmount: $('#copayAmountGet').text().length ? $('#copayAmountGet').text() : $('#copayAmountManual').val(),
-                attendance0: new Date(periodDates.start).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
-                attendance7: addDays(periodDates.start, 7).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
-                ...childList
-            };
-            if (formInfo.copayAmount.length) { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank") }
-        };
     }
-}; //SECTION END Case SA Overview
+    document.getElementById('status').style.width = "15ch"
+    document.querySelector('div.col-lg-4:has(#status)')?.insertAdjacentHTML('beforeend', '<button type="button" class="cButton float-right" tabindex="-1" id="copySAinfo" style="display: inline-flex;">Copy for Email</button>')
+    document.getElementById('providerAddressButton')?.addEventListener('click', function() {
+        let providerIdInTable = document.querySelector('#providerInfoTable .selected td:first-child').textContent
+        let providerNameInTable = document.querySelector('#providerInfoTable .selected td:first-child').textContent
+        evalData(providerIdInTable, 'ProviderAddress', undefined, "0.0", 'provider').then(function(providerAddress) {
+            const providerMailToAddress = determineProviderAddress(providerAddress)
+            navigator.clipboard.writeText(providerMailToAddress);
+            snackBar(providerMailToAddress);
+        });
+    })
+    function determineProviderAddress(providerAddress) {
+        let providerNameInTable = document.querySelector('#providerInfoTable .selected td:nth-child(2)').textContent
+        if (providerAddress.mailingStreet1 === '') {
+            return providerNameInTable + "\n" + providerAddress.mailingSiteHomeStreet1 + " " + providerAddress.mailingSiteHomeStreet2 + "\n" + providerAddress.mailingSiteHomeCity + ", " + providerAddress.mailingSiteHomeState + " " + providerAddress.mailingSiteHomeZipCode
+        } else {
+            return providerNameInTable + "\n" + providerAddress.mailingStreet1 + " " + providerAddress.mailingStreet2 + "\n" + providerAddress.mailingCity + ", " + providerAddress.mailingState + " " + providerAddress.mailingZipCode
+        }
+    }
+    document.getElementById('billingForm')?.addEventListener('click', () => fetchCopay("billingForm") )
+    document.getElementById('copySAinfo')?.addEventListener('click', () => fetchCopay("clipboard") )
+    async function fetchCopay(destination) {
+        if ( document.getElementById('copayAmountManual') ) {
+            document.getElementById('copayAmountManual').value !== "" && billingFormInfo(document.getElementById('copayAmountManual').value, destination)
+        } else {
+            await evalData(caseId, 'CaseCopayDistribution', periodDates.parm3, undefined, "case").then((result) => {
+                getCopayFromResult(result, destination)
+            })
+        }
+    }
+    function getCopayFromResult(result, destination) {
+        if (result === undefined) {
+            $('#copayAmountGet').replaceWith('<input class="centered-text form-control" style="height: 22px; width: 40px;" id="copayAmountManual"></input><a href="/ChildCare/CaseCopayDistribution.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3 + '" target="_blank">Copay Page</a>');
+            snackBar('Auto-retrieval of copay failed.', 'blank')
+        } else {
+            for (let item in result[1]) {
+                let domParsing = new DOMParser
+                let providerParsedName = domParsing.parseFromString(result[1][item].providerName, "text/html").documentElement.textContent // normalizing characters such as & from &amp;
+                if (providerParsedName === document.querySelector('#providerInfoTable > tbody > tr.selected > td:nth-child(2)').textContent) {
+                    let integerCopay = parseInt(result[1][item].copay).toString()
+                    document.getElementById('copayAmountGet').textContent = integerCopay
+                    saFilterEvalData(integerCopay, destination)
+                }
+            }
+        }
+    }
+    async function saFilterEvalData(integerCopay, destination) {
+        let providerNameInTable = document.querySelector('#providerInfoTable > tbody > tr.selected > td:nth-child(2)').textContent
+        evalData().then((saEvalData) => {
+            let domParsing = new DOMParser
+            for (let saRowIndex in saEvalData[0]) {
+                let providerParsedName = domParsing.parseFromString(saEvalData[0][saRowIndex].providerName, "text/html").documentElement.textContent
+                if ( providerParsedName === providerNameInTable ) {
+                    let saProviderRowIndex = saEvalData[0][saRowIndex].providerRowIndex
+                    let i = 0
+                    const childMatches = {}
+                    for (let saChildRowIndex in saEvalData[1] ) {
+                        if (saEvalData[1][saChildRowIndex].providerRowIndex === saProviderRowIndex) {
+                            childMatches["child" + i] = saEvalData[1][saChildRowIndex]
+                            i++
+                        }
+                    }
+                    billingFormInfo(childMatches, integerCopay, destination)
+                    break
+                }
+            }
+        })
+    }
+    function billingFormInfo(childMatches, integerCopay, destination) {
+        // await saFilterEvalData().then((saEvalDataOutput) => {
+        let childList = {};
+        // //rewrite childInfoTable to use evalData(document.querySelector('#providerInfoTable > tbody > tr.selected > td:nth-child(2)').textContent = 0.#.providerName; 0.#.saRowIndex -> 1.#.saRowIndex
+        // $('#childInfoTable tbody tr').each(function(index) {//child#.name:, child#.authHours:, child#.ageCat0:, child#.ageCat1:
+        //     $('#childInfoTable tbody tr').click().eq([index]);
+        //     childList["child" + index] = {};
+        //     childList["child" + index].name = reorderCommaName( toTitleCase($(this).children('td').eq(1).text()) );
+        //     childList["child" + index].authHours = $(this).children('td').eq(3).text();
+        //     childList["child" + index].ageCat0 = $('#ageRateCategory').val();
+        //     childList["child" + index].ageCat1 = $('#ageRateCategory2').val();
+        // });
+        for (let child in childMatches) {
+            let thisChild = childMatches[child]
+            childList[child] = { name: reorderCommaName( toTitleCase(thisChild.childName)), authHours: thisChild.authorizedHours, ageCat0: thisChild.ageRateCategory, ageCat1: thisChild.ageRateCategory2 }
+        }
+        let oCaseName = fCaseName()
+        const formInfo = {
+            pdfType: "BillingForm",
+            xNumber: userXnumber,
+            caseFirstName: oCaseName.first,
+            caseLastName: oCaseName.last,
+            caseName: oCaseName.first + " " + oCaseName.last,
+            caseNumber: caseId,
+            startDate: periodDates.start,
+            endDate: periodDates.end,
+            providerId: document.querySelector('#providerInfoTable .selected td:nth-child(1)').textContent,
+            providerName: document.querySelector('#providerInfoTable .selected td:nth-child(2)').textContent,
+            copayAmount: integerCopay ? integerCopay : document.getElementById('copayAmountManual').value,
+            attendance0: new Date(periodDates.start).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
+            attendance7: addDays(periodDates.start, 7).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
+            // children: childMatches,
+            children: childList,
+        };
+        if (formInfo.copayAmount.length && destination === "billingForm") { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank") }
+        else if (formInfo.copayAmount.length && destination === "clipboard") {
+            let clipboardObject = {}
+            let childInfoArray = []
+            for (let child in formInfo.children) { // [ ([1, 2],[3, 4]).map((e) => e.join(" ")) ].join("\n")
+                let array1 = [ [["Child:", formInfo.children[child].name], ["Authorized Hours:", formInfo.children[child].authHours], ["Age Category:", formInfo.children[child].ageCat0 ?? formInfo.children[child].ageCat1], ["Authorization Starts:", childMatches[child].saBegin]]
+                              .map((e) => e.join(" ")) ].join()
+                childInfoArray.push(array1)
+                let array2 = [ [["Hourly: $", childMatches[child].hourly ?? childMatches[child].hourly2], ["Daily: $", childMatches[child].daily ?? childMatches[child].daily2], ["Weekly: $", childMatches[child].weekly ?? childMatches[child].weekly2], ["Provider Primary/Secondary:", childMatches[child].providerDesignation ?? childMatches[child].providerDesignation2], ["\n"] ].map((e) => e.join(" ")) ].join()
+                childInfoArray.push(array2)
+            }
+            let joinedChildInfoArray = childInfoArray.join("\n").replace(/,\n/g, "\n").replace(/,/g, ",   ")
+            joinedChildInfoArray += "\nCopayment for biweekly period " + periodDates.range + ": $" + formInfo.copayAmount
+            navigator.clipboard.writeText(joinedChildInfoArray)
+            snackBar('Copied Service Authorization Info!', 'blank')
+        }
+    };
+}; // SECTION_END Case SA_Overview Fill_manual_Billing_Forms
 
 if (["CaseSpecialLetter.htm", "ProviderSpecialLetter.htm"].includes(thisPageNameHtm)) {
     //click checkbox if clicking label
@@ -3594,23 +3663,50 @@ try {
 } catch(error) { console.error(error) }
 //
 
-async function evalData(caseProviderNumber = caseId, pageName = thisPageName, dateRange = '', evalString = '', parm2providerId = 'parm2') {
+function closeDatepicker() { queueMicrotask(() => { $('.hasDatepicker').datepicker("hide") }) }
+//
+function listPageLinksAndList() {
+    document.querySelectorAll('tbody > tr').forEach(function(e) {
+        e.id = e.querySelector('td > a').textContent
+    })
+    return Array.from(document.querySelectorAll('tbody > tr'), (caseNumber) => caseNumber.id)
+}
+//
+function pleaseWait() {
+    document.querySelector('body').insertAdjacentHTML('afterbegin', '<div id="popovertarget" popover="manual">Please wait...<span style="margin: 0 5px;" id="progressReport"></span></div>')
+    document.querySelector('head').insertAdjacentHTML('beforeend', '<style id="inProgress">body > div.container { opacity: .7; }</style>')
+    document.getElementById('popovertarget')?.showPopover()
+}
+function thankYouForWaiting() {
+    document.getElementById('inProgress')?.remove()
+    document.getElementById('popovertarget')?.hidePopover()
+}
+//
+async function forAwaitMultiCaseEval(listArray, pageName) {
+    pleaseWait()
+    const evalObj = {}
+    let progressReport = document.getElementById('progressReport')
+    let listArrayLength = listArray.length
+    for await(const [index, caseNum] of listArray.entries()) {
+    // for await(const caseNum of listArray) {
+        progressReport.textContent = index + " of " + listArrayLength
+        const evaluatedData = await evalData(caseNum, pageName)
+        evalObj[caseNum] = evaluatedData
+    }
+    thankYouForWaiting()
+    return evalObj
+}
+async function evalData(caseProviderNumber = caseId, pageName = thisPageName, dateRange = '', evalString = '', caseOrProvider = 'case') {
+    let parm2providerId = caseOrProvider === "case" ? "parm2" : "providerId"
     let parmDateRange = dateRange.length ? "&parm3=" + dateRange : undefined
-    let unParsedEvalData = await getEvalData(caseProviderNumber, pageName, parmDateRange, parm2providerId).catch((err) => {
-        console.trace(err);
-        return false
-    })
+    let unParsedEvalData = await getEvalData(caseProviderNumber, pageName, parmDateRange, parm2providerId).catch((err) => { console.trace(err); $('h1').append('<div style="display: inline-block; margin-left: 5px;"> GetEvalDataBorkBorkBork</div>'); return false })
     if (!unParsedEvalData?.length) { return false }
-    let parsedEvalData = await parseEvalData(unParsedEvalData).catch((err) => {
-        console.trace(err);
-        return false
-    })
+    let parsedEvalData = await parseEvalData(unParsedEvalData).catch((err) => { console.trace(err); $('h1').append('<div style="display: inline-block; margin-left: 5px;"> ParseEvalDataBorkBorkBork</div>'); return false })
     if (evalString) {
-        parsedEvalData = await resolveEvalData(parsedEvalData, evalString)
+        parsedEvalData = await resolveEvalData2(parsedEvalData, evalString)
     }
     return parsedEvalData
 }
-
 async function getEvalData(caseProviderNumber, pageName, parm3 = '', parm2providerId) {
     let idNumber = parm2providerId === "parm2" ? caseId : providerId
     return new Promise((resolve) => {
@@ -3627,13 +3723,16 @@ async function getEvalData(caseProviderNumber, pageName, parm3 = '', parm2provid
 function parseEvalData(dataObject) {
     return new Promise((resolve) => {
         let parsedEvalData = {}
-        let dataObjectMatches = dataObject.match(/eval\(\'\[\{.*?\}\]\'\)\;/g)
-        for (let i = 0; i < dataObjectMatches.length; i++) {
-            let dataObjectReplacements = dataObjectMatches[i]
-            .replaceAll(/eval\(\'|\'\)\;/g,'')
-            .replaceAll(/:,/g, ':"",')
-            .replaceAll(/\\'/g, "'")
-            parsedEvalData[i] = JSON.parse(dataObjectReplacements)
+        let dataObjectMatches = dataObject.match(/eval\(\'\[\{.*?\}\]\'\)\;/g) ?? []
+        if (dataObjectMatches.length) {
+            for (let i = 0; i < dataObjectMatches.length; i++) {
+                let dataObjectReplacements = dataObjectMatches[i]
+                .replaceAll(/eval\(\'|\'\)\;/g,'')
+                .replaceAll(/:,/g, ':"",')
+                .replaceAll(/\\'/g, "'")
+                // .replaceAll(/\\"/g, '"')
+                parsedEvalData[i] = JSON.parse(dataObjectReplacements)
+            }
         }
         resolve(parsedEvalData)
     })
@@ -3646,7 +3745,54 @@ function resolveEvalData(parsedEvalData, evalString){
     }
     return parsedEvalData;
 }
-
+function resolveEvalData2(obj, prop) {
+    if (typeof obj !== 'object') throw 'resolveEvalData3: obj is not an object'
+    if (typeof prop !== 'string') throw 'resolveEvalData3: prop is not a string'
+    prop = prop.replace(/\[["'`](.*)["'`]\]/g,".$1") // Replaces [] notation with dot notation
+    return prop.split('.').reduce(function(prev, curr) {
+        return prev?.[curr]
+    }, obj || self)
+}
+function dateDiffInDays(a, b=new Date()) {
+    const _MS_PER_DAY = 86400000
+    a = new Date(a)
+    b = new Date(b)
+    const utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())
+    const utc2 = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())
+    return Math.abs( Math.floor((utc2 - utc1) / _MS_PER_DAY) )
+}
+function formatDate(date, format="mmddyy") {
+    date = new Date(date)
+    switch (format) {
+        case "mmddyy":
+            date = date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" })
+            break
+        case "mdyy":
+            date = date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" })
+            break
+        case "mmddyyyy":
+            date = date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
+            break
+        default:
+            date = date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
+            break
+    }
+    return date
+}
+function getDateString(year, month, week, day) {
+    const date = getDateofDay(year, month, week, day);
+    let dateString = date.toLocaleDateString();
+    return dateString;
+}
+function getDateofDay(year, month, week, day) {
+    const firstDay = 1
+    if (week < 0) { month++ }
+    const date = new Date(year, month, (week * 7) + firstDay)
+    if (day < date.getDay()) { day += 7 }
+    date.setDate(date.getDate() - date.getDay() + day)
+    return date
+}
+//
 const stateData = {
     AZ: 'Arizona', AL: 'Alabama', AK: 'Alaska', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DC: 'District of Columbia', DE: 'Delaware', FL: 'Florida',
     GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
