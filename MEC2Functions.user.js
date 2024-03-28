@@ -3017,94 +3017,136 @@ if (("CaseSupportActivity.htm").includes(thisPageNameHtm)) {
         doEvent("#planRequired")
     })
 }; //SECTION END Case Support Activity
-
-//SECTION START Close case AutoTransfer to closed case bank; Auto enter transfer info if have localStorage value; Add button to notEditMode page to do transfer;
+// SECTION_START Case_Transfer AutoTransfer to worker ID
 if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
-    let closedCaseLS = localStorage.getItem('MECH2.closedCaseBank')
-    let closedCaseBank = closedCaseLS.length === 7 ? closedCaseLS : ''
-
-    if ($('strong.rederrortext:contains("Transfer From Worker ID cannot be the same as Transfer To Worker ID.")').length) { localStorage.setItem('MECH2.caseTransfer', 'transferError'); $('#cancel').click() }
-    if ($('strong.rederrortext:contains("Transfer To Worker ID is invalid.")').length) { localStorage.removeItem('MECH2.closedCaseBank') }
-    $('#footer_links').append('<span style="margin: 0 .3rem; pointer-events: none;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
-    tabIndxNegOne('#caseTransferFromAllowedUREndsDate, #caseTransferFromAssignmentServicingEndsDate, #caseTransferFromVoid, #caseTransferFromTransferImmediately, #caseTransferToTransferEffectiveDate, #caseTransferToEarlyAcceptance, #caseTransferToName')
-
-
-
-    // if (transferToWorker) {
-
-    function doCaseTransfer() {
-        if (!notEditMode && closedCaseBank) {
-            localStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferDone')
-            $('#caseTransferFromType:contains("Worker To Worker")').val('Worker To Worker')
-            doEvent('#caseTransferFromType')
-            $('#caseTransferToWorkerId').val(closedCaseBank);
-            doEvent('#caseTransferToWorkerId')
-            $('#save').click()
+    if (iFramed && notEditMode) {
+        window.onmessage = (event) => {
+            if (event.origin !== "https://mec2.childcare.dhs.state.mn.us") return false;
+            if (event.data[0] === "newTransfer") { startWorkerTransfer(event.data[1]) }
         }
-    };
-
-    let transferLS = localStorage.getItem('MECH2.caseTransfer.' + caseId)
-
-    if (transferLS?.length) {
-        if (notEditMode) {
-            switch (transferLS) {
-                case "transferError":
-                case "transferDone":
-                    localStorage.removeItem('MECH2.caseTransfer.' + caseId)
-                    if (localStorage.getItem('closeAfter')?.length ) { localStorage.removeItem('closeAfter'); window.open('about:blank', '_self'); }
+    }
+    let ssTransferCase = 'MECH2.caseTransfer.' + caseId
+    let ssError = "MECH2.transferError"
+    let transferWorkerIdLS = localStorage.getItem('MECH2.closedCaseBank') ?? ''
+    let transferWorkerId = (/[a-z0-9]{7}/i).test(transferWorkerIdLS) ? transferWorkerIdLS : ''
+    let transferSS = sessionStorage.getItem(ssTransferCase) ?? ''
+    let redText = document.querySelector('strong.rederrortext')?.textContent ?? sessionStorage.getItem(ssError)
+    const redTextMap = new Map([
+        ["Transfer To Worker ID is not valid for Servicing Agency.", "Invalid Agency"],
+        ["Transfer To Worker ID is invalid.", "Invalid Worker"],
+        ["Transfer To Worker ID is missing.", "ID is blank"],
+        ["Transfer From Worker ID cannot be the same as Transfer To Worker ID.", "Same Worker ID"],
+        ["Case Number is missing.", "No case #"]
+    ])
+    function checkRedErrorText() {
+        if ( !notEditMode && document.querySelector('strong.rederrortext') ) {
+            redText = document.querySelector('strong.rederrortext')?.textContent
+            switch (redText) {/* eslint-disable no-fallthrough */
+                case "Transfer To Worker ID is not valid for Servicing Agency.":
+                case "Transfer To Worker ID is invalid.":
+                    localStorage.removeItem('MECH2.closedCaseBank')
+                case "Transfer To Worker ID is missing.":
+                case "Transfer From Worker ID cannot be the same as Transfer To Worker ID.":
+                    sessionStorage.setItem(ssTransferCase, 'transferError')
+                    sessionStorage.setItem(ssError, redText)
+                    document.getElementById('cancel').click()
                     break
+            }/* eslint-enable no-fallthrough */
+        } else if (notEditMode && redText) {
+            if ( redText === "Case Number is missing." ) { return }
+            else if ( redText.includes("CASE LOCKED") && iFramed) {
+                parent.postMessage(['transferError','Locked Case'], "https://mec2.childcare.dhs.state.mn.us")
+            } else {
+                let errorMessage = redTextMap.get(redText)
+                sessionStorage.removeItem(ssTransferCase)
+                sessionStorage.removeItem(ssError)
+                parent.postMessage(['transferError', errorMessage], "https://mec2.childcare.dhs.state.mn.us")
+            }
+        }
+    }
+    queueMicrotask(() => checkRedErrorText() )
+
+    function startWorkerTransfer(transferCase) {
+        if (transferCase) {
+            sessionStorage.setItem('MECH2.caseTransfer.' + transferCase, 'transferStart')
+            window.open("/ChildCare/CaseTransfer.htm?parm2=" + transferCase, "_self")
+        }
+    }
+    if (transferSS) {
+        if (notEditMode) {
+            switch (transferSS) { /* eslint-disable no-fallthrough */
                 case "transferStart":
-                    localStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferActive')
+                    sessionStorage.setItem(ssTransferCase, 'transferActive')
                     document.getElementById('new').click()
                     break
-            }
+                case "transferError":
+                    document.querySelector('form#caseTransferDetail').insertAdjacentHTML('afterbegin', '<div class="error_alertbox_new"><img src="images/error_alert_small.png"><strong class="rederrortext">' + sessionStorage.getItem(ssError) + '</strong></div>')
+                    sessionStorage.removeItem(ssError) // no break
+                case "transferDone":
+                    sessionStorage.removeItem(ssTransferCase)
+                    parent.postMessage(['transferStatus', 'Success'], "https://mec2.childcare.dhs.state.mn.us")
+                    break
+            } /* eslint-enable no-fallthrough */
 
         }
-        if (!notEditMode && transferLS === "transferActive") {
-            localStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferDone')
+        if (!notEditMode && transferWorkerId && transferSS === "transferActive") {
             doCaseTransfer()
         }
     };
-
-    if (notEditMode && localStorage.getItem('MECH2.doClose.' + caseId) === 'closeWindow' && localStorage.getItem('MECH2.activelyTransferring.' + caseId) === 'noThanks') { // Opens about:blank after transferring from inactive caseload list iframe // move to inactivecaseload?
-        localStorage.setItem('MECH2.doClose.' + caseId,'didClose.' + caseId);
-        window.open('about:blank', '_self');
+    function doCaseTransfer() {
+        let caseTransferFromType = document.querySelector('#caseTransferFromType')
+        if ( caseTransferFromType.querySelector('option[value="Worker To Worker"]') ) {
+            sessionStorage.setItem(ssTransferCase, 'transferDone')
+            caseTransferFromType.value = "Worker To Worker"
+            doEvent('#caseTransferFromType')
+            document.getElementById('caseTransferToWorkerId').value = transferWorkerId
+            doEvent('#caseTransferToWorkerId')
+            document.getElementById('save').click() // disable while testing!
+        }
     };
-
     //Automatic case transfer section end
-
-    //Semi-manual transfer with a button
-    function checkForClosedCaseBank() {
-        if (closedCaseBank) {
-            buttonClosedTransfer()
+    function checkTransferWorkerId() {
+        if (transferWorkerId) { return 1 }
+        else { eleFocus('#transferWorker'); document.getElementById('transferWorker').animate(redBorder, redBorderTiming); return 0 }
+    }
+    function validateTransferWorkerId(transferIdOfWorker) {
+        if ( (/[a-z0-9]{7}/i).test(transferIdOfWorker) ) {
+            if (transferWorkerId !== transferIdOfWorker) { localStorage.setItem('MECH2.closedCaseBank', transferIdOfWorker); transferWorkerId = transferIdOfWorker }
+            return 1
         } else {
+            transferWorkerId = ''
+            localStorage.removeItem('MECH2.closedCaseBank')
+            document.getElementById('transferWorker').setAttribute('placeholder', 'Invalid #')
             eleFocus('#transferWorker')
+            return 0
         }
     }
-    function buttonClosedTransfer() {
-        localStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferActive')
-        document.getElementById('new').click()
-    };
-    if (notEditMode) {
+    if (!iFramed) {
+        $('#footer_links').append('<span style="margin: 0 .3rem;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
+        tabIndxNegOne('#caseTransferFromAllowedUREndsDate, #caseTransferFromAssignmentServicingEndsDate, #caseTransferFromVoid, #caseTransferFromTransferImmediately, #caseTransferToTransferEffectiveDate, #caseTransferToEarlyAcceptance, #caseTransferToName')
+        document.getElementById('caseTransferFromType').addEventListener('input', function() {
+            setTimeout(() => { document.querySelectorAll(':is(input, select).form-control[readonly]').forEach((e) => { e.setAttribute('disabled', 'disabled') }) }, 300)
+        })
+    }
+    if (notEditMode && !iFramed) {
         ($('#caseTransferToName').parents('.form-group').after(`
             <div class="col-lg-6 col-md-6" style="vertical-align: middle;">
                 <button type="button" class="cButton" tabindex="-1" style="float: left;" id="closedTransfer">Transfer to:</button>
-                <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
+                <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${transferWorkerId}></input>
             </div>
         `))
-        // if (closedCaseBank) { document.getElementById('transferWorker').value = closedCaseBank }
-        document.getElementById('transferWorker')?.addEventListener('blur', function() {
-            if (this.value?.length === 7) {
-                localStorage.setItem('MECH2.closedCaseBank', this.value)
-            } else {
-                closedCaseBank = ''
-                localStorage.removeItem('MECH2.closedCaseBank')
-            }
-        })
-        document.getElementById('closedTransfer')?.addEventListener('click', function() { checkForClosedCaseBank() })
-        document.getElementById('transferWorker')?.addEventListener('keydown', function(e) { if (e.key === 'enter') { e.preventDefault; checkForClosedCaseBank() } })
+        document.getElementById('transferWorker')?.addEventListener('blur', function() { validateTransferWorkerId(this.value) })
+        document.getElementById('closedTransfer')?.addEventListener('click', function() { if ( checkTransferWorkerId() ) {
+            sessionStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferActive')
+            document.getElementById('new').click()
+        } })
     }
-} //SECTION END Case Transfer
+    queueMicrotask(() => {
+        if (iFramed && notEditMode) {
+            if (!caseId) { parent.postMessage(['transferStatus','pageLoaded'], "https://mec2.childcare.dhs.state.mn.us") }
+        }
+    })
+} // SECTION_END Case_Transfer
 
 if (("CaseUnearnedIncome.htm").includes(thisPageNameHtm)) {
     document.getElementById('paymentEndDate').addEventListener('keydown', function(e) {
@@ -3285,42 +3327,48 @@ if (("FinancialManualPayment.htm").includes(thisPageNameHtm)) {
     selectPeriodReversal(manualSelectPeriodToReverse)
 }; //SECTION END Financial Manual Payment
 
-//SECTION START Close case transfer to closed case bank; Changing dates to links
+// SECTION_START Inactive_Case_List Transfer cases to closed case bank
 if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
-    let closedCaseLS = localStorage.getItem('MECH2.closedCaseBank')
-    let closedCaseBank = closedCaseLS.length === 7 ? closedCaseLS : ''
-    let closedCaseBankLastThree = closedCaseBank.length === 7 ? closedCaseBank.slice(4) : ''
+    listPageLinksAndList()
+    let closedCaseLS = localStorage.getItem('MECH2.closedCaseBank') ?? ''
+    let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
+    let closedCaseBankLastThree = (/[a-z0-9]{7}/i).test(closedCaseBank) ? closedCaseBank.slice(4) : ''
     let todayDate = new Date().getTime();
     let changedToLinks
+    let iframeContainer
+    let transferiframe
+    let lsError = "MECH2.transferError"
     $('#inActiveCaseTable > tbody > tr > td:nth-of-type(4)').each(function() {
         let closedDatePlus46 = addDays($(this).text(), 46).getTime();
         if (closedDatePlus46 < todayDate) {
             let linkText = $(this).text();
-            $(this).text('');
-            $(this).append('<a class="oldClosed" id=' + $(this).siblings().eq(0).text() + ' href="CaseTransfer.htm?parm2=' + $(this).siblings().eq(0).text() + '", target="_blank">' + linkText + '</a>')
-            if (closedCaseBank.length === 7) { $(this).append('<span style="display: inline-block; margin-left: 15px;" class="cSpan">→ ' + closedCaseBankLastThree + '</span>') }
+            $(this)
+                .text('')
+                .append('<a href="CaseTransfer.htm?parm2=' + $(this).siblings().eq(0).text() + '", target="_blank">' + linkText + '</a>')
+                .closest('tr').addClass('oldClosed')
+            // $(this).append('<a class="oldClosed" id=' + $(this).siblings().eq(0).text() + ' href="CaseTransfer.htm?parm2=' + $(this).siblings().eq(0).text() + '", target="_blank">' + linkText + '</a>')
+            if ( (/[a-z0-9]{7}/i).test(closedCaseBank) ) { $(this).append('<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>') }
         };
     })
-    $('#workerSearch').closest('.col-lg-12').append(//'<button type="button" id="transferAllClosed" class="cButton__floating cButton float-right" tabindex="-1">Transfer All Old Closed</button>')
-        `<div style="vertical-align: middle; float: right !important;">
-            <button type="button" class="cButton" tabindex="-1" id="closedTransfer">Transfer old closed to:</button>
-            <input type="text" class="form-control" style="display: inline-block; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
-        </div>`
+    $('#workerSearch').closest('.col-lg-12').append(
+    `<div style="vertical-align: middle; float: right !important;">
+        <button type="button" class="cButton" tabindex="-1" id="closedTransferAll">Transfer old closed to:</button>
+        <input type="text" class="form-control" style="display: inline-block; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
+    </div>`
     )
     function addTableButtons() {
         $('.cSpan').remove()
-        $('.oldClosed').after('<span style="display: inline-block; margin-left: 15px;" class="cSpan">→ ' + closedCaseBankLastThree + '</span>')
+        $('.oldClosed').after('<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>')
     }
     function removeTableButtons() {
         $('.cSpan').remove()
     }
-    const oldClosedArray = Array.from(document.querySelectorAll('.oldClosed'), (caseNumber) => caseNumber.id)
-    document.getElementById('transferWorker')?.addEventListener('blur', function() {
-        console.log(this.value)
-        if (this.value?.length === 7) {
-            if ( this.value !== localStorage.getItem('MECH2.closedCaseBank') ) {
-                localStorage.setItem('MECH2.closedCaseBank', this.value)
-                closedCaseBank = this.value
+    document.getElementById('transferWorker')?.addEventListener('blur', (event) => checkClosedCaseBank(event.target.value) )
+    function checkClosedCaseBank(eventValue) {
+        if ( (/[a-z0-9]{7}/i).test(eventValue) ) {
+            if ( eventValue !== localStorage.getItem('MECH2.closedCaseBank') ) {
+                localStorage.setItem('MECH2.closedCaseBank', eventValue)
+                closedCaseBank = eventValue
                 closedCaseBankLastThree = closedCaseBank.slice(4)
                 addTableButtons()
             }
@@ -3330,64 +3378,102 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
             localStorage.removeItem('MECH2.closedCaseBank')
             removeTableButtons()
         }
+    }
+    document.getElementById('inActiveCaseTable').addEventListener('click', (event) => {
+        if (event.target.tagName === "SPAN") {
+            // let closestSpan = event.target.closest('span')
+            let closestSpanASibling = event.target.previousElementSibling
+            if ( checkForClosedCaseBank() && closestSpanASibling?.tagName === 'A') {
+                transferSingleClosed(event.target.closest('tr').id)
+            }
+        }
     })
-    $('#footer_links').before('<div id="iframeContainer" style="height: 400px; width: ' + $(".panel.panel-default").width() + '; display: none;"><iframe id="transferiframe" name="transferiframe" style="width: 100%; height: 100%;"></iframe></div>');
-    let transferiframe = document.getElementById('transferiframe')
-    let iframeContainer = document.getElementById('iframeContainer')
-    document.getElementById('inActiveCaseTable').onclick = function(event) {
-        if (event.target.closest('span')?.tagName.toLowerCase() === 'span') {
-            if (!closedCaseBank) { return false }
-            transferSingleClosed(event.target.closest('span').previousElementSibling)
-        }
+    async function transferSingleClosed(tRowId) {
+        pleaseWait()
+        await createIframe()
+        await caseTransferEvent(tRowId)
+            .catch((error) => { console.trace(error) })
+            .finally(() => {
+            iframeContainer.remove()
+            thankYouForWaiting()
+        })
     }
-    function transferSingleClosed(ele) { // AutoTransfer
-        localStorage.setItem('MECH2.caseTransfer.' + ele.getAttribute('id'), 'transferStart')
-        sessionStorage.setItem('MECH2.singleClose','closeWindow');
-        $(ele).closest('tr').hide();
-        window.open('/ChildCare/' + $(ele).attr('href'), 'transferiframe');
-    };
-    function transferAllClosed() {//blarg
-        sessionStorage.setItem('MECH2.massClose', "closeWindow")
-        caseTransferEvent()
-    }
-    function caseTransferEvent() {
-        localStorage.setItem('MECH2.caseTransfer.' + oldClosedArray[0], 'transferStart');
-        window.open('/ChildCare/CaseTransfer.htm?parm2=' + oldClosedArray[0], 'transferiframe');
-        iframeContainer.style.display = "block"
-        oldClosedArray.shift()
-    }
-    $('#closedTransfer').click(function() { transferAllClosed() });
-
-    window.addEventListener('storage', function(key, newValue, oldValue) {
-        if (event.key === 'MECH2.closedCaseBank' && event.newValue === null) {
-            return false
-        }
-        if (sessionStorage.getItem('MECH2.singleClose')?.length && event.key.indexOf('MECH2.caseTransfer') > -1 && event.newValue === null) {
-            sessionStorage.removeItem('MECH2.singleClose')
-            window.open('about:blank', 'transferiframe')
-            iframeContainer.style.display = "none"
-        }
-        if (sessionStorage.getItem('MECH2.massClose')?.length && event.key.indexOf('MECH2.caseTransfer') > -1 && event.newValue === null) {
-            if (oldClosedArray.length > 0 && event.key.indexOf('MECH2.caseTransfer') > -1 && event.newValue === null) {
-                caseTransferEvent();
-                // $('tr>td:first-child:contains(' + oldClosedArray[0] + ')').closest('tr').hide()
-                $('tr>td:first-child:contains(' + oldClosedArray[0] + ')').closest('tr').css('opacity', '.5')
+    async function transferMultiClosed(tRowIdArray) {
+        pleaseWait()
+        await createIframe()
+        return new Promise(async function(resolve, reject) {
+            for await(let caseNumberTransfer of tRowIdArray) {
+                if (closedCaseBank) {
+                    await caseTransferEvent(caseNumberTransfer)
+                        .catch((error) => { console.trace(error) })
+                }
             }
-            if (oldClosedArray.length === 0 && event.key.indexOf('MECH2.caseTransfer') > -1 && event.newValue === null) {
-                sessionStorage.removeItem('MECH2.massClose')
-                window.open('about:blank', 'transferiframe')
-                iframeContainer.style.display = "none"
+            iframeContainer.remove()
+            thankYouForWaiting()
+            resolve()
+        })
+    }
+    async function createIframe() {
+        return new Promise((resolve, reject) => {
+            $('#footer_links').before('<div id="iframeContainer" style="height: 400px;"><iframe id="transferiframe" name="transferiframe" style="width: 100%; height: 100%;"></iframe></div>')
+            transferiframe = document.getElementById('transferiframe')
+            iframeContainer = document.getElementById('iframeContainer')
+            window.onmessage = (event) => {
+                if (event.origin !== "https://mec2.childcare.dhs.state.mn.us") { reject() }
+                if (event.data[1] === "pageLoaded") { resolve() }
             }
+            window.open('/ChildCare/CaseTransfer.htm', 'transferiframe')
+        });
+    }
+    async function caseTransferEvent(tRowId) {
+        return new Promise(function(resolve, reject) {
+            transferiframe.contentWindow.postMessage(['newTransfer', tRowId], "https://mec2.childcare.dhs.state.mn.us")
+            let tRow = document.querySelector('tr[id="' + tRowId + '"]')
+            window.onmessage = (event) => {
+                if (event.data[0] === "transferError") {
+                    window.onmessage = null
+                    tRow.querySelector('span').textContent = event.data[1]
+                    tRow.style.opacity = '.35'
+                    switch (event.data[1]) {/* eslint-disable no-fallthrough */
+                        case "Invalid Agency":
+                        case "Invalid Worker": {
+                            checkClosedCaseBank(0)
+                        }
+                        case "Locked Case":
+                        case "ID is blank":
+                        case "Same Worker ID":
+                            break
+                    }/* eslint-enable no-fallthrough */
+                    // tRow.querySelector('td > a').classList.remove('oldClosed')
+                    tRow.classList.remove('oldClosed')
+                    reject(event.data[1])
+                }
+                if (event.data[0] === "transferStatus" && event.data[1] === "Success") {
+                    window.onmessage = null
+                    tRow.style.opacity = '.35'
+                    tRow.querySelector('span').remove()
+                    // tRow.querySelector('td > a').classList.remove('oldClosed')
+                    tRow.classList.remove('oldClosed')
+                    resolve()
+                }
+            }
+        });
+    }
+    document.getElementById('closedTransferAll').addEventListener('click', async function() {
+        const oldClosedArray = Array.from(document.querySelectorAll('.oldClosed'), (caseNumber) => caseNumber.id)
+        if ( checkForClosedCaseBank() ) {
+            await transferMultiClosed(oldClosedArray)
         }
     })
     function checkForClosedCaseBank() {
         if (closedCaseBank) {
+            return 1
         } else {
             eleFocus('#transferWorker')
+            return 0
         }
     }
-    document.getElementById('closedTransfer')?.addEventListener('click', function() { checkForClosedCaseBank() })
-}; //SECTION END Inactive Case List
+}; // SECTION_END Inactive_Case_List
 
 if ( ["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm) || ("/ChildCare/").includes(thisPageName) ) {
     if (userXnumber.length && document.getElementById("terms")) {
