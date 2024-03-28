@@ -2085,27 +2085,28 @@ if (("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) {
     } else { eleFocus('#createDB') }
 }
 
-//SECTION START Fill Child Support PDF Forms
 if (("CaseCSE.htm").includes(thisPageNameHtm)) {
     if (typeof userCountyObject !== undefined && userCountyObject.code === "169") {
         $('#cseDetailsFormsCompleted').parent().after('<button type="button" class="cButton centered-text float-right" tabindex="-1" id="csForms">Generate CS Forms</button>');
         $('#csForms').click(function() {
             let caseNumber = caseId
-            let cpInfo = $('#csePriTable .selected td').eq(1).text();
-            let ncpInfo = $('#csePriTable .selected td').eq(2).text();
+            let cpInfo = document.querySelector('#csePriTable .selected td:nth-child(2)').textContent;
+            let cpName = commaNameToObject(cpInfo)
+            let ncpInfo = document.querySelector('#csePriTable .selected td:nth-child(3)').textContent;
+            let ncpName = commaNameToObject(ncpInfo)
             let childList = {};
             $('#childrenTable tbody tr').each(function(index) {
                 if ($(this).children('td').eq(1).text().length > 0) {
                     childList["child" + index] = $(this).children('td').eq(1).text();
                 };
             });
-            const formInfo = {pdfType:"csForms", xNumber:userXnumber, caseNumber:caseNumber, cpInfo:cpInfo, ncpInfo:ncpInfo, ...childList};
+            const formInfo = {pdfType:"csForms", xNumber:userXnumber, caseNumber:caseNumber, cpInfo:[cpName.first, cpName.last], ncpInfo:[ncpName.first, ncpName.last], ...childList};
             window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank");
         });
     }
-    //SECTION END Fill Child Support PDF Forms
+    // SECTION_END Fill Child Support PDF Forms
 
-    //SECTION START Remove unnecessary fields from Child Support Enforcement
+    // SECTION_START Remove unnecessary fields from Child Support Enforcement
     if (notEditMode) {$('#actualDate').parents('.form-group').addClass('collapse')}
     let $hiddenCSE = $('#cseAbsentParentInfoMiddleInitial, #cseAbsentParentInfoSsn, #cseAbsentParentInfoBirthdate, #cseAbsentParentInfoAbsentParentSmi, #cseAbsentParentInfoAbsentParentId').closest('.form-group')
     $($hiddenCSE).addClass('collapse');
@@ -2126,8 +2127,7 @@ if (("CaseCSE.htm").includes(thisPageNameHtm)) {
     cseReviewDate()
     $('#cseGoodCauseClaimStatus').parent().after('<button type="button" class="cButton__floating cButton__nodisable centered-text float-right" tabindex="-1" id="cseGoodCauseClaimStatusToggle">Toggle extra info</button>');
     $('#cseGoodCauseClaimStatusToggle').click(function() { $goodCause.toggleClass('collapse toggle') });
-};
-//SECTION END Remove unnecessary fields from Child Support Enforcement
+}; // SECTION_START Case_CSE Fill_Child_Support_PDF_Forms
 
 //SECTION START CaseCSIA
 if (("CaseCSIA.htm").includes(thisPageNameHtm)) {
