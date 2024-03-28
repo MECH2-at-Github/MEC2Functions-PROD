@@ -2827,29 +2827,8 @@ if (("CaseServiceAuthorizationApprovalPackage.htm").includes(thisPageNameHtm)) {
         providerInfoTable.rows[1].classList.add('selected')
     })
 } //SECTION END Case SA Approval Package
-
+// SECTION_START SA_Overview Fill_manual_Billing_Forms
 if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
-    // if (!notEditMode) {
-    //     if (sessionStorage.getItem( 'MECH2.ageCategory.' + caseId ) !== null) {
-    //         let ageCategory = JSON.parse( sessionStorage.getItem( 'MECH2.ageCategory.' + caseId ))
-    //         document.getElementById('ageRateCategory').value = ageCategory.ageRateWeekOne
-    //         document.getElementById('ageRateCategory2').value = ageCategory.ageRateWeekTwo
-    //         document.getElementById('overrideReason').value = ageCategory.overrideReason
-    //         document.getElementById('atRiskPopulationFacility').value = ageCategory.atRiskWeekOne
-    //         document.getElementById('atRiskPopulationFacility2').value = ageCategory.atRiskWeekTwo
-    //         eleFocus('#save')
-    //     }
-    //     document.getElementById('save').addEventListener("click", function() {
-    //         let ageCategory = {
-    //             ageRateWeekOne: document.getElementById('ageRateCategory').value,
-    //             ageRateWeekTwo: document.getElementById('ageRateCategory2').value,
-    //             overrideReason: document.getElementById('overrideReason').value,
-    //             atRiskWeekOne: document.getElementById('atRiskPopulationFacility').value,
-    //             atRiskWeekTwo: document.getElementById('atRiskPopulationFacility2').value
-    //         }
-    //         sessionStorage.setItem('MECH2.ageCategory.' + caseId, JSON.stringify(ageCategory))
-    //     })
-    // }
     if (typeof userCountyObject !== undefined && userCountyObject.code === "169") {
         document.getElementById('csicTableData1')?.insertAdjacentHTML('beforebegin', `
             <div style="overflow: hidden" id="billingFormDiv">
@@ -2903,7 +2882,7 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
                 if (providerParsedName === document.querySelector('#providerInfoTable > tbody > tr.selected > td:nth-child(2)').textContent) {
                     let integerCopay = parseInt(result[1][item].copay).toString()
                     document.getElementById('copayAmountGet').textContent = integerCopay
-                    saFilterEvalData(integerCopay, destination)
+                    return saFilterEvalData(integerCopay, destination)
                 }
             }
         }
@@ -2924,24 +2903,13 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
                             i++
                         }
                     }
-                    billingFormInfo(childMatches, integerCopay, destination)
-                    break
+                    return billingFormInfo(childMatches, integerCopay, destination)
                 }
             }
         })
     }
     function billingFormInfo(childMatches, integerCopay, destination) {
-        // await saFilterEvalData().then((saEvalDataOutput) => {
         let childList = {};
-        // //rewrite childInfoTable to use evalData(document.querySelector('#providerInfoTable > tbody > tr.selected > td:nth-child(2)').textContent = 0.#.providerName; 0.#.saRowIndex -> 1.#.saRowIndex
-        // $('#childInfoTable tbody tr').each(function(index) {//child#.name:, child#.authHours:, child#.ageCat0:, child#.ageCat1:
-        //     $('#childInfoTable tbody tr').click().eq([index]);
-        //     childList["child" + index] = {};
-        //     childList["child" + index].name = reorderCommaName( toTitleCase($(this).children('td').eq(1).text()) );
-        //     childList["child" + index].authHours = $(this).children('td').eq(3).text();
-        //     childList["child" + index].ageCat0 = $('#ageRateCategory').val();
-        //     childList["child" + index].ageCat1 = $('#ageRateCategory2').val();
-        // });
         for (let child in childMatches) {
             let thisChild = childMatches[child]
             childList[child] = { name: reorderCommaName( toTitleCase(thisChild.childName)), authHours: thisChild.authorizedHours, ageCat0: thisChild.ageRateCategory, ageCat1: thisChild.ageRateCategory2 }
@@ -2961,18 +2929,18 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
             copayAmount: integerCopay ? integerCopay : document.getElementById('copayAmountManual').value,
             attendance0: new Date(periodDates.start).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
             attendance7: addDays(periodDates.start, 7).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"}),
-            // children: childMatches,
             children: childList,
-        };
+        }
         if (formInfo.copayAmount.length && destination === "billingForm") { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank") }
         else if (formInfo.copayAmount.length && destination === "clipboard") {
             let clipboardObject = {}
             let childInfoArray = []
-            for (let child in formInfo.children) { // [ ([1, 2],[3, 4]).map((e) => e.join(" ")) ].join("\n")
+            for (let child in formInfo.children) {
                 let array1 = [ [["Child:", formInfo.children[child].name], ["Authorized Hours:", formInfo.children[child].authHours], ["Age Category:", formInfo.children[child].ageCat0 ?? formInfo.children[child].ageCat1], ["Authorization Starts:", childMatches[child].saBegin]]
                               .map((e) => e.join(" ")) ].join()
                 childInfoArray.push(array1)
-                let array2 = [ [["Hourly: $", childMatches[child].hourly ?? childMatches[child].hourly2], ["Daily: $", childMatches[child].daily ?? childMatches[child].daily2], ["Weekly: $", childMatches[child].weekly ?? childMatches[child].weekly2], ["Provider Primary/Secondary:", childMatches[child].providerDesignation ?? childMatches[child].providerDesignation2], ["\n"] ].map((e) => e.join(" ")) ].join()
+                let array2 = [ [["Hourly: $", childMatches[child].hourly ?? childMatches[child].hourly2], ["Daily: $", childMatches[child].daily ?? childMatches[child].daily2], ["Weekly: $", childMatches[child].weekly ?? childMatches[child].weekly2], ["Provider Primary/Secondary:", childMatches[child].providerDesignation ?? childMatches[child].providerDesignation2], ["\n"] ]
+                              .map((e) => e.join(" ")) ].join()
                 childInfoArray.push(array2)
             }
             let joinedChildInfoArray = childInfoArray.join("\n").replace(/,\n/g, "\n").replace(/,/g, ",   ")
@@ -2980,7 +2948,7 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
             navigator.clipboard.writeText(joinedChildInfoArray)
             snackBar('Copied Service Authorization Info!', 'blank')
         }
-    };
+    }
 }; // SECTION_END Case SA_Overview Fill_manual_Billing_Forms
 
 if (["CaseSpecialLetter.htm", "ProviderSpecialLetter.htm"].includes(thisPageNameHtm)) {
