@@ -3346,8 +3346,7 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
                 .text('')
                 .append('<a href="CaseTransfer.htm?parm2=' + $(this).siblings().eq(0).text() + '", target="_blank">' + linkText + '</a>')
                 .closest('tr').addClass('oldClosed')
-            // $(this).append('<a class="oldClosed" id=' + $(this).siblings().eq(0).text() + ' href="CaseTransfer.htm?parm2=' + $(this).siblings().eq(0).text() + '", target="_blank">' + linkText + '</a>')
-            if ( (/[a-z0-9]{7}/i).test(closedCaseBank) ) { $(this).append('<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>') }
+            if ( (/[a-z0-9]{7}/i).test(closedCaseBank) ) { document.querySelectorAll('tr.oldClosed > td:nth-child(4)').forEach( (e) => e.insertAdjacentHTML('beforeend', '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>') ) }
         };
     })
     $('#workerSearch').closest('.col-lg-12').append(
@@ -3357,8 +3356,10 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
     </div>`
     )
     function addTableButtons() {
-        $('.cSpan').remove()
-        $('.oldClosed').after('<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>')
+        document.querySelectorAll('span.cSpan').forEach((e) => e.remove())
+        if ( (/[a-z0-9]{7}/i).test(closedCaseBank) ) {
+            document.querySelectorAll('tr.oldClosed > td:nth-child(4)').forEach( (e) => e.insertAdjacentHTML('beforeend', '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>') )
+        }
     }
     function removeTableButtons() {
         $('.cSpan').remove()
@@ -3381,7 +3382,6 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
     }
     document.getElementById('inActiveCaseTable').addEventListener('click', (event) => {
         if (event.target.tagName === "SPAN") {
-            // let closestSpan = event.target.closest('span')
             let closestSpanASibling = event.target.previousElementSibling
             if ( checkForClosedCaseBank() && closestSpanASibling?.tagName === 'A') {
                 transferSingleClosed(event.target.closest('tr').id)
@@ -3444,7 +3444,6 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
                         case "Same Worker ID":
                             break
                     }/* eslint-enable no-fallthrough */
-                    // tRow.querySelector('td > a').classList.remove('oldClosed')
                     tRow.classList.remove('oldClosed')
                     reject(event.data[1])
                 }
@@ -3452,7 +3451,6 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
                     window.onmessage = null
                     tRow.style.opacity = '.35'
                     tRow.querySelector('span').remove()
-                    // tRow.querySelector('td > a').classList.remove('oldClosed')
                     tRow.classList.remove('oldClosed')
                     resolve()
                 }
@@ -3474,7 +3472,6 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm)) {
         }
     }
 }; // SECTION_END Inactive_Case_List
-
 if ( ["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm) || ("/ChildCare/").includes(thisPageName) ) {
     if (userXnumber.length && document.getElementById("terms")) {
         document.getElementById("userId").value = userXnumber;
