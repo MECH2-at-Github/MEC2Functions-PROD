@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.2
+// @version      0.4.61
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3617,7 +3617,7 @@ if (("FinancialManualPayment.htm").includes(thisPageNameHtm)) {
     selectPeriodReversal(manualSelectPeriodToReverse)
 }; // SECTION_END Financial_Manual_Payment
 // SECTION_START Inactive_Case_List Transfer cases to closed case bank
-if (("InactiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('#inactiveCaseTable > tbody > tr:nth-child(2)')) {
+if (("InactiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('#inActiveCaseTable > tbody > tr:nth-child(2)')) {
     listPageLinksAndList()
     let closedCaseLS = localStorage.getItem('MECH2.closedCaseBank') ?? ''
     let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
