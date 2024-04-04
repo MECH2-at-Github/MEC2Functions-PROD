@@ -4,16 +4,16 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.61
+// @version      0.4.62
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
-
 'use strict';
 // ====================================================================================================
 // /////////////////////////////////// CUSTOM_NAVIGATION SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ====================================================================================================
 console.time('MEC2Functions')
-document.getElementById('help')?.insertAdjacentHTML('afterend', '<span style="margin-left: 10px; color: var(--aLinkColor);">' + GM_info.script.name + ' v' + GM_info.script.version + '</span>')
+document.getElementById('help')?.insertAdjacentHTML('afterend', '<a href="/ChildCare/PrivacyAndSystemSecurity.htm" target="_blank" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>')
+// document.getElementById('help')?.insertAdjacentHTML('afterend', '<span style="margin-left: 10px; color: var(--aLinkColor);">' + GM_info.script.name + ' v' + GM_info.script.version + '</span>')
 let pageWrap = document.querySelector('#page-wrap')
 let notEditMode = document.querySelectorAll('#page-wrap').length;
 let iFramed = window.location !== window.parent.location ? 1 : 0
@@ -640,7 +640,7 @@ if (!iFramed) {
 
 if (!notEditMode && !iFramed) {
     let actualDateField = document.querySelector('#actualDate:not([disabled])')
-    let storedActualDate = sessionStorage.getItem('actualDateSS')
+    var storedActualDate = sessionStorage.getItem('actualDateSS')
     if (actualDateField) {
         if (storedActualDate?.length === undefined) {//storedActualDate === null || storedActualDate === '') {
             document.getElementById('save').addEventListener('click', function () {
@@ -830,8 +830,11 @@ if (!iFramed) { // More element_focus
 
             if (("CaseSchool.htm").includes(thisPageNameHtm)) {
                 if (notEditMode) { eleFocus('#newDB') }
-                else if ($('#memberReferenceNumberNewMember').length) { eleFocus('#memberReferenceNumberNewMember') }
-                else { eleFocus('#actualDate') }
+                else {
+                    if ($('#memberReferenceNumberNewMember').length) { eleFocus('#memberReferenceNumberNewMember') }
+                    else if (!storedActualDate) { eleFocus('#actualDate') }
+                    else { eleFocus('#saveDB') }
+                }
             }
             //SUB-SECTION END Member Tab pages
 
@@ -3028,10 +3031,8 @@ if (("CaseReinstate.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_Reinstate
 // SECTION_START Case_School
 if (["CaseSchool.htm"].includes(thisPageNameHtm)) {
-    if (document.getElementById('memberReferenceNumberNewMember')) {
-        let memberArray = await evalData(undefined, "CaseMember", undefined, "0")
-        async function kindergartenStartDate() {
-            let memberNumber = document.getElementById('memberReferenceNumberNewMember').value
+    if (!notEditMode) {
+        async function kindergartenStartDate(memberArray, memberNumber) {
             let memberMatch = memberArray.filter((obj) => obj.memberReferenceNumber === memberNumber)
             let birthDate = new Date(memberMatch[0].memberBirthDate)
             let approxAge = new Date().getFullYear() - birthDate.getFullYear()
@@ -3049,10 +3050,20 @@ if (["CaseSchool.htm"].includes(thisPageNameHtm)) {
             document.getElementById('memberSchoolVerification').value === "" && (document.getElementById('memberSchoolVerification').value = "No Verification  Provided")
             document.getElementById('memberKindergartenStart').value === "" && (document.getElementById('memberKindergartenStart').value = formatDate(addDays(laborDay, 3), "mmddyyyy"))
             document.getElementById('memberHeadStartParticipant').value === "" && (document.getElementById('memberHeadStartParticipant').value = "No")
+            eleFocus('#saveDB')
         }
-        document.getElementById('memberReferenceNumberNewMember').addEventListener('blur', function (e) {
-            if (Number(e.target.value) > 2) { kindergartenStartDate() }
-        })
+        if (document.querySelectorAll('#schoolMemberTable > tbody > tr.selected').length === 1) {
+            let memberArray = await evalData(undefined, "CaseMember", undefined, "0")
+            let memberNumber = document.querySelector('#schoolMemberTable > tbody > tr.selected > td:nth-child(1)').textContent
+            if (Number(memberNumber) > 2) { kindergartenStartDate(memberArray, memberNumber) }
+        }
+        if (document.getElementById('memberReferenceNumberNewMember')) {
+            let memberArray = await evalData(undefined, "CaseMember", undefined, "0")
+            document.getElementById('memberReferenceNumberNewMember').addEventListener('blur', function (e) {
+            let memberNumber = document.getElementById('memberReferenceNumberNewMember').value
+                if (Number(e.target.value) > 2) { kindergartenStartDate(memberArray, memberNumber) }
+            })
+        }
     }
 } // SECTION_END Case_School
 // SECTION_START Hide_Duplicate_Buttons_when_no_SA
