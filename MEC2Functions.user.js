@@ -4,16 +4,16 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.62
+// @version      0.4.63
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
+
 'use strict';
 // ====================================================================================================
 // /////////////////////////////////// CUSTOM_NAVIGATION SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ====================================================================================================
 console.time('MEC2Functions')
 document.getElementById('help')?.insertAdjacentHTML('afterend', '<a href="/ChildCare/PrivacyAndSystemSecurity.htm" target="_blank" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>')
-// document.getElementById('help')?.insertAdjacentHTML('afterend', '<span style="margin-left: 10px; color: var(--aLinkColor);">' + GM_info.script.name + ' v' + GM_info.script.version + '</span>')
 let pageWrap = document.querySelector('#page-wrap')
 let notEditMode = document.querySelectorAll('#page-wrap').length;
 let iFramed = window.location !== window.parent.location ? 1 : 0
@@ -53,6 +53,7 @@ function fGetCaseParameters() { // Parameters for navigating from Alerts or List
         document.getElementById('caseOrProviderAlertsTable') ? [document.querySelector('table#caseOrProviderAlertsTable > tbody'), 3] :
             document.getElementById('clientSearchProgramResults') ? [document.querySelector('table#clientSearchProgramResults > tbody'), 1] : [document.querySelector('table > tbody'), 1]
     let parameter2alerts = caseTable[0].querySelector('tr > td:nth-of-type(2)') === null ? caseTable[0].querySelector('tr.selected > td:nth-of-type(' + caseTable[1] + ')')?.textContent : caseTable[0].querySelector('tr.selected > td:nth-of-type(' + caseTable[1] + ')')?.textContent
+    if (parameter2alerts === undefined) { return }
     let parameter3alerts = document.getElementById('periodBeginDate')?.value === undefined ? '' : '&parm3=' + document.getElementById('periodBeginDate')?.value.replace(/\//g, '') + document.getElementById('periodEndDate')?.value.replace(/\//g, '')
     return '?parm2=' + parameter2alerts + parameter3alerts
 }
@@ -358,7 +359,9 @@ if (!iFramed) {
                 if (["ProviderRegistrationList.htm", "ProviderSearch.htm"].includes(thisPageNameHtm) || document.querySelector('#caseOrProviderAlertsTable > tbody > tr.selected > td:nth-of-type(1)')?.textContent === "Provider") {
                     if (loadThisPageNode.id.indexOf("Provider") === 0) {
                         window.open('/ChildCare/' + loadThisPageNode.dataset.pageName + '.htm' + fGetProviderParameters(), loadThisPageNode.dataset.howToOpen)
-                    }
+                    }// else {
+                    //     window.open('/ChildCare/' + loadThisPageNode.dataset.pageName + '.htm', '_blank')
+                    // }
                 } else {
                     if (loadThisPageNode.id.indexOf("Provider") !== 0) {
                         let caseParameters = fGetCaseParameters() ?? ""
@@ -405,7 +408,13 @@ if (!iFramed) {
                     openCaseNumber(event.target.dataset.pageName, document.getElementById('newTabField').value)
                 }
             })
-            $('#newTabField').keydown(function (e) {
+            $('#newTabField').keyup(function (e) {
+                console.log(e.target.value.length)
+                if (e.target.value.length > 8) {
+                    e.stopImmediatePropagation()
+                    e.preventDefault()
+                    return false
+                }
                 e.stopImmediatePropagation()
                 switch (e.key) {
                     case 'n':
@@ -620,7 +629,7 @@ if (!iFramed) {
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
         };
 
-        if ((/\d+/).test(caseId) && notEditMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
+        if ((/^\d+/).test(caseId) && caseId.length < 8 && notEditMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
 
         let viewHistory = JSON.parse(localStorage.getItem('MECH2.caseHistoryLS'))
         function makeViewHistoryDatalist() {
@@ -842,9 +851,11 @@ if (!iFramed) { // More element_focus
             if (("CaseAddress.htm").includes(thisPageNameHtm)) {
                 if ($('strong:contains("Warning"), strong:contains("Effective")').length && !notEditMode) {
                     let storedActualDate = sessionStorage.getItem('actualDateSS')
-                    if (document.querySelector('strong.rederrortext').textContent === 'Effective Date must be entered in the corresponding biweekly period.' && storedActualDate) {
-                        if (new Date(periodDates.start) < new Date(storedActualDate) && new Date(storedActualDate) < new Date(periodDates.end)) {
-                            document.getElementById('effectiveDate').value === storedActualDate
+                    if (document.querySelector('strong.rederrortext')) {
+                        if (document.querySelector('strong.rederrortext').textContent === 'Effective Date must be entered in the corresponding biweekly period.' && storedActualDate) {
+                            if (new Date(periodDates.start) < new Date(storedActualDate) && new Date(storedActualDate) < new Date(periodDates.end)) {
+                                document.getElementById('effectiveDate').value === storedActualDate
+                            }
                         }
                     }
                     if (document.querySelector('div.error_alertbox_new > strong:not(.rederrortext)').textContent === " Warning: Effective date has changed - Review Living Situation") {
@@ -1478,7 +1489,7 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
     function fBaseCategoryButtons() {
         let caseCategoriesButtonsDiv = document.getElementById('caseCategoriesButtonsDiv')
         let providerCategoriesButtonsDiv = document.getElementById('providerCategoriesButtonsDiv')
-        switch (document.querySelector('#caseOrProviderAlertsTable>tbody>tr.selected>td:nth-child(1)').textContent) {
+        switch (document.querySelector('#caseOrProviderAlertsTable>tbody>tr.selected>td:nth-child(1)')?.textContent) {
             case "Case":
                 if (caseCategoriesButtonsDiv.classList.contains('collapse')) {
                     providerCategoriesButtonsDiv.classList.add('collapse')
@@ -1929,11 +1940,17 @@ if (["/AlertWorkerCreatedAlert.htm"].includes(slashThisPageNameHtm)) {
 if (("ApplicationInformation.htm").includes(thisPageNameHtm)) {
     let appReceivedField = document.getElementById('receivedDate')
     let appReceivedDate = appReceivedField.value
+    let appDateCompare = new Date(appReceivedField.value).setHours(0)
     if (appReceivedField.value !== '') {
         appReceivedField.closest('.form-group').insertAdjacentHTML('beforeend', '<button type="button" id="appReceivedDateButton" class="cButton centered-text float-right">Copy App Date</button>')
         document.getElementById('appReceivedDateButton').addEventListener('click', (() => {
             sessionStorage.setItem('actualDateSS', appReceivedDate)
             sessionStorage.setItem('processingApplication', "yes")
+            snackBar("Stored application date", 'blank')
+            if (appDateCompare < new Date(periodDates.start).setHours(0) || appDateCompare > new Date(periodDates.end).setHours(0)) {
+                document.getElementById('retroAppDateLbl').style.visibility = "hidden"
+                document.getElementById('retroAppDate').insertAdjacentHTML('afterend','<span>Notice: Application date is outside the current biweekly period.</span>')
+            }
         }))
     }
 } // SECTION_END Case_Action
