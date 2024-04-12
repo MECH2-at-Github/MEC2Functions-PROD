@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.63
+// @version      0.4.64
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2017,25 +2017,25 @@ if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm) && !notEditMode)
 // /////////////////////////////////////////////////////////////////////// CaseChildProvider (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     //custom CSS to rearrange the page
-    $('label[for="providerLivesWithChild"]').text('Lives with Child: ').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
-    $('label[for="providerLivesWithChild"]').add($('label[for="providerLivesWithChild"]').siblings()).appendTo($('label[for="childCareMatchesEmployer"]').parent())
-    $('label[for="relatedToChild"]').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
-    $('label[for="relatedToChild"]').add($('label[for="relatedToChild"]').siblings()).appendTo($('label[for="careInHome"]').parent());
-    $('div.form-group:has(div.col-lg-12:not(:has(*)))').remove()
+    // $('label[for="providerLivesWithChild"]').text('Lives with Child: ').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
+    // $('label[for="providerLivesWithChild"]').add($('label[for="providerLivesWithChild"]').siblings()).appendTo($('label[for="childCareMatchesEmployer"]').parent())
+    // $('label[for="relatedToChild"]').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
+    // $('label[for="relatedToChild"]').add($('label[for="relatedToChild"]').siblings()).appendTo($('label[for="careInHome"]').parent());
+    // $('div.form-group:has(div.col-lg-12:not(:has(*)))').remove()
     let $lnlGroup = $('#careInHome, #providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate, #formSent, #signedFormReceived').parents('.form-group')
     let $lnlTrainingDivs = $('#emptyDiv')
     let $licensedGroup = $('#primaryBeginDate, #secondaryBeginDate').parents('.form-group')
     let $careInHomeGroup = $('#exemptionReason, #exemptionPeriodBeginDate').parents('.form-group')
-    let $livesWithChildGroup = $('label[for=providerLivesWithChild], label[for=providerLivesWithChild]+div.col-lg-2').removeAttr('style')
+    let $livesWithChildGroup = $('label[for=providerLivesWithChild], label[for=providerLivesWithChild]+div.col-lg-2')//.removeAttr('style')
     document.getElementById('reporterType').setAttribute('disabled', 'disabled')
     // Buttons for added functionality
     if (notEditMode) {
-        $('#providerName').parent().after('<button type="button" class="cButton float-right" tabindex="-1" id="providerAddressButton">Provider Address</button>')
+        document.querySelector('#careInHome').closest('div.col-lg-6').insertAdjacentHTML('beforeend','<button type="button" class="cButton float-right" tabindex="-1" id="providerAddressButton">Provider Address</button>')
         $('#providerAddressButton').click(function (e) {
             e.preventDefault()
             window.open("/ChildCare/ProviderAddress.htm?providerId=" + $('#providerId').val(), "_blank");
         })
-        $('#providerSearch').parent().after('<button type="button" class="cButton float-right" tabindex="-1" id="providerInfoButton">Provider Contact</button>')
+        document.querySelector('#relatedToChild').closest('div.col-lg-6').insertAdjacentHTML('beforeend','<button type="button" class="cButton float-right" tabindex="-1" id="providerInfoButton">Provider Contact</button>')
         $('#providerInfoButton').click(function (e) {
             e.preventDefault()
             window.open("/ChildCare/ProviderInformation.htm?providerId=" + $('#providerId').val(), "_blank");
@@ -2147,36 +2147,36 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     // SECTION_END Open provider information page from Child's Provider page
     function childProviderPage() {
         if (document.getElementById('providerType').value !== "Legal Non-licensed" && document.getElementById('providerType').value) {//not LNL
-            $lnlGroup.addClass('hidden')
-            document.querySelectorAll('.lnlData, .lnlInfo').forEach(function (e) { e.classList.add('hidden') })
-            $livesWithChildGroup.addClass('hidden')
-            $careInHomeGroup.addClass('hidden')
-            $licensedGroup.removeClass('hidden')
-            $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'visible')
+            // $lnlGroup.addClass('hidden')
+            // document.querySelectorAll('.lnlData, .lnlInfo').forEach(function (e) { e.classList.add('hidden') })
+            // $livesWithChildGroup.addClass('hidden')
+            // $careInHomeGroup.addClass('hidden')
+            // $licensedGroup.removeClass('hidden')
+            // $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'visible')
             if (!notEditMode) {
                 $('#providerLivesWithChild, #careInHome, #relatedToChild').val("N")
             }//not LNL, edit mode
             else { $lnlGroup.addClass('hidden') }//not LNL, view mode
         } else if ($('#providerType').val() === "Legal Non-licensed") {//is LNL
             lnlTraining()
-            document.querySelectorAll('.lnlInfo').forEach(function (e) { e.classList.remove('hidden') })
-            $licensedGroup.addClass('hidden')
-            $lnlGroup.removeClass('hidden')
-            document.getElementById('')
-            $careInHomeGroup.removeClass('hidden')
-            $livesWithChildGroup.removeClass('hidden')
-            $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'hidden')
-            document.querySelectorAll('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').forEach((e) => {
-                if (!e.value) { e.closest('.form-group').classList.add('collapse') }
-                else { e.closest('.form-group').classList.remove('collapse') }
-            })
+            // document.querySelectorAll('.lnlInfo').forEach(function (e) { e.classList.remove('hidden') })
+            // $licensedGroup.addClass('hidden')
+            // $lnlGroup.removeClass('hidden')
+            // document.getElementById('')
+            // $careInHomeGroup.removeClass('hidden')
+            // $livesWithChildGroup.removeClass('hidden')
+            // $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'hidden')
+            // document.querySelectorAll('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').forEach((e) => {
+            //     if (!e.value) { e.closest('.form-group').classList.add('collapse') }
+            //     else { e.closest('.form-group').classList.remove('collapse') }
+            // })
         }
     };
     function lnlTraining() {
         let providerId = document.getElementById('providerId').value
         let lnlDataProviderId = "lnlData" + providerId
         if (document.getElementById(lnlDataProviderId)) {
-            document.getElementById(lnlDataProviderId).classList.remove('hidden')
+            // document.getElementById(lnlDataProviderId).classList.remove('hidden')
             checkIfRelated()
             return false
         }
