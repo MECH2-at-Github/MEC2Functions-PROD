@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.64
+// @version      0.4.65
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -1923,7 +1923,7 @@ if (["/AlertWorkerCreatedAlert.htm"].includes(slashThisPageNameHtm)) {
     if (document.getElementById('recordType').value === "Case Alert") {
         let delayNextMonth = new Date(new Date().setMonth(new Date().getMonth() + 1, 1)).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit", });
         let delayMonthAfter = new Date(new Date().setMonth(new Date().getMonth() + 2, 1)).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit", });
-        document.querySelector('div.form-group:has(#message)').insertAdjacentHTML('afterend','<div class="col-lg-12" id="delay"><button type="button" class="cButton__nodisable" style="margin-bottom: 3px;" id="delayNextMonth">MFIP Close Delay Alert: ' + delayNextMonth + '</button><button type="button" class="cButton__nodisable" id="delayMonthAfter">MFIP Close Delay Alert: ' + delayMonthAfter + '</button></div>')
+        document.querySelector('div.form-group:has(#message)').insertAdjacentHTML('afterend','<button type="button" class="cButton__nodisable delay" id="delayNextMonth">MFIP Close Delay Alert: ' + delayNextMonth + '</button><button type="button" class="cButton__nodisable delay" id="delayMonthAfter">MFIP Close Delay Alert: ' + delayMonthAfter + '</button>')
         $('#delayNextMonth').click(function (e) {
             $('#message').val("Approve new results (BSF/TY/extended eligibility) if MFIP not reopened.");
             $('#effectiveDate').val(delayNextMonth);
@@ -2030,39 +2030,48 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     document.getElementById('reporterType').setAttribute('disabled', 'disabled')
     // Buttons for added functionality
     if (notEditMode) {
-        document.querySelector('#careInHome').closest('div.col-lg-6').insertAdjacentHTML('beforeend','<button type="button" class="cButton float-right" tabindex="-1" id="providerAddressButton">Provider Address</button>')
+        let matchestEmployerRow = document.querySelector('div.row:has(#childCareMatchesEmployer)')
+        matchestEmployerRow.insertAdjacentHTML('beforeend',`
+        <button type="button" class="cButton float-right" tabindex="-1" id="providerAddressButton">Provider Address</button>
+        <button type="button" class="cButton float-right" tabindex="-1" id="providerInfoButton">Provider Contact</button>
+        `)
         $('#providerAddressButton').click(function (e) {
             e.preventDefault()
-            window.open("/ChildCare/ProviderAddress.htm?providerId=" + $('#providerId').val(), "_blank");
+            window.open("/ChildCare/ProviderAddress.htm?providerId=" + document.getElementById('providerId').value, "_blank");
         })
-        document.querySelector('#relatedToChild').closest('div.col-lg-6').insertAdjacentHTML('beforeend','<button type="button" class="cButton float-right" tabindex="-1" id="providerInfoButton">Provider Contact</button>')
         $('#providerInfoButton').click(function (e) {
             e.preventDefault()
-            window.open("/ChildCare/ProviderInformation.htm?providerId=" + $('#providerId').val(), "_blank");
+            window.open("/ChildCare/ProviderInformation.htm?providerId=" + document.getElementById('providerId').value, "_blank");
         })
     } else if (!notEditMode) {
-        $('#providerType').parent().after('<button type="button" class="cButton float-right cButton__nodisable" tabindex="-1" id="resetCCPForm">Clear Dates & Hours</button>')
-        $('#resetCCPForm').click(function (e) {
+        document.getElementById('providerType').closest('div.row').insertAdjacentHTML('beforeend',`
+        <button type="button" class="cButton float-right cButton__nodisable" tabindex="-1" style="margin-left: 5px;" id="resetCCPForm">Clear Dates & Hours</button>
+        <button type="button" class="cButton float-right cButton__nodisable" tabindex="-1" style="margin-left: 5px;" id="unendSACCPForm">Clear End Dates & Reason</button>
+        `)
+        document.getElementById('resetCCPForm').addEventListener('click', function (e) {
             e.preventDefault()
             $('#careEndReason').val($('#careEndReason').val(''))
             $('#primaryBeginDate, #secondaryBeginDate, #carePeriodBeginDate, #carePeriodEndDate, #primaryEndDate, #secondaryEndDate, #hoursOfCareAuthorized').val('')
             eleFocus('#primaryBeginDate')
         })
-        $('#primaryEndDate').parent().after('<button type="button" class="cButton float-right cButton__nodisable" tabindex="-1" id="unendSACCPForm">Clear End Dates & Reason</button>')
-        $('#unendSACCPForm').click(function (e) {
+        document.getElementById('unendSACCPForm').addEventListener('click', function (e) {
             e.preventDefault()
             $('#careEndReason').val($('#careEndReason').val(''))
             doEvent('#careEndReason')
             $('#carePeriodEndDate, #primaryEndDate, #secondaryEndDate').val('')
             eleFocus('#hoursOfCareAuthorized')
         })
+        tabIndxNegOne('#providerLivesWithChild')
     }
     //
 
     // Copy/paste start/end dates
     if (notEditMode) {
         queueMicrotask(() => {
-            document.getElementById('childProviderTable').addEventListener('click', () => childProviderPage())
+            document.getElementById('childProviderTable').addEventListener('click', () => {
+                childProviderPage()
+                checkForDates()
+            })
             document.getElementById('wrapUpDB').insertAdjacentHTML("afterend", "<button type='button' id='copyStart' class='form-button hidden'>Copy Start</button><button type='button' id='copyEndings' class='form-button hidden'>Copy Endings</button>")
             let copyStartButton = document.getElementById('copyStart')
             let copyEndingsButton = document.getElementById('copyEndings')
@@ -2070,7 +2079,6 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 document.getElementById('carePeriodBeginDate')?.value?.length && !document.getElementById('carePeriodEndDate')?.value?.length ? copyStartButton.classList.remove('hidden') : copyStartButton.classList.add('hidden')
                 document.getElementById('carePeriodEndDate')?.value?.length ? copyEndingsButton.classList.remove('hidden') : copyEndingsButton.classList.add('hidden')
             }
-            document.getElementById('childProviderTable').addEventListener('click', () => checkForDates)
             copyStartButton.addEventListener('click', (() => copyStartToSS()))
             function copyStartToSS() {
                 if (document.getElementById('carePeriodBeginDate')?.value?.length && document.querySelectorAll('.selected')?.length) {
@@ -2717,6 +2725,14 @@ if (("CaseExpense.htm").includes(thisPageNameHtm)) {
     })
     if (!notEditMode) { tempIncomes('temporaryExpense', 'paymentEndDate') }
 }; // SECTION_END Case_Expense
+// SECTION_START Case_Job_Search_Tracking
+if (("CaseJobSearchTracking.htm").includes(thisPageNameHtm)) {
+    document.getElementById('hoursUsed').addEventListener('keydown', function(e) {
+        if (['Enter', 'Tab'].includes(e.code) ) {
+            document.getElementById('save').click()
+        }
+    })
+} // SECTION_END Case_Job_Search_Tracking
 // SECTION_START Case_Member
 if (("CaseMember.htm").includes(thisPageNameHtm)) {
     // $('label[for="memberReferenceNumber"]').attr('id','openHistory') // Open CaseMemberHistory page from CaseMember with 'button'
