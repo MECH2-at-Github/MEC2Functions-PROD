@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.66
+// @version      0.4.67
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -494,8 +494,8 @@ function nextPrevPeriodButtons() {
 }
 $('#selectPeriod:not([disabled], [readonly], [type=hidden])').length && nextPrevPeriodButtons() // SECTION_END Period_Dropdown_Next_Prev_Buttons
 queueMicrotask(() => {
-    document.querySelector('body')?.addEventListener('submit', function () { document.querySelector('body').style.opacity = ".8" }) // ?
-    document.querySelector('#primaryNavigation')?.addEventListener('click', function (e) { if (e.target.dataset.howToOpen === "_self") { document.querySelector('body').style.opacity = ".8" } })
+    document.querySelector('body')?.addEventListener('submit', function() { document.querySelector('body').style.opacity = ".8" }) // ?
+    document.querySelector('#primaryNavigation')?.addEventListener('click', function(e) { if (e.target.dataset.howToOpen === "_self") { document.querySelector('body').style.opacity = ".8" } })
 }) // Dim_Page_On_Traversal
 // =================================================================================================================
 // SECTION_END CUSTOM_NAVIGATION  (THE MEC2NAVIGATION SCRIPT SHOULD MIMIC THE ABOVE)  SECTION_END NAVIGATION_BUTTONS
@@ -662,6 +662,7 @@ if (!notEditMode && !iFramed) {
 if (!notEditMode && sessionStorage.getItem('processingApplication') === "yes" && $('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').length && !$('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').val().length) {
     $('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').val(sessionStorage.getItem('actualDateSS'))
 }
+let excludedResetTabIndexList;
 function resetTabIndex(excludedList) {
     const nonResetPages = ["CaseSpecialLetter.htm"]
     // if ( !nonResetPages.includes(thisPageNameHtm) ) { $(':is(select, input, textarea, td.sorting)[tabindex]').removeAttr('tabindex') }
@@ -1134,9 +1135,11 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
         let suspendedCaseLength = document.querySelectorAll('tr.suspended').length
         let tempIneligCaseLength = document.querySelectorAll('tr.tempinelig').length
         $('h5').append(" " + [activeCaseLength, "active,", suspendedCaseLength, "suspended,", tempIneligCaseLength, "temp inelig. "].join(" ") + reinstatedCases)
-        let copyText = [activeCaseLength, suspendedCaseLength + tempIneligCaseLength].join('\n')
-        navigator.clipboard.writeText(copyText)
-        document.querySelector('h5').addEventListener('click', function () { snackBar(copyText) })
+        document.querySelector('h5').addEventListener('click', function () {
+            let copyText = [activeCaseLength, suspendedCaseLength + tempIneligCaseLength].join('\n')
+            navigator.clipboard.writeText(copyText)
+            snackBar(copyText)
+        })
         let caseListSelected = document.getElementById('caseListSelected')
         const caseListArray = Array.from(document.querySelectorAll('tbody > tr'), (caseNumber) => caseNumber.id)
         const caseListArraySlice = caseListArray.slice(20, 30)
@@ -2618,11 +2621,22 @@ if (["CaseEarnedIncome.htm", "CaseUnearnedIncome.htm", "CaseExpense.htm"].includ
         })
     }
     if (!notEditMode) {
+        excludedResetTabIndexList = "#ceiTemporaryIncome, #tempIncome, #temporaryExpense"
+        document.querySelector('body').addEventListener('change', function(e) {
+            if (e.target.nodeName === "SELECT") { tabIndxReset() }
+        })
         showHidePaymentChange()
-        tabIndxNegOne('#ceiTemporaryIncome, #tempIncome, #temporaryExpense')
-        if (document.querySelector('#memberReferenceNumberNewMember, #refPersonName')) {
-            tabIndxNegOne('#ceiPaymentEnd, #paymentEndDate')
+        function tabIndxReset() {
+            resetTabIndex(excludedResetTabIndexList)
+            tabIndxNegOne('#ceiTemporaryIncome, #tempIncome, #temporaryExpense')
+            if (document.querySelector('#memberReferenceNumberNewMember, #refPersonName')) {
+                tabIndxNegOne('#ceiPaymentEnd, #paymentEndDate')
+            }
+            if (document.querySelector('#ceiPaymentBegin, #paymentBeginDate')?.value) {
+                tabIndxNegOne('#ceiPaymentBegin, #paymentBeginDate')
+            }
         }
+        tabIndxReset()
     }
     showHidePaymentChange()
     $("h4:contains('Actual Income'), h4:contains('Student Income'), h4:contains('Actual Expense')").nextAll().addClass("hidden")
