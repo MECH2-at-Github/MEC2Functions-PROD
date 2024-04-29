@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.67
+// @version      0.4.68
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3700,8 +3700,7 @@ if (("FinancialBilling.htm").includes(thisPageNameHtm)) {
         $('table').click(function (e) {
             if (e.target.tagName.toLowerCase() === "input") { e.target.select() }
         })
-        weekOneMonday.closest('table').keyup(function (e) {
-        // $('table:has(#weekOneMonday)').keyup(function (e) {
+        weekOneMonday.closest('table').addEventListener('keyup', function (e) {
             if (e.target.id.indexOf('week') === 0) {
                 if (e.target.value !== 0 && e.target.value !== '') { addBillingRows(e.target.id) }
                 else if (e.target.value === '') { e.target.value = 0 }
