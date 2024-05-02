@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.68
+// @version      0.4.69
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -58,7 +58,8 @@ function fGetCaseParameters() { // Parameters for navigating from Alerts or List
     // let caseTable =
     //     document.getElementById('caseOrProviderAlertsTable') ? [document.querySelector('table#caseOrProviderAlertsTable > tbody'), 3] :
     //         document.getElementById('clientSearchProgramResults') ? [document.querySelector('table#clientSearchProgramResults > tbody'), 1] : [document.querySelector('table > tbody'), 1]
-    let parameter2alerts = caseTableFromMap[0].querySelector('tr > td:nth-of-type(2)') === null ? undefined : '?parm2=' + caseTableFromMap[0].querySelector('tr.selected > td:nth-of-type(' + caseTableFromMap[1] + ')')?.textContent
+    let parameter2alerts = caseTableFromMap[0].querySelector('tr > td:nth-of-type(2)') === null ? undefined : '?parm2=' + caseTableFromMap[0].querySelector('tr.selected > td:nth-of-type(' + caseTableFromMap[1] + ') > a')?.textContent
+    // let parameter2alerts = caseTableFromMap[0].querySelector('tr > td:nth-of-type(2)') === null ? undefined : '?parm2=' + caseTableFromMap[0].querySelector('tr.selected > td:nth-of-type(' + caseTableFromMap[1] + ')')?.textContent
     // let parameter2alerts = caseTable[0].querySelector('tr > td:nth-of-type(2)') === null ? undefined : '?parm2=' + caseTable[0].querySelector('tr.selected > td:nth-of-type(' + caseTable[1] + ')')?.textContent
     if (parameter2alerts === undefined) { return }
     let parameter3alerts = document.getElementById('periodBeginDate')?.value === undefined ? '' : '&parm3=' + document.getElementById('periodBeginDate')?.value.replace(/\//g, '') + document.getElementById('periodEndDate')?.value.replace(/\//g, '')
@@ -1094,6 +1095,7 @@ if (!iFramed) { // SECTION_START Footer_links
 // ////////////////////////////////////////////////////////////////////////// PAGE_SPECIFIC_CHANGES SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // SECTION_START Active_Case_List
 if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('#activeCaseTable > tbody > tr:nth-child(2)')) {
+    // query idea: CaseEditSummary, inhibiting errors. Object.case#.0.editType ("Warning Error", "Inhibiting Error"), .currentPeriod/.selectPeriod/.selectPeriodSelected (all have the same BWP)
     listPageLinksAndList()
     let aclTbody = document.querySelector('tbody')
     if (document.getElementById('caseResultsData')) {
@@ -1423,6 +1425,34 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
             sessionStorage.removeItem('MECH2.preWorkerAlertCase')
         }
     }, 300)
+    function checkIfMfip() {
+        let alertsTable = document.querySelector('table#caseOrProviderAlertsTable > tbody')
+        evalData().then(async function(tableTwoAlerts) {
+            tableTwoAlerts[1].forEach((checkAlert) => {
+                if (checkAlert.message.indexOf("Approve new") === 0) {
+                    let rowIndexPlusOne = Number(checkAlert.rowIndex)+1
+                    alertsTable.querySelector('tr:nth-child(' + rowIndexPlusOne + ')').id = checkAlert.caseNumber
+                    document.getElementById(checkAlert.caseNumber).classList.add('checkCash')
+                }
+            })
+            const checkCashArray = Array.from(document.querySelectorAll('.checkCash'), (caseNumber) => caseNumber.id)
+            forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(multiCaseResult) {
+                console.log(multiCaseResult)
+                for (let singleCase in multiCaseResult) {
+                    let programTable = multiCaseResult[singleCase][0]
+                    for (let i = 0; i < programTable.length; i++) {
+                        if (programTable[i].programNameHistory === "MFIP") {
+                            let mfipStatus = 'MFIP: ' + programTable[i].programStatusHistory
+                            let ccapStatus = ' - CCAP: ' + programTable[0].programNameHistory
+                            let inactiveDate = programTable[i].programStatusHistory === "Inactive" ? ' ' + programTable[i].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : ''
+                            document.getElementById(singleCase).querySelector('td:nth-child(2)').insertAdjacentHTML('beforeend', '<span style="margin: 0 10px 0 auto; float: right !important; font-size: small;">' + mfipStatus + inactiveDate + ccapStatus +'</span>')
+                        }
+                    }
+                }
+            })
+        })
+    }
+    checkIfMfip()
     deleteButton.insertAdjacentElement('afterend', document.getElementById('new'))
     document.getElementById('alertTotal').insertAdjacentHTML('afterend', '<button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>')
     document.getElementById('deleteTop').addEventListener('click', function () { $('#delete').click() })
@@ -2906,16 +2936,18 @@ if (("CaseMemberII.htm").includes(thisPageNameHtm)) {
 // SECTION_START Case_Notes custom styles
 if (("CaseNotes.htm").includes(thisPageNameHtm)) {
     let noteStringText = document.getElementById('noteStringText')
-    $(window).on('paste', function (e) {
-        if (e.originalEvent.clipboardData.getData('text').indexOf("CaseNoteFromAHK") === 0) {
-            e.preventDefault()
-            e.stopImmediatePropagation()
+    window.addEventListener('paste', function(event) {
+    // $(window).on('paste', function (e) {
+        let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+        if (pastedText.indexOf("CaseNoteFromAHK") === 0) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
             if (notEditMode) {
                 document.getElementById('noteSummary').value = "Click the 'New' button first ⬇"
                 noteStringText.value = "Click the 'New' button first ⬇"
                 document.getElementById('noteCreator').value = "X1D10T"
             } else {
-                let aCaseNoteData = e.originalEvent.clipboardData.getData('text').split('SPLIT')
+                let aCaseNoteData = pastedText.split('SPLIT')
                 if (["Application", "Redetermination"].includes(aCaseNoteData[1])) { document.getElementById('noteCategory').value = aCaseNoteData[1] }
                 document.getElementById('noteSummary').value = aCaseNoteData[2]
                 noteStringText.value = aCaseNoteData[3]
@@ -2933,38 +2965,23 @@ if (("CaseNotes.htm").includes(thisPageNameHtm)) {
                 // $('#noteStringText').val($('#noteStringText').val().replace(/\n\ *`\ */g,"\n             ").replace(/^\ *([A-Z]+\ ?[A-Z]+:)\ */gm, (text, a) => `${' '.repeat(9- a.length)}${a}    `))//Using ` to auto-insert/correct spacing, and fix spacing around titles
             }
         })
-        noteStringText.addEventListener('paste', (event) => {
-            if (document.querySelector('#disAutoFormat').textContent === "Disable Auto-Format") {
-                queueMicrotask(() => {
-                    noteStringText.value = (noteStringText.value.replace(/(\w)\(/g, "$1 (").replace(/\)(\w)/g, ") $1")//Spaces around parentheses
-                        .replace(/\n\u0009/g, "\n             ").replace(/\n\ {9}\u0009/g, "\n             ").replace(/\n\ {16}/g, "\n             ").replace(/\u0009/g, "    ")//Spacing from pasting Excel cells
-                        .replace(/\n+/g, "\n"))//Multiple new lines to single new line
-                })
+        noteStringText.addEventListener('paste', function(event) {
+            let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+            if (document.querySelector('#disAutoFormat').textContent === "Disable Auto-Format" && (/\u0009|\w\(|\)\w|\n\ {16}/).test(pastedText) ) {
+                event.preventDefault()
+                pastedText = pastedText
+                    .replace(/(\w)\(/g, "$1 (").replace(/\)(\w)/g, ") $1")//Spaces around parentheses
+                    .replace(/\n\u0009/g, "\n             ").replace(/\n\ {9}\u0009/g, "\n             ").replace(/\n\ {16}/g, "\n             ").replace(/\u0009/g, "    ")//Spacing from pasting Excel cells
+                    .replace(/\n+/g, "\n")//Multiple new lines to single new line
+                insertTextAndMoveCursor(pastedText)
             }
         })
         noteStringText.addEventListener('keydown', (e) => {
             if (e.key === "`") {
                 e.preventDefault()
-                let curPos = noteStringText.selectionStart; // will give the current position of the cursor
-                let currentText = $('#noteStringText').val();
-                let text_to_insert = "             ";
-                noteStringText.value = currentText.slice(0, curPos) + text_to_insert + currentText.slice(curPos) // setting the modified text in the text area
-                textSelect(noteStringText, curPos + 13);
+                insertTextAndMoveCursor("             ")
             }
         })
-    }
-    function textSelect(inp, s, e) {//moves cursor to selected position (s) or selects text between (s) and (e)
-        e = e || s;
-        if (inp.createTextRange) {
-            var r = inp.createTextRange();
-            r.hidden(true);
-            r.moveEnd('character', e);
-            r.moveStart('character', s);
-            r.select();
-        } else if (inp.setSelectionRange) {
-            inp.focus();
-            inp.setSelectionRange(s, e);
-        }
     }
     //Hiding PMI/SMI Merge and Disbursed Child Care Support Payment rows
     let $hiddenTr = $('table#caseNotesTable>tbody>tr>td:nth-child(5)').slice(0, 120).filter(':contains("Disbursed child care support"), :contains("PMI/SMI Merge")').closest('tr')
@@ -4280,6 +4297,27 @@ function selectPeriodReversal(selectPeriod) {
 //
 const redBorder = [{ borderColor: "red", borderWidth: "2px", }]//element.animate(redBorder, redBorderTiming)
 const redBorderTiming = { borderStyle: "solid", duration: 300, iterations: 10, }
+//
+function insertTextAndMoveCursor(textToInsert) {
+    let activeElem = document.activeElement
+    let cursorPosition = activeElem.selectionStart; // will give the current position of the cursor
+    let currentText = activeElem.value
+    activeElem.value = currentText.slice(0, cursorPosition) + textToInsert + currentText.slice(cursorPosition) // setting the modified text in the text area
+    textSelect(activeElem, cursorPosition + textToInsert.length);
+}
+function textSelect(inp, s, e) {//moves cursor to selected position (s) or selects text between (s) and (e)
+    e = e || s;
+    if (inp.createTextRange) {
+        var r = inp.createTextRange();
+        r.hidden(true);
+        r.moveEnd('character', e);
+        r.moveStart('character', s);
+        r.select();
+    } else if (inp.setSelectionRange) {
+        inp.focus();
+        inp.setSelectionRange(s, e);
+    }
+}
 //
 function tableFocus() {
     document.querySelector('tbody').addEventListener('click', function () {
