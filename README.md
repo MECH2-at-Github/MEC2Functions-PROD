@@ -11,9 +11,9 @@ Install instructions:
 # Features
 Top Navigation Buttons:
   * 3 rows of buttons are available to navigate MEC2.
-  * Row 1: Static, directly opens a page. [ + ] buttons open the page in a new tab. The field on the right is for a case number, and clicking [ Notes ] or [ Overview ] on the end opens pages in new tabs. Pressing enter opens CaseOverview.
-  * Row 2: (Categories) Static, loads row 3 buttons. Does not directly open a page.
-  * Row 3: (Page) Dynamic based on row 2 button. Directly opens a page.
+    * Row 1: Static, directly opens a page. [ + ] buttons open the page in a new tab. The field on the right is for a case number, and clicking [ Notes ] or [ Overview ] on the end opens pages in new tabs. Pressing enter opens CaseOverview.
+    * Row 2: (Categories) Static, loads row 3 buttons. Does not directly open a page.
+    * Row 3: (Page) Dynamic based on row 2 button. Directly opens a page.
   * On page load, the category and page are highlighted.
 
 * Focus on page load:
