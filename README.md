@@ -30,7 +30,7 @@ Top Navigation Buttons:
 * Pages with addresses have buttons to copy the mailing address to the clipboard.
 
 * Period Selection dropdown has buttons on each side. Single arrow buttons change the selection 1 period per click. Double arrow buttons change the selection 1 period and then load that period.
-« ‹ [Daterange - Dropdown] › »   (Previous+Submit, Previous [Dropdown] Next, Next+Submit)
+  * « ‹ [Daterange - Dropdown] › »   (Previous+Submit, Previous [Dropdown] Next, Next+Submit)
 
 * Hotkeys are available! ALT + ?:
   * N (new), W (wrap-up), S (save), C (cancel), E (edit), R (resend), ArrowLeft (previous), ArrowRight (next)
