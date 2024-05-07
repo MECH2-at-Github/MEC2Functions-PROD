@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.69
+// @version      0.4.70
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -1452,7 +1452,7 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
             })
         })
     }
-    checkIfMfip()
+    // checkIfMfip()
     deleteButton.insertAdjacentElement('afterend', document.getElementById('new'))
     document.getElementById('alertTotal').insertAdjacentHTML('afterend', '<button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>')
     document.getElementById('deleteTop').addEventListener('click', function () { $('#delete').click() })
@@ -1601,12 +1601,38 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
         }
     }
     fBaseCategoryButtons()
-    document.getElementById('caseOrProviderAlertsTable').addEventListener('click', (() => fBaseCategoryButtons()))
-    document.getElementById('baseCategoryButtonsDiv').addEventListener('click', function (e) {
+    //highlighting Category buttons, creating category buttons.
+    document.getElementById('alertTable').addEventListener( 'click', ((e) => {
+        //empty omniButtons
+        let selectedAlertTableRow = e.target.closest('tr')
+        let alertCategory = selectedAlertTableRow.childNodes[0]?.textContent.toLowerCase().replace(" ", "")
+        let messageText = selectedAlertTableRow.childNodes[3]?.textContent
+        for (let message in oAlertCategoriesLowerCase[alertCategory]?.messages) {
+            if (oAlertCategoriesLowerCase[alertCategory]?.messages[message]?.textIncludes.test(messageText) === true) {
+                if ( Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "baseCategoryButton") ) {
+                    foundAlert = Object.assign({}, oAlertCategoriesLowerCase[alertCategory].messages[message])
+                    eleFocus('#' + foundAlert.baseCategoryButton)
+                }
+                if ( Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "omniPageButtons") ) {
+                    foundAlert = Object.assign({}, oAlertCategoriesLowerCase[alertCategory].messages[message])
+                    //createOmniButtons( foundAlert.omniPageButtons )
+                }
+                break
+            }
+        }
+    }) )
+    function createOmniButtons( omniArray ) {
+        let omniButtonHTML
+        omniArray.forEach((buttonInArray) => {
+            omniButtonHTML += '<button type="button" class="narrow-form-button" id=' + buttonInArray +'>' + omniPages.get(buttonInArray) + '</button>'
+        })
+    }
+    document.getElementById('caseOrProviderAlertsTable').addEventListener( 'click', (() => fBaseCategoryButtons()) )
+    document.getElementById('baseCategoryButtonsDiv').addEventListener( 'click', function (e) {
         if (e.target.tagName === "BUTTON") {
             window.open('/ChildCare/' + e.target.id + '.htm' + whatAlertType().parameters, '_blank')
         }
-    })
+    } )
     // SECTION_END Do action based on Alert Type
 
     //AutoCaseNoting; Alert page section
@@ -1620,6 +1646,22 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
     // noteText: if not blank, sends through switch along with textFetchedData; if = "doFunctionOnNotes", __Notes.htm will send the category through a switch; // textFetchData: Data fetched from another page using evalData();
     // createAlert (not implemented yet, might get moved to __Notes.htm): if true, will open WorkerCreateAlert and auto-fill;
     // fetchData format: ["pageNameWithoutHtm:key.key.key"]
+    const omniPages = new Map([
+        ["CaseAddress", "Address"],
+        ["CaseChildProvider", "Provider"],
+        ["CaseCSIA", "CSI"],
+        ["CaseEligibilityResultSelection", "Elig"],
+        ["CaseMember", "Member"],
+        ["CaseNotes", "Notes"],
+        ["CaseOverview", "Overview"],
+        ["CasePageSummary", "Summary"],
+        ["CaseRemoveMember", "Remo"],
+        ["CaseServiceAuthorizationApproval", "SA:A"],
+        ["CaseServiceAuthorizationOverview", "SA:O"],
+        ["CaseDisability", "Disa"],
+        // [ ""],
+        // [ ""],
+    ])
     const oAlertCategoriesLowerCase = {//categories are alpha-sorted
         childsupport: {
             messages: {
@@ -1629,6 +1671,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "doReplace",
                     page: "",
                     intendedPerson: true,
+baseCategoryButton: "CaseMember",
+omniPageButtons: ["", "", ""],
                 },
                 ncpAddress: {
                     textIncludes: /Absent Parent of Child Ref #\d{2} has an address/,
@@ -1636,24 +1680,30 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "doReplace",
                     textFetchData: ["CaseAddress:0.0.residenceFullAddress"],
                     noteText: "doFunctionOnNotes",
+baseCategoryButton: "CaseAddress",
+omniPageButtons: ["", "", ""],
                 },
                 cpAddress: {
                     textIncludes: /Parentally Responsible Individual Ref #\d{2} add/,
                     noteCategory: "Household Change",
                     noteSummary: "doReplace",
                     page: "",
+baseCategoryButton: "CaseAddress",
+omniPageButtons: ["", "", ""],
                 },
                 nonCoopCS: {
                     textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is not cooperating/,
                     noteCategory: "Child Support Note",
                     noteSummary: "doReplace",
                     page: "",
+omniPageButtons: ["", "", ""],
                 },
                 coopCS: {
                     textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is cooperating/,
                     noteCategory: "Child Support Note",
                     noteSummary: "doReplace",
                     page: "",
+omniPageButtons: ["", "", ""],
                 },
             },
         },
@@ -1664,6 +1714,31 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteCategory: "Other",
                     noteSummary: "doReplace",
                     page: "",
+omniPageButtons: ["", "", ""],
+                },
+                unapprovedElig: {
+                    textIncludes: /Unapproved results have/,
+                    noteCategory: "Other",
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
+                },
+                warningElig: {
+                    textIncludes: /Warning messages exist fo/,
+                    noteCategory: "Other",
+baseCategoryButton: "CaseEditSummary",
+omniPageButtons: ["", "", ""],
+                },
+                inhibitedElig: {
+                    textIncludes: /Eligibility Results have/,
+                    noteCategory: "Other",
+baseCategoryButton: "CaseEditSummary",
+omniPageButtons: ["", "", ""],
+                },
+                noProgramSwitch: {
+                    textIncludes: /The program switch is not/,
+                    noteCategory: "Other",
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
             },
         },
@@ -1674,46 +1749,89 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteCategory: "Other",
                     noteSummary: "doReplace",
                     page: "",
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
                 closeTI: {
                     textIncludes: /allowed period of temporary ineligibility expires/,
                     noteCategory: "Other",
                     noteSummary: "doReplace",
                     page: "",
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
                 mailed: {
                     textIncludes: /Redetermination form has been mailed/,
                     noteCategory: "Redetermination",
                     noteSummary: "doReplace",
                     page: "",
+baseCategoryButton: "CaseOverview",
+omniPageButtons: ["", "", ""],
                 },
                 noRedet: {
                     textIncludes: /Redetermination has not been received/,
                     noteCategory: "Redetermination",
                     noteSummary: "Closing %0: Redet not complete/received",
                     summaryFetchData: ["CaseOverview:0.0.programBeginDateHistory"],
+baseCategoryButton: "CaseOverview",
+omniPageButtons: ["", "", ""],
                 },
                 autoDenied: {
                     textIncludes: /This case has been auto-denied/,
                     noteCategory: "Application",
                     noteSummary: "This case has been auto-denied",
+baseCategoryButton: "CaseOverview",
+omniPageButtons: ["", "", ""],
                 },
                 servicingEnd: {
                     textIncludes: /The Servicing Ends date/,
                     noteCategory: "Other",
                     noteSummary: "doReplace",
                     page: "",
+omniPageButtons: ["", "", ""],
+                },
+                terminatedSA: {
+                    textIncludes: /The system auto approved a terminated Service/,
+                    noteCategory: "Provider Change",
+baseCategoryButton: "CaseServiceAuthorizationOverview",
+omniPageButtons: ["", "", ""],
                 },
             }
         },
         maxis: {
             messages: {
+                csCoop: {
+                    textIncludes: /from Not Cooperating to Cooperating/,
+                    noteCategory: "Child Support Note",
+                    intendedPerson: true,
+                    noteSummary: "MAXIS: CP is cooperating with CS",
+                    page: "",
+omniPageButtons: ["", "", ""],
+                },
+                csNonCoop: {
+                    textIncludes: /from Cooperating to Not Cooperating/,
+                    noteCategory: "Child Support Note",
+                    intendedPerson: true,
+                    noteSummary: "MAXIS: CP is not cooperating with CS",
+                    page: "",
+omniPageButtons: ["", "", ""],
+                },
                 memberLeft: {
                     textIncludes: /Member Left date/,
                     noteCategory: "Household Change",
                     intendedPerson: true,
                     noteSummary: "doReplace",
                     page: "",
+omniPageButtons: ["", "", ""],
+                },
+                memberJoined: {
+                    textIncludes: /Member window for Reference Number/,
+                    noteCategory: "Household Change",
+                    intendedPerson: true,
+                    noteSummary: "doReplace",
+                    page: "",
+baseCategoryButton: "CaseMember",
+omniPageButtons: ["", "", ""],
                 },
                 residenceAddress: {
                     textIncludes: /Residence Address has been/,
@@ -1723,6 +1841,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteText: "doFunctionOnNotes",
                     page: "CaseAddress",
                     pageFilter: "",
+baseCategoryButton: "CaseAddress",
+omniPageButtons: ["", "", ""],
                 },
                 mailingAddress: {
                     textIncludes: /Mailing Address has been/,
@@ -1730,6 +1850,18 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "Mailing address changed by MAXIS worker",
                     page: "CaseAddress",
                     pageFilter: "",
+baseCategoryButton: "CaseAddress",
+omniPageButtons: ["", "", ""],
+                },
+            },
+        },
+        parisinterstate: {
+            messages: {
+                parisMatch: {
+                    textIncludes: /A PARIS Interstate match/,
+                    noteCategory: "Other",
+baseCategoryButton: "CaseNotes",
+omniPageButtons: ["", "", ""],
                 },
             },
         },
@@ -1741,18 +1873,24 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "doReplace",
                     page: "",
                     intendedPerson: true,
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
                 homelessExpiring: {
                     textIncludes: /The Homeless 3 month period will expire/,
                     noteCategory: "Application",
                     noteSummary: "doReplace",
                     page: "",
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
                 homelessMissing: {
                     textIncludes: /Homeless case has one or more missing/,
                     noteCategory: "Application",
                     noteSummary: "Homeless case has missing verifications",
                     page: "",
+baseCategoryButton: "CaseNotes",
+omniPageButtons: ["", "", ""],
                 },
                 extendedEligExpiring: {
                     textIncludes: /activity extended eligibility/,
@@ -1760,6 +1898,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "doReplace",
                     page: "",
                     intendedPerson: true,
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
                 tyExpires: {
                     textIncludes: /The allowed time on Transition Year will expi/,
@@ -1767,6 +1907,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "Approved TY to BSF eligibility results",
                     page: "CaseOverview",
                     pageFilter: "",
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
                 disabilityExpires: {
                     textIncludes: /The allowed disability period/,
@@ -1774,6 +1916,7 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "doReplace",
                     page: "",
                     intendedPerson: true,
+omniPageButtons: ["", "", ""],
                 },
                 ageCategory: {
                     textIncludes: /Member turned/,
@@ -1781,17 +1924,27 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "",
                     page: "",
                     intendedPerson: true,
+baseCategoryButton: "CaseServiceAuthorizationOverview",
+omniPageButtons: ["", "", ""],
                 },
             },
         },
         provider: {
             messages: {
+                parentAwareRatingStart: {
+                    textIncludes: /Provider received Parent Aware Rating/,
+                    noteCategory: "Provider Change",
+baseCategoryButton: "CaseServiceAuthorizationApproval",
+omniPageButtons: ["", "", ""],
+                },
                 providerUnsafe: {
                     textIncludes: /Provider has been deactivated for unsafe care./,
                     noteCategory: "Provider Change",
                     noteSummary: "Provider has been deactivated for unsafe care.",
                     fetchData: ["CaseServiceAuthorizationOverview:1"],
                     pageFilter: "Provider No Longer Eligible",
+baseCategoryButton: "CaseServiceAuthorizationOverview",
+omniPageButtons: ["", "", ""],
                 },
                 providerDeactivated: {
                     textIncludes: /Provider has been deactivated. Renewal/,
@@ -1799,30 +1952,39 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     noteSummary: "Provider deactivated. Renewal was not received.",
                     fetchData: ["CaseServiceAuthorizationOverview:1"],
                     pageFilter: "Provider No Longer Eligible",
+baseCategoryButton: "CaseServiceAuthorizationOverview",
+omniPageButtons: ["", "", ""],
                 },
                 providerRegistrationClosed: {
                     textIncludes: /Provider's Registration Status is closed/,
                     noteCategory: "Provider Change",
                     noteSummary: "Provider's Registration Status is closed.",
+baseCategoryButton: "CaseServiceAuthorizationOverview",
+omniPageButtons: ["", "", ""],
                 },
             },
         },
         serviceauthorization: {
             messages: {
-                paEnd: {
-                    textIncludes: /ParentAwareEnd/,
+                paStartOrEnd: {
+                    textIncludes: /Parent Aware/,
                     noteCategory: "Provider Change",
                     noteSummary: "doReplace",
-                },
-                paStart: {
-                    textIncludes: /ParentAwareStart/,
-                    noteCategory: "Provider Change",
-                    noteSummary: "doReplace",
+baseCategoryButton: "CaseServiceAuthorizationApproval",
+omniPageButtons: ["", "", ""],
                 },
                 providerClosed: {
                     textIncludes: /ProviderClosed/,
                     noteCategory: "Provider Change",
                     noteSummary: "doReplace",
+baseCategoryButton: "CaseServiceAuthorizationApproval",
+omniPageButtons: ["", "", ""],
+                },
+                unapprovedSA: {
+                    textIncludes: /Unapproved Service Authorization results/,
+                    noteCategory: "Provider Change",
+baseCategoryButton: "CaseServiceAuthorizationApproval",
+omniPageButtons: ["CaseServiceAuthorizationOverview", "", ""],
                 },
             },
         },
@@ -1832,6 +1994,8 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     textIncludes: /Approve new results/,
                     noteCategory: "Other",
                     noteSummary: "Approved CCMF to TY switch",
+baseCategoryButton: "CaseEligibilityResultSelection",
+omniPageButtons: ["", "", ""],
                 },
             },
         },
@@ -1862,7 +2026,6 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
 
             case "information.messages.mailed.noteSummary":
                 return "Redetermination mailed, due " + formatDate(addDays(document.querySelectorAll('#alertTable .selected>td')[1].textContent, 45), "mdyy")
-                // return "Redetermination mailed, due " + addDays(document.querySelectorAll('#alertTable .selected>td')[1].textContent, 45).toLocaleDateString('en-US', {year: "2-digit", month: "numeric", day: "numeric"})
                 break
             case "information.messages.closeSusp.noteSummary":
                 return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1")
@@ -1877,13 +2040,15 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
             case "maxis.messages.memberLeft.noteSummary":
                 return document.getElementById("message").value.replace(/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})./, "REMO: " + personName + " left $1")
                 break
+            case "maxis.messages.memberJoined.noteSummary":
+                return document.getElementById("message").value.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Joined: $1: " + document.querySelector('#alertTable tr.selected > td:nth-child(3)').textContent)
+                break
 
             case "childsupport.messages.nameChange.noteSummary":
                 return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(\#\d{2})/, "PRI$1")
                 break
             case "childsupport.messages.ncpAddress.noteSummary":
                 return msgText.replace(/(?:[A-Za-z- ]+)(\#\d{2})(?:[a-z- +]+)/, "ABPS of $1 address: ").replace(/(\d{5})(?:\d{4})/, "$1")
-                // return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(\#\d{2})(?:[a-z- +]+)/, "ABPS of $1 address: ").replace(/(\d{5})(?:\d{4})/, "$1")
                 break
             case "childsupport.messages.cpAddress.noteSummary":
                 return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[A-Za-z- +]+)/, "HH address per PRISM: ").replace(/(\d{5})(?:\d{4})/, "$1")
@@ -1963,6 +2128,7 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                     let noteMessage = await fGetNoteMessage(alertCategory + ".messages." + message + ".noteText", foundAlert.noteMessage, textFetchedData)
                     foundAlert.noteMessage = noteMessage ?? foundAlert.noteMessage
                 }
+                break
             }
         }
         if (foundAlert === 'undefined' || !Object.keys(foundAlert)?.length) { foundAlert = { noteSummary: messageText.slice(0, 50), noteCategory: "Other", noteMessage: messageText } } // Generic case note
@@ -2871,7 +3037,8 @@ if (("CaseMember.htm").includes(thisPageNameHtm)) {
             .after('<div style="display: inline-flex; margin-left: 5px;" id="birthMonths">')
         $('#raceCheckBoxes').parent().addClass('hidden')
         $('#caseMemberTable').click(function () {
-            if (parseInt($('#caseMemberTable .selected>td:eq(2)').text()) < 7) {
+            let ageFromMemberTable = document.querySelector('#caseMemberTable .selected>td:nth-child(3)').textContent
+            if (parseInt(ageFromMemberTable) < 7 || ageFromMemberTable === "") {
                 let monthsAge = fMonthDifference(new Date(), new Date($('#memberBirthDate').val()))
                 let birthMonthsText = monthsAge < 49 ? Math.floor((monthsAge) / 12) + 'y ' + (monthsAge) % 12 + 'm / ' + monthsAge + ' months' : Math.floor((monthsAge) / 12) + 'y ' + (monthsAge) % 12 + 'm'
                 if (monthsAge < 13) { birthMonthsText = monthsAge + ' months' }
@@ -2946,6 +3113,7 @@ if (("CaseNotes.htm").includes(thisPageNameHtm)) {
                 document.getElementById('noteSummary').value = "Click the 'New' button first ⬇"
                 noteStringText.value = "Click the 'New' button first ⬇"
                 document.getElementById('noteCreator').value = "X1D10T"
+                document.getElementById('new').animate(redBorder, redBorderTiming)
             } else {
                 let aCaseNoteData = pastedText.split('SPLIT')
                 if (["Application", "Redetermination"].includes(aCaseNoteData[1])) { document.getElementById('noteCategory').value = aCaseNoteData[1] }
@@ -2961,7 +3129,7 @@ if (("CaseNotes.htm").includes(thisPageNameHtm)) {
         document.querySelector('#disAutoFormat').addEventListener('click', (e) => { e.preventDefault(); $(this).text($(this).text() === "Disable Auto-Format" ? "Enable Auto-Format" : "Disable Auto-Format") })
         document.getElementById('save').addEventListener('click', () => {
             if (document.querySelector('#disAutoFormat').textContent === "Disable Auto-Format") {
-                noteStringText.value = (noteStringText.value.replace(/\n\ *`\ */g, "\n             ").replace(/^\ *([A-Z]+\ ?[A-Z]+:)\ */gm, (text, a) => `${' '.repeat(9 - a.length)}${a}    `))//Using ` to auto-insert/correct spacing, and fix spacing around titles
+                noteStringText.value = (noteStringText.value.replace(/\n\ *`\ */g, "\n             ").replace(/^\ *([A-Z]+\ ?[A-Z]+[^RSDI|SSI]:)\ */gm, (text, a) => `${' '.repeat(9 - a.length)}${a}    `))//Using ` to auto-insert/correct spacing, and fix spacing around titles
                 // $('#noteStringText').val($('#noteStringText').val().replace(/\n\ *`\ */g,"\n             ").replace(/^\ *([A-Z]+\ ?[A-Z]+:)\ */gm, (text, a) => `${' '.repeat(9- a.length)}${a}    `))//Using ` to auto-insert/correct spacing, and fix spacing around titles
             }
         })
@@ -3091,10 +3259,12 @@ if (("CaseOverview.htm").includes(thisPageNameHtm)) {
             snackBar(localedDate);
         });
     }
-    $('#programInformationData td:contains("HC"), #programInformationData td:contains("FS"), #programInformationData td:contains("DWP"), #programInformationData td:contains("MFIP"), #programInformationData td:contains("WB")').parent().addClass('stickyRow stillNeedsBottom')
+
+    // $('#programInformationData td:contains("HC"), #programInformationData td:contains("FS"), #programInformationData td:contains("DWP"), #programInformationData td:contains("MFIP"), #programInformationData td:contains("WB")').parent().addClass('stickyRow stillNeedsBottom')
+    document.querySelectorAll('#programInformationData > tbody> tr > td:nth-child(1)').forEach((e) => { if (["MFIP", "DWP", "FS"].includes(e.textContent)) { e.closest('tr').classList = 'stickyRow stillNeedsBottom' } })
     waitForElmHeight('#programInformationData > tbody > tr > td').then(() => {
         document.querySelectorAll('.stickyRow').forEach(function (element, index) {
-            element.style.bottom = (($('.stillNeedsBottom').length - 1) * (document.querySelector('#programInformationData').getBoundingClientRect().height / document.querySelectorAll('#programInformationData tbody tr').length)) + "px"
+            element.style.bottom = ( (document.querySelectorAll('.stillNeedsBottom').length - 1) * (document.querySelector('#programInformationData').getBoundingClientRect().height / document.querySelectorAll('#programInformationData tbody tr').length) ) + "px"
             $(element).removeClass('stillNeedsBottom')
         })
     })
@@ -3102,11 +3272,8 @@ if (("CaseOverview.htm").includes(thisPageNameHtm)) {
         if ($('#participantInformationData_wrapper thead td:eq(0)').attr('aria-sort') !== "ascending") { $('#participantInformationData_wrapper thead td:eq(0)').click() }
     })
     $('table:not(#providerInformationData)').click(function () {
-        if ($('#providerInformationData>tbody>tr>td:first-child').length && $('#providerInformationData>tbody>tr>td:first-child').text().toLowerCase() !== "no records found") {
-            $('#providerInformationData>tbody>tr>td:first-child').each(function () {
-                $(this).replaceWith('<td><a href="ProviderOverview.htm?providerId=' + $(this).text() + '" target="_blank">' + $(this).text() + '</a></td>')
-            })
-        }
+        let providerTableFirstChildren = document.querySelectorAll('#providerInformationData>tbody>tr>td:first-child')
+        providerTableFirstChildren.forEach((e) => { if (e.textContent > 0) { e.outerHTML = '<td><a href="ProviderOverview.htm?providerId=' + e.textContent + '" target="_blank">' + e.textContent + '</a></td>' } })
     })
 }; // SECTION_END Case_Overview
 // SECTION_START Case_Page_Summary
@@ -3569,12 +3736,12 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
         $('#footer_links').append('<span style="margin: 0 .3rem;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
     }
     if (notEditMode && !iFramed) {
-        ($('#caseTransferToName').parents('.form-group').after(`
-            <div class="col-lg-6 col-md-6" style="vertical-align: middle;">
+        document.getElementById('secondaryActionArea').insertAdjacentHTML('afterend', `
+            <div style="display: inline-flex; padding: 10px 20px 0 20px; float: right !important;">
                 <button type="button" class="cButton" tabindex="-1" style="float: left;" id="closedTransfer">Transfer to:</button>
                 <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${transferWorkerId}></input>
             </div>
-        `))
+        `)
         document.getElementById('transferWorker')?.addEventListener('blur', function () { validateTransferWorkerId(this.value) })
         document.getElementById('closedTransfer')?.addEventListener('click', function () {
             if (checkTransferWorkerId()) {
