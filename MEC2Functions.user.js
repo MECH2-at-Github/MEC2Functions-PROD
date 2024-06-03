@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.77
+// @version      0.4.78
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -827,9 +827,10 @@ if (!iFramed) { // More element_focus
             }
             if (("CaseParent.htm").includes(thisPageNameHtm)) {
                 if (!notEditMode) {
-                    if (document.getElementById('parentVerification').value === 'No Verification Provided') { focusEle = '#parentVerification' }
-                    else if (document.getElementById('parentReferenceNumberNewMember')) { focusEle = '#parentReferenceNumberNewMember' }
-                    else if (!document.getElementById('parentReferenceNumberNewMember') && document.getElementById('childReferenceNumberNewMember')) { focusEle = '#childReferenceNumberNewMember' }
+                    // if (document.getElementById('parentVerification').value === 'No Verification Provided') { focusEle = '#parentVerification' }
+                    if ( ['No Verification Provided', ''].includes(document.getElementById('parentVerification').value) ) { focusEle = '#parentVerification' }
+                    else if ( document.getElementById('parentReferenceNumberNewMember') ) { focusEle = '#parentReferenceNumberNewMember' }
+                    else if ( !document.getElementById('parentReferenceNumberNewMember') && document.getElementById('childReferenceNumberNewMember') ) { focusEle = '#childReferenceNumberNewMember' }
                     else { focusEle = document.querySelector('#cancel, #revert') }
                 }
                 else if (notEditMode) {
@@ -1000,6 +1001,7 @@ if (!iFramed) { // More element_focus
                 }
                 else { focusEle = '#confirmDB' }
             }
+            if (("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) { focusEle = '#createDB' }
             //SUB-SECTION START Service Authorization pages
             if (("CaseCreateServiceAuthorizationResults.htm").includes(thisPageNameHtm) && notEditMode) { focusEle = '#createDB' }
             if (["CaseServiceAuthorizationOverview.htm", "CaseCopayDistribution.htm"].includes(thisPageNameHtm) && notEditMode) { focusEle = '#nextDB' }
@@ -3355,7 +3357,6 @@ if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
         $(this).text('');
         $(this).append('<a href="FinancialBilling.htm?parm2=' + caseId + '&parm3=' + linkText.replace(" - ", "").replaceAll("/", "") + '", target="_blank">' + linkText + '</a>');
     });
-    $('#paymentHistoryTable>thead>tr>td:eq(2)').click()
     addDateControls('#paymentPeriodBegin')
     addDateControls('#paymentPeriodEnd')
     // Copy_Provider_And_Child_Payments
@@ -3389,25 +3390,21 @@ if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
         })
     })
     function getProviderAndChildPaymentInfo(providerName, childName) {
-//array0: providerName, rowIndex1, billingPeriod, copayAmount, issuanceAmount, effectiveDate // rowIndex1 = array0 row = table1 row# = array1.rowIndex2 // array1.rowIndex3 = table2 row#
-//array1: childName, amount
         let providerPaymentListString
         let childPaymentListString
-        evalData().then(function(result) { // period, name, amount, etc
+        evalData().then(function(result) {
             let childPaymentListArray = []
             let providerPaymentListArray = []
             let providerNameList = providerName.length > 0 ? [providerName] : providerTableList
             providerNameList.forEach(function(provider) {
                 for (let row in result[0]) {
                     let thisRow = result[0][row]
-                    // let correspondingTableTwoRow = result[0][ thisRow.rowIndex1 ]
-                    // let childCheck = (childName.length < 1 || correspondingTableTwoRow.childName === childName) ? 1 : 0
                     if (thisRow.providerName === provider) {
                         providerPaymentListArray.push([ thisRow.billingPeriod, thisRow.providerName, thisRow.issuanceAmount, thisRow.copayAmount, thisRow.recoupAmount ].join("\t") )
                     }
                 }
             })
-            providerPaymentListString = providerPaymentListArray.join("\r\n")
+            providerPaymentListString = providerPaymentListArray.sort(((a, b) => a.slice(10) > b.slice(10))).join("\r\n")
             let childNameList = childName.length > 0 ? [childName] : childTableList
             childNameList.forEach(function(child) {
                 for (let row in result[1]) {
@@ -3415,13 +3412,13 @@ if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
                     let correspondingTableOneRow = result[0][ thisRow.rowIndex2 ]
                     let providerCheck = (providerName.length < 1 || correspondingTableOneRow.providerName === providerName) ? 1 : 0
                     if (thisRow.childName === child && providerCheck) {
-                        childPaymentListArray.push([ correspondingTableOneRow.billingPeriod, thisRow.childName, thisRow.amount, correspondingTableOneRow.providerName, ].join("\t") )
+                        childPaymentListArray.push([ correspondingTableOneRow.billingPeriod, correspondingTableOneRow.providerName, thisRow.amount, thisRow.childName, ].join("\t") )
                     }
                 }
             })
-            childPaymentListString = childPaymentListArray.join("\r\n")
+            childPaymentListString = childPaymentListArray.sort(((a, b) => a.slice(10) > b.slice(10))).join("\r\n")
             let providerPaymentHeaders = providerPaymentListString.length > 0 ? "Care Period\tProvider\tPayment\tCopay\tRecoup\r\n" : ""
-            let childPaymentHeaders = childPaymentListString.length > 0 ? "Care Period\tChild\tPayment\tProvider\r\n" : ""
+            let childPaymentHeaders = childPaymentListString.length > 0 ? "Care Period\tProvider\tPre-Copay Amount\tChild\r\n" : ""
             navigator.clipboard.writeText(providerPaymentHeaders + providerPaymentListString + "\r\n\r\n" + childPaymentHeaders + childPaymentListString)
             snackBar('Child and Provider Payments')
         })
@@ -4550,6 +4547,12 @@ function listPageLinksAndList() {
         e.id = e.querySelector('td > a').textContent
     })
     return Array.from(document.querySelectorAll('tbody > tr'), (caseNumber) => caseNumber.id)
+}
+//
+function doClick(target) {
+    let element = typeof(target) === "object" ? target : document.querySelector(target)
+    let clickEvent = new MouseEvent('click')
+    element.dispatchEvent(clickEvent);
 }
 //
 function pleaseWait() {
