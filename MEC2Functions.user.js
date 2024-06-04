@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.78
+// @version      0.4.79
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -703,14 +703,16 @@ setTimeout(function() { resetTabIndex() }, 400)
 // ////////////////////////////////////////////////////////////////////////// FOCUS_ELEMENT SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // SECTION_START Element_Focus
 function eleFocus(ele) {
-    document.querySelectorAll('.focusedElement').forEach((e) => e.classList.remove('focusedElement'))
+    // document.querySelectorAll('.focusedElement').forEach((e) => e.classList.remove('focusedElement'))
     let eleToFocus = typeof(ele) === "object" ? ele : document.querySelector(ele)
     if (eleToFocus) {
         $(document).ready(function() {
-            eleToFocus.classList.add('focusedElement')
-                document.querySelector('.focusedElement').focus()
+            if ( eleToFocus.nodeName === "INPUT" && eleToFocus.classList.contains('form-control') ) { eleToFocus.select() }
+            else { eleToFocus.focus() }
+            // eleToFocus.classList.add('focusedElement')
+            // document.querySelector('.focusedElement').focus()
         });
-    }
+    } else { console.log("eleFocus failed to find element based on query:", ele, ". Check for missing #.") }
 };
 if (!iFramed) { // More element_focus
     // function firstEmptyId() { return $('.panel-box-format :is(input, select):not(:disabled, .form-button, [readonly], [type="hidden"])').filter(function() {return $(this).val()?.length === 0}).eq(0).attr('id') || "" }
@@ -828,10 +830,11 @@ if (!iFramed) { // More element_focus
             if (("CaseParent.htm").includes(thisPageNameHtm)) {
                 if (!notEditMode) {
                     // if (document.getElementById('parentVerification').value === 'No Verification Provided') { focusEle = '#parentVerification' }
-                    if ( ['No Verification Provided', ''].includes(document.getElementById('parentVerification').value) ) { focusEle = '#parentVerification' }
-                    else if ( document.getElementById('parentReferenceNumberNewMember') ) { focusEle = '#parentReferenceNumberNewMember' }
+                    if ( document.getElementById('parentReferenceNumberNewMember') ) { focusEle = '#parentReferenceNumberNewMember' }
+                    else if ( ['No Verification Provided', ''].includes(document.getElementById('parentVerification').value) ) { focusEle = '#parentVerification' }
                     else if ( !document.getElementById('parentReferenceNumberNewMember') && document.getElementById('childReferenceNumberNewMember') ) { focusEle = '#childReferenceNumberNewMember' }
                     else { focusEle = document.querySelector('#cancel, #revert') }
+                    console.log(focusEle)
                 }
                 else if (notEditMode) {
                     tbodiesFocus('#editDB')
@@ -862,10 +865,14 @@ if (!iFramed) { // More element_focus
 
             if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 if (notEditMode) { focusEle = '#newDB' }
-                else if ($('strong:contains("Warning")').length > 0) { focusEle = '#saveDB' }
-                else if (!document.getElementById('memberReferenceNumberNewMember').value) { focusEle = '#memberReferenceNumberNewMember' }
-                else if ((!document.getElementById('primaryBeginDate').value && !document.getElementById('secondaryBeginDate').value) && document.getElementById('providerType').value !== "Legal Non-licensed") { focusEle = '#primaryBeginDate' }
-                else { $('#hoursOfCareAuthorized').select() }
+                else if (!notEditMode) {
+                    if ($('strong:contains("Warning")').length > 0) { focusEle = '#saveDB' }
+                    else if ( !document.getElementById('memberReferenceNumberNewMember').value ) { focusEle = '#memberReferenceNumberNewMember' }
+                    else if ( document.getElementById('providerType').value === "Legal Non-licensed" ) { focusEle = '' }
+                    else if ( (!document.getElementById('primaryBeginDate').value && !document.getElementById('secondaryBeginDate').value) && document.getElementById('providerType').value !== "Legal Non-licensed" ) { focusEle = '#primaryBeginDate' }
+                    else { focusEle = '#hoursOfCareAuthorized' }
+                    // else { document.getElementById('hoursOfCareAuthorized').select() }
+                }
             }
 
             if (("CaseSchool.htm").includes(thisPageNameHtm)) {
@@ -883,30 +890,26 @@ if (!iFramed) { // More element_focus
                 if ($('strong:contains("Warning"), strong:contains("Effective")').length && !notEditMode) {
                     let storedActualDate = sessionStorage.getItem('actualDateSS')
                     if (document.querySelector('strong.rederrortext')) {
-                        if (document.querySelector('strong.rederrortext').textContent === 'Effective Date must be entered in the corresponding biweekly period.' && storedActualDate) {
+                        if (document.querySelector('strong.rederrortext').innerText === 'Effective Date must be entered in the corresponding biweekly period.' && storedActualDate) {
                             if (new Date(periodDates.start) < new Date(storedActualDate) && new Date(storedActualDate) < new Date(periodDates.end)) {
                                 document.getElementById('effectiveDate').value === storedActualDate
                             }
                         }
                     }
-                    if (document.querySelector('div.error_alertbox_new > strong:not(.rederrortext)').textContent === " Warning: Effective date has changed - Review Living Situation") {
-                        document.getElementById('save').click()
+                    if (document.querySelector('div.error_alertbox_new > strong:not(.rederrortext)').innerText === " Warning: Effective date has changed - Review Living Situation") {
+                        // document.getElementById('save').click()
+                        doClick('#save')
                     }
                     focusEle = '#saveDB'
                 }
                 else {
-                    if (notEditMode) { focusEle = '#editDB' }
-                    else if (!notEditMode) {
-                        if (document.getElementById('effectiveDate').getAttribute('disabled') === "disabled") {//new app mode
-                            if (document.getElementById('previous').getAttribute('disabled') === "disabled") { $('#effectiveDate').select() }//new app, editing
-                            else if (!document.getElementById('residenceStreet1').value) {
-                                if (document.getElementById('new').getAttribute('disabled') !== "disabled") { focusEle = '#newDB' }
-                                else if (document.getElementById('new').getAttribute('disabled') === "disabled") { focusEle = '#subsidizedHousing' }
-                            }
-                            else { focusEle = '#wrapUpDB' }
-                        }//new app, not editing
-                        else //not new app, editing
-                            if (!document.getElementById('subsidizedHousing').value) { focusEle = '#subsidizedHousing' }
+                    let previousStatus = document.getElementById('previous')?.getAttribute('disabled')
+                    let editingMode = ( previousStatus === "disabled" ) ? "appEditing" : previousStatus === null ? "appNotEditing" : document.getElementById('edit')?.getAttribute('disabled') === "disabled" ? "editing" : "notEditing"
+                    if (editingMode === "appNotEditing") { focusEle = '#wrapUpDB' }
+                    if (editingMode === "notEditing") { focusEle = '#editDB' }
+                    if (editingMode === "appEditing" || editingMode === "editing") {
+                        if (document.getElementById('subsidizedHousing').value === '' && document.getElementById('residenceStreet1').value !== '') { focusEle = '#subsidizedHousing' }
+                        else if (document.getElementById('residenceStreet1').value) { focusEle = 'effectiveDate' }
                     }
                 }
             }
@@ -950,11 +953,11 @@ if (!iFramed) { // More element_focus
                     let appDate = sessionStorage.getItem('actualDateSS')
                     let bsfCode = document.getElementById('basicSlidingFeeFundsAvailableCode')
                     if (bsfCode.value === '' && !noAutoFunds) {
-                        bsfCode.value = 'Y' //.addClass('prefilled')
+                        bsfCode.value = 'Y'
                         focusEle = '#saveDB'
                     }
                     if (appDate?.length) { document.getElementById('bSfEffectiveDate').value = appDate }
-                    else if (appDate?.length === 0) { focusEle = '#bSfEffectiveDate' }
+                    else if (!appDate?.length) { focusEle = '#bSfEffectiveDate' }
                 }
             }
 
@@ -1084,9 +1087,11 @@ if (!iFramed) { // More element_focus
         if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm)) { if (notEditMode) { focusEle = '#new' } else { $('#pmiNumber').attr('disabled') === 'disabled' ? focusEle = '#next' : focusEle = '#pmiNumber' } };
         if (("CaseReapplicationAddCcap.htm").includes(thisPageNameHtm)) {
             if (document.getElementById('next').getAttribute('disabled') === 'disabled') {
-                let unchecked = [...document.querySelectorAll('#countiesTable td>input.form-check-input')].filter((e) => e.getAttribute('checked') !== "checked").forEach((e) => e.classList.add('required-field'))
-                if (unchecked.length) { focusEle = '#' + unchecked[0].id }
-                else { focusEle = '#addccap' }
+                let unchecked = [...document.querySelectorAll('#countiesTable td>input.form-check-input')].filter((e) => e.getAttribute('checked') !== "checked")
+                if (unchecked.length > 0) {
+                    unchecked.forEach((e) => e.classList.add('required-field'))
+                    focusEle = '#' + unchecked[0].id
+                } else { focusEle = '#addccap' }
             }
             else { focusEle = '#next' }
         }
@@ -1438,36 +1443,7 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
 // =================================================================================================================================================================================================
 // /////////////////////////////////////////////////////////////////////// Alerts ("Alerts.htm") (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\alertTotal
 if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
-    let deleteButton = document.getElementById('delete')
-    addDateControls("#inputEffectiveDate")
-    let caseOrProviderAlertsTable = document.getElementById('caseOrProviderAlertsTable')
-    let $caseOrProviderAlertsTableTbody = $('#caseOrProviderAlertsTable > tbody')
-    let preWorkerAlertCase = sessionStorage.getItem('MECH2.preWorkerAlertCase')
-    document.getElementById('new').addEventListener('click', function() { sessionStorage.setItem('MECH2.preWorkerAlertCase', document.getElementById("groupId").value) })
-    if (localStorage.getItem('MECH2.userName') === null || localStorage.getItem('MECH2.userName') === undefined && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
-        // let userNameObserver = new MutationObserver(function(mutations) {
-        let userNameObserver = new TrackedMutationObserver(function(mutations) {
-            mutations.forEach((mutation) => {
-                let workerName = mutation.target.value
-                workerName = reorderCommaName(workerName)
-                let truncatedWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
-                localStorage.setItem('MECH2.userName', truncatedWorkerName)
-                userNameObserver.disconnect()
-            })
-        })
-        const workerName = document.querySelector('#workerName')
-        userNameObserver.observe(workerName, { attributeFilter: ["tabindex"] })
-    }
-    setTimeout(function() {
-        if (Number(document.querySelector('#alertTotal').value) && caseOrProviderAlertsTable.querySelectorAll('td.dataTables_empty').length) { document.querySelector('#alertInputSubmit').click() }
-        else if (preWorkerAlertCase?.length && caseOrProviderAlertsTable.querySelectorAll('tr')?.length > 1) {
-            $('td:nth-child(3):contains(' + preWorkerAlertCase + ')', $caseOrProviderAlertsTableTbody).parent('tr').attr('id', 'preWorkerAlertCase')
-            let activeCase = document.getElementById('preWorkerAlertCase')
-            activeCase.click()
-            activeCase.scrollIntoView({ behavior: "smooth", block: "center" })
-            sessionStorage.removeItem('MECH2.preWorkerAlertCase')
-        }
-    }, 300)
+    // document.querySelectorAll('#caseOrProviderAlertsTable > tbody > tr').forEach((e) => { e.id = e.childNodes[2].textContent }) // This doesn't persist after deleting alerts. Table is replaced with non marked rows.
     function checkIfMfip() {
         let alertsTable = document.querySelector('table#caseOrProviderAlertsTable > tbody')
         evalData().then(async function(tableTwoAlerts) {
@@ -1496,6 +1472,46 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
         })
     }
     // checkIfMfip()
+    let deleteButton = document.getElementById('delete')
+    let inputEffectiveDate = document.getElementById('inputEffectiveDate')
+    doWrap(inputEffectiveDate)
+    addDateControls("#inputEffectiveDate")
+    let caseOrProviderAlertsTable = document.getElementById('caseOrProviderAlertsTable')
+    let $caseOrProviderAlertsTableTbody = $('#caseOrProviderAlertsTable > tbody')
+    let caseOrProviderAlertsTableTbody = document.querySelector('#caseOrProviderAlertsTable > tbody')
+    let preWorkerAlertCaseSS = sessionStorage.getItem('MECH2.preWorkerAlertCase')
+    document.getElementById('new').addEventListener('click', function() { sessionStorage.setItem('MECH2.preWorkerAlertCase', document.getElementById("groupId").value) })
+    if (localStorage.getItem('MECH2.userName') === null || localStorage.getItem('MECH2.userName') === undefined && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
+        let userNameObserver = new MutationObserver(function(mutations) {
+            mutations.forEach((mutation) => {
+                let workerName = mutation.target.value
+                workerName = reorderCommaName(workerName)
+                let truncatedWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
+                localStorage.setItem('MECH2.userName', truncatedWorkerName)
+                userNameObserver.disconnect()
+            })
+        })
+        const workerName = document.querySelector('#workerName')
+        userNameObserver.observe(workerName, { attributeFilter: ["tabindex"] })
+    }
+    setTimeout(function() {
+        if (Number(document.getElementById('alertTotal').value) && caseOrProviderAlertsTableTbody.querySelector('td.dataTables_empty')) { doClick(document.getElementById('alertInputSubmit') ) }
+        // if (Number(document.getElementById('alertTotal').value) && caseOrProviderAlertsTable.querySelectorAll('td.dataTables_empty').length) { document.getElementById('alertInputSubmit').click() }
+        else if (preWorkerAlertCaseSS && caseOrProviderAlertsTableTbody.childNodes.length > 1) {
+            let preWorkerCase = [...caseOrProviderAlertsTableTbody.querySelectorAll('tr > td:nth-child(3)')].filter((ele) => ele.innerText.includes(preWorkerAlertCaseSS) )
+            if (preWorkerCase?.length) {
+                preWorkerCase = preWorkerCase[0].parentElement
+                doClick(preWorkerCase)
+                preWorkerCase.scrollIntoView({ behavior: "smooth", block: "center" })
+            }
+            // $('td:nth-child(3):contains(' + preWorkerAlertCase + ')', $caseOrProviderAlertsTableTbody).parent('tr').attr('id', 'preWorkerAlertCase')
+            // let activeCase = document.getElementById('preWorkerAlertCase')
+            // doClick(activeCase)
+            // activeCase.click()
+            // activeCase.scrollIntoView({ behavior: "smooth", block: "center" })
+            sessionStorage.removeItem('MECH2.preWorkerAlertCase')
+        }
+    }, 300)
     deleteButton.insertAdjacentElement('afterend', document.getElementById('new'))
     document.getElementById('alertTotal').insertAdjacentHTML('afterend', '<button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>')
     document.getElementById('deleteTop').addEventListener('click', function() { $('#delete').click() })
@@ -1518,54 +1534,62 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                 break
         }
     }
-    $('#deleteTop').after('<button type="button" class="form-button centered-text doNotDupe" id="deleteAll" title="Delete All" value="Delete All">Delete All</button>');
-    $('#deleteTop').after('<button type="button" class="form-button centered-text doNotDupe hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>');
+    document.getElementById('deleteTop').insertAdjacentHTML('afterend', `
+        <button type="button" class="form-button centered-text doNotDupe" id="deleteAll" title="Delete All" value="Delete All">Delete All</button>
+        <button type="button" class="form-button centered-text doNotDupe hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>
+    `);
     $('h4:contains("Case/Provider List")')
         .wrap('<div>')
         .after('<h4 style="float: right; display:inline-flex color: #003865; font-size: 1.2em; font-weight: bold;" id="alertMessage"></h4>');
-    $('#alertsPanelData>div.panel-default').addClass('flex-vertical')
     let vDeleteAllButton = document.getElementById('deleteAll')
     let vHaltDeleting
-    // const observerDelete = new MutationObserver(e => { fDoDeleteAll() })
-    const observerDelete = new TrackedMutationObserver(e => { fDoDeleteAll() })
-    $('#deleteAll').on("click", function(button) {
+    const observerDelete = new MutationObserver(e => { fDoDeleteAll() })
+    document.getElementById('deleteAll').addEventListener("click", function(button) {
         oCaseDetails = whatAlertType()
         vCaseOrProvider = oCaseDetails.type
         if (!["case", "provider"].includes(vCaseOrProvider.toLowerCase())) { return }
         vNumberToDelete = oCaseDetails.number
-        vCaseName = $('#groupName').val()//name on page
-        observerDelete.observe(document.querySelector('#delete'), { attributeFilter: ['value'] })
-        $('#deleteAll, #stopDeleteAll').toggleClass('hidden')
+        vCaseName = document.getElementById('groupName').value//name on page
+        observerDelete.observe(document.getElementById('delete'), { attributeFilter: ['value'] })
+        document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
         fDoDeleteAll()
     })
-    $('#stopDeleteAll').on("click", function(button) {
+    $('#stopDeleteAll').on("click", function (button) {
         vHaltDeleting = 1
     })
     function fDoDeleteAll(e) {//Test worker ID PWSCSP9
         if (document.getElementById('delete').value !== "Please wait") {
             if (!vHaltDeleting) {
-                if ($('#delete').val() === "Delete Alert" && $('#caseNumber, #providerId').val() === oCaseDetails.number && vNumberToDelete === $('#groupId').val() && $('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() > 0) {
-                    document.getElementById('delete').click();
+                if (document.getElementById('delete').value === "Delete Alert" && document.querySelector('#caseNumber, #providerId').value === oCaseDetails.number && vNumberToDelete === document.getElementById('groupId').value && $('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() > 0) {
+                    $('#delete').click(); // don't change from jQuery or undeletable alerts can't be deleted
                 } else {
                     fDoDeleteAllCheck()
                 }
             } else if (vHaltDeleting) {
-                $('#deleteAll, #stopDeleteAll').toggleClass('hidden')
+                document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
                 observerDelete.disconnect()
                 vHaltDeleting = 0
-                console.log( TrackedMutationObserver.getActive() )
             }
         }
     }
     function fDoDeleteAllCheck() {
-        if ($('#delete').val() === "Please wait") { return }
-        if ($('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').nextAll().eq(1).html() > 0) {
-            $('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').parent('tr').click()
-            setTimeout(function() { return fDoDeleteAll() }, 100)
+        if (document.getElementById('delete').value === "Please wait") { return }
+        let caseProviderRow = [...document.querySelectorAll('#caseOrProviderAlertsTable > tbody > tr > td:nth-child(2)')].filter((ele) => ele.innerText.includes(vCaseName) )[0]
+        if (!caseProviderRow) {
+            switch (vCaseOrProvider) {
+                case "case":
+                    $('#alertMessage').text('Case number not present.')
+                    break
+                case "provider":
+                    $('#alertMessage').text('Provider ID not present.')
+                    break
+                default:
+                    break
+            }
+            return
         }
-        if ($('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() < 1) {//Any alerts to delete?
-            $('#alertMessage').text('Delete All ended. All alerts deleted from ' + vCaseOrProvider + ' ' + vNumberToDelete + '.');
-        } else if (vNumberToDelete !== $('#caseNumber, #providerId').val()) {
+        caseProviderRow = caseProviderRow.parentElement
+        if ( vNumberToDelete !== document.querySelector('#caseNumber, #providerId').value ) {
             if (!$('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')')) {
                 switch (vCaseOrProvider) {
                     case "case":
@@ -1579,11 +1603,163 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
                 }
             };
         };
-        $('#deleteAll, #stopDeleteAll').toggleClass('hidden')
+        if (caseProviderRow.childNodes[3].innerText > 0) {
+            doClick(caseProviderRow)
+            setTimeout(function() { return fDoDeleteAll() }, 100)
+        }
+        // if ($('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').nextAll().eq(1).html() > 0) {
+        //     $('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').parent('tr').click()
+        //     setTimeout(function() { return fDoDeleteAll() }, 100)
+        // }
+        else { $('#alertMessage').text('Delete All ended. All alerts deleted from ' + vCaseOrProvider + ' ' + vNumberToDelete + '.') }
+        document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
         observerDelete.disconnect()
-        console.log( TrackedMutationObserver.getActive() )
     };
     // SECTION_END Delete all alerts of current name onclick
+
+
+
+//     let deleteButton = document.getElementById('delete')
+//     addDateControls("#inputEffectiveDate")
+//     let caseOrProviderAlertsTable = document.getElementById('caseOrProviderAlertsTable')
+//     let $caseOrProviderAlertsTableTbody = $('#caseOrProviderAlertsTable > tbody')
+//     let preWorkerAlertCase = sessionStorage.getItem('MECH2.preWorkerAlertCase')
+//     document.getElementById('new').addEventListener('click', function() { sessionStorage.setItem('MECH2.preWorkerAlertCase', document.getElementById("groupId").value) })
+//     if (localStorage.getItem('MECH2.userName') === null || localStorage.getItem('MECH2.userName') === undefined && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
+//         let userNameObserver = new TrackedMutationObserver(function(mutations) {
+//             mutations.forEach((mutation) => {
+//                 let workerName = mutation.target.value
+//                 workerName = reorderCommaName(workerName)
+//                 let truncatedWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
+//                 localStorage.setItem('MECH2.userName', truncatedWorkerName)
+//                 userNameObserver.disconnect()
+//             })
+//         })
+//         const workerName = document.getElementById('workerName')
+//         userNameObserver.observe(workerName, { attributeFilter: ["tabindex"] })
+//     }
+//     setTimeout(function() {
+//         if (Number(document.getElementById('alertTotal').value) && caseOrProviderAlertsTable.querySelectorAll('td.dataTables_empty').length) { document.getElementById('alertInputSubmit').click() }
+//         else if (preWorkerAlertCase?.length && caseOrProviderAlertsTable.querySelectorAll('tr')?.length > 1) {
+//             $('td:nth-child(3):contains(' + preWorkerAlertCase + ')', $caseOrProviderAlertsTableTbody).parent('tr').attr('id', 'preWorkerAlertCase')
+//             let activeCase = document.getElementById('preWorkerAlertCase')
+//             activeCase.click()
+//             activeCase.scrollIntoView({ behavior: "smooth", block: "center" })
+//             sessionStorage.removeItem('MECH2.preWorkerAlertCase')
+//         }
+//     }, 300)
+//     function checkIfMfip() {
+//         let alertsTable = document.querySelector('table#caseOrProviderAlertsTable > tbody')
+//         evalData().then(async function(tableTwoAlerts) {
+//             tableTwoAlerts[1].forEach((checkAlert) => {
+//                 if (checkAlert.message.indexOf("Approve new") === 0) {
+//                     let rowIndexPlusOne = Number(checkAlert.rowIndex)+1
+//                     alertsTable.querySelector('tr:nth-child(' + rowIndexPlusOne + ')').id = checkAlert.caseNumber
+//                     document.getElementById(checkAlert.caseNumber).classList.add('checkCash')
+//                 }
+//             })
+//             const checkCashArray = Array.from(document.querySelectorAll('.checkCash'), (caseNumber) => caseNumber.id)
+//             forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(multiCaseResult) {
+//                 console.log(multiCaseResult)
+//                 for (let singleCase in multiCaseResult) {
+//                     let programTable = multiCaseResult[singleCase][0]
+//                     for (let i = 0; i < programTable.length; i++) {
+//                         if (programTable[i].programNameHistory === "MFIP") {
+//                             let mfipStatus = 'MFIP: ' + programTable[i].programStatusHistory
+//                             let ccapStatus = ' - CCAP: ' + programTable[0].programNameHistory
+//                             let inactiveDate = programTable[i].programStatusHistory === "Inactive" ? ' ' + programTable[i].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : ''
+//                             document.getElementById(singleCase).querySelector('td:nth-child(2)').insertAdjacentHTML('beforeend', '<span style="margin: 0 10px 0 auto; float: right !important; font-size: small;">' + mfipStatus + inactiveDate + ccapStatus +'</span>')
+//                         }
+//                     }
+//                 }
+//             })
+//         })
+//     }
+//     // checkIfMfip()
+//     deleteButton.insertAdjacentElement('afterend', document.getElementById('new'))
+//     document.getElementById('alertTotal').insertAdjacentHTML('afterend', '<button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>')
+//     document.getElementById('deleteTop').addEventListener('click', function() { $('#delete').click() })
+
+//     // SECTION_START Delete all alerts of current name onclick
+//     let oCaseDetails = {}
+//     let vNumberToDelete
+//     let vCaseName
+//     let vCaseOrProvider
+//     let vCaseNumberOrProviderId
+//     function whatAlertType() {
+//         switch ($('>tr.selected>td:eq(0)', $caseOrProviderAlertsTableTbody).html().toLowerCase()) {
+//             case "case":
+//                 return { page: "CaseNotes.htm", type: "Case", number: document.getElementById('caseNumber').value, name: $(''), parameters: fGetCaseParameters() }
+//                 break
+//             case "provider":
+//                 return { page: "ProviderNotes.htm", type: "Provider", number: document.getElementById('providerId').value, parameters: fGetProviderParameters() }
+//                 break
+//             default:
+//                 break
+//         }
+//     }
+//     document.getElementById('deleteTop').insertAdjacentHTML('afterend', '<button type="button" class="form-button centered-text doNotDupe" id="deleteAll" title="Delete All" value="Delete All">Delete All</button><button type="button" class="form-button centered-text doNotDupe hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>');
+//     $('h4:contains("Case/Provider List")')
+//         .wrap('<div>')
+//         .after('<h4 style="float: right; display:inline-flex color: #003865; font-size: 1.2em; font-weight: bold;" id="alertMessage"></h4>');
+//     // $('#alertsPanelData>div.panel-default').addClass('flex-vertical')
+//     let vDeleteAllButton = document.getElementById('deleteAll')
+//     let vHaltDeleting
+//     const observerDelete = new TrackedMutationObserver(e => { fDoDeleteAll() })
+//     document.getElementById('deleteAll').addEventListener("click", function(button) {
+//         oCaseDetails = whatAlertType()
+//         vCaseOrProvider = oCaseDetails.type
+//         if (!["case", "provider"].includes(vCaseOrProvider.toLowerCase())) { return }
+//         vNumberToDelete = oCaseDetails.number
+//         vCaseName = document.getElementById('groupName').value//name on page
+//         observerDelete.observe(document.getElementById('delete'), { attributeFilter: ['value'] })
+//         document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
+//         fDoDeleteAll()
+//     })
+//     document.getElementById('stopDeleteAll').addEventListener("click", function(button) {
+//         vHaltDeleting = 1
+//     })
+//     function fDoDeleteAll(e) {//Test worker ID PWSCSP9
+//         if (document.getElementById('delete').value !== "Please wait") {
+//             if (!vHaltDeleting) {
+//                 if (document.getElementById('delete').value === "Delete Alert" && document.querySelector('#caseNumber, #providerId').value === oCaseDetails.number && vNumberToDelete === document.getElementById('groupId').value && $('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() > 0) {
+//                     document.getElementById('delete').click();
+//                 } else {
+//                     fDoDeleteAllCheck()
+//                 }
+//             } else if (vHaltDeleting) {
+//                 document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
+//                 observerDelete.disconnect()
+//                 vHaltDeleting = 0
+//             }
+//         }
+//     }
+//     function fDoDeleteAllCheck() {
+//         if ($('#delete').val() === "Please wait") { return }
+//         if ($('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').nextAll().eq(1).html() > 0) {
+//             $('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').parent('tr').click()
+//             setTimeout(function() { return fDoDeleteAll() }, 100)
+//         }
+//         if ($('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() < 1) {//Any alerts to delete?
+//             $('#alertMessage').text('Delete All ended. All alerts deleted from ' + vCaseOrProvider + ' ' + vNumberToDelete + '.');
+//         } else if (vNumberToDelete !== $('#caseNumber, #providerId').val()) {
+//             if (!$('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')')) {
+//                 switch (vCaseOrProvider) {
+//                     case "case":
+//                         $('#alertMessage').text('Case number not present.')
+//                         break
+//                     case "provider":
+//                         $('#alertMessage').text('Provider ID not present.')
+//                         break
+//                     default:
+//                         break
+//                 }
+//             };
+//         };
+//         $('#deleteAll, #stopDeleteAll').toggleClass('hidden')
+//         observerDelete.disconnect()
+//     };
+//     // SECTION_END Delete all alerts of current name onclick
 
     // SECTION_START Do action based on Alert Type
     const aCaseCategoryButtons = [
@@ -2909,14 +3085,18 @@ if (slashThisPageNameHtm.indexOf("/CaseEligibilityResult") > -1) {
     let eligTableArray = { // Page: { result.category: ["TextToMatch", tableColumnToHighlight] }
         CaseEligibilityResultPerson: { eligibility: ["Ineligible", 4], inFamilySize: ["No", 6] },
         CaseEligibilityResultOverview: { eligibility: ["Ineligible", 3], inFamilySize: ["No", 5] },
-        CaseEligibilityResultFinancial: { verifiedDesc: ["No", 9] },
-        CaseEligibilityResultActivity: { result: ["Ineligible", 7], verifiedTestDesc: ["Fail", 8] },
+    }
+    let eligTableArrayMultiRefNums = {
+        CaseEligibilityResultFinancial: [ ["No", 9], ],
+        CaseEligibilityResultActivity: [ ["Ineligible", 7], ["Fail", 8] ],
     }
     let eligTableArrayMatch = eligTableArray[thisPageName]
     document.querySelectorAll('tbody > tr > td:nth-child(1)')?.forEach(function(e) { e.closest('tr').id = "ref" + (e.innerText) })
     function eligHighlight() {
         document.querySelectorAll('select, input:is(.eligibility-highlight)').forEach( (e) => { e.classList.remove('eligibility-highlight', 'ineligible') })
-        let selectInputFail = [...document.querySelectorAll('.panel-box-format :is(select, input')].filter(function(e) { return ( (/\bF\b|\bFail\b/).test(e.value) ) }).forEach((e) => e.classList.add('eligibility-highlight', 'ineligible'))
+        let selectInputFail = [...document.querySelectorAll('.panel-box-format :is(select, input')].filter(function(e) {
+            return ( (/\bF\b|\bFail\b/).test(e.value) )
+        }).forEach((e) => e.classList.add('eligibility-highlight', 'ineligible'));
     }
     function eligHighlightPageLoad() {
         let divFail = [...document.querySelectorAll('#caseEligibilityResultFamilyDetail div.form-group > div')].filter(function(e) { return e.innerText === "Fail" }).forEach((e) => e.classList.add('eligibility-highlight', 'ineligible'))
@@ -2933,15 +3113,22 @@ if (slashThisPageNameHtm.indexOf("/CaseEligibilityResult") > -1) {
                             if (thisRow[category] === valueCell[0]) { thisTable.querySelector(rowNumber + ' > td:nth-child(' + valueCell[1] + ')').classList.add('eligibility-highlight', 'ineligible') }
                         }
                     } else if (thisRow.role === "Child" && thisRow.eligibility === "Ineligible" && thisRow.ageUnderThresholdTest.length < 1) {
-                        // if ( thisRow.eligibleParentTest === "Fail" || thisRow.meetsGeneralEligibilityTest === "Fail" || thisRow.removedThisPeriodTest === "F" ) {
-                            thisTable.querySelector(rowNumber + ' > td:nth-child(' + eligTableArrayMatch.eligibility[1] + ')').classList.add('eligibility-highlight', 'ineligible')
-                        // }
+                        thisTable.querySelector(rowNumber + ' > td:nth-child(' + eligTableArrayMatch.eligibility[1] + ')').classList.add('eligibility-highlight', 'ineligible')
                         if (thisRow.inFamilySize === "No") {
                             thisTable.querySelector(rowNumber + ' > td:nth-child(' + eligTableArrayMatch.inFamilySize[1] + ')').classList.add('eligibility-highlight', 'ineligible')
                         }
                     }
                 }
             })
+        } else {
+            let eligTableArrayMultiRefNumsMatch = eligTableArrayMultiRefNums[thisPageName]
+            if (eligTableArrayMultiRefNumsMatch) {
+                eligTableArrayMultiRefNumsMatch.forEach((array) => {
+                    let tableData = [...document.querySelectorAll('table > tbody > tr > td:nth-child(' + array[1] + ')')]
+                    .filter((tdCell) => tdCell.innerText === array[0])
+                    .forEach((match) => match.classList.add('eligibility-highlight', 'ineligible'));
+                })
+            }
         }
         let notInUnit = [...document.querySelectorAll('tbody > tr > td')].filter((e) => e.textContent === "Not in Unit").forEach((e) => e.closest('tr').classList.add('notInUnit') )
         document.querySelector('div[title="Family Result"]')?.innerText === "Ineligible" && document.querySelector('div[title="Family Result"]').classList.add('eligibility-highlight', 'ineligible')
@@ -3319,6 +3506,7 @@ if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
 
 // SECTION_START Case_Overview
 if (("CaseOverview.htm").includes(thisPageNameHtm)) {
+    $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order
     let redetDate = $('label[for="redeterminationDueDate"].col-lg-3').parent().siblings('div.col-lg-3.col-md-3').eq(0).text().trim()
     if (redetDate) {
         $('#caseInputSubmit').after('<button type="button" id="copyFollowUpButton" class="cButton float-right" tabindex="-1">Follow Up Date</button>');
@@ -4555,6 +4743,12 @@ function doClick(target) {
     element.dispatchEvent(clickEvent);
 }
 //
+function doWrap(ele, type='div') {
+  const wrappingElement = document.createElement(type);
+  ele.replaceWith(wrappingElement);
+  wrappingElement.appendChild(ele);
+}
+//
 function pleaseWait() {
     document.querySelector('body').insertAdjacentHTML('afterbegin', '<div id="popovertarget" popover="manual">Please wait...<span style="margin: 0 5px;" id="progressReport"></span></div>')
     document.querySelector('head').insertAdjacentHTML('beforeend', '<style id="inProgress">body > div.container { opacity: .7; }</style>')
@@ -5004,9 +5198,7 @@ if (!iFramed) { // Keyboard_shortcuts start
 
         // SECTION_START Post load changes to the page
         $('h1').parents('div.row').addClass('h1-parent-row')
-        $(".marginTop5").removeClass("marginTop5")
-        $(".marginTop10").removeClass("marginTop10")
-        $(".padding-top-5px").removeClass("padding-top-5px")
+        document.querySelectorAll(".marginTop5, .marginTop10, .padding-top-5px").forEach((e) => e.classList.remove('marginTop5', 'marginTop10', 'padding-top-5px') )
         // SECTION_END Post load changes to the page
 
         // Fixing 'to'
@@ -5024,7 +5216,8 @@ if (!iFramed) { // Keyboard_shortcuts start
 // ======================================================================================================================================================================================================
 
 // SECTION_START Duplicate buttons above H1 row
-if (!(/List.htm/).test(thisPageNameHtm) && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm"].includes(thisPageNameHtm)) {
+// if (!(/List.htm/).test(thisPageNameHtm) && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm"].includes(thisPageNameHtm)) {
+if (thisPageNameHtm.indexOf('List.htm') < 0 && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm", "CaseOverview.htm", ].includes(thisPageNameHtm)) {
     function checkDBclickability() {
         document.querySelectorAll('.mutable').forEach((e) => {
             let oldButtonId = e.getAttribute('id').split('DB')[0];
