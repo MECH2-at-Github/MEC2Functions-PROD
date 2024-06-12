@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.81
+// @version      0.4.82
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -12,6 +12,21 @@
 // ====================================================================================================
 // /////////////////////////////////// CUSTOM_NAVIGATION SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ====================================================================================================
+function isDeveloperModeEnabled() {
+    let devModeWarning = localStorage.getItem('MECH2.devModeWarning')
+    if (!devModeWarning) {
+        document.querySelector('div.container:has(form)')?.insertAdjacentHTML('afterbegin', `
+        <div id="devModeWarningBox" class="error_alertbox_new">
+            <strong class="rederrortext">Notice: <a style="text-decoration: underline;" href="https://www.tampermonkey.net/changelog.php?show=dhdg" target="_blank">Tampermonkey</a> now requires "Developer Mode" enabled in Chrome. ⋮ › Extension › Manage Extensions (upper right corner).</strong>
+            <span style="float: right !important; cursor: pointer;" id="devModeWarningClose">✖</span>
+        </div>`)
+        document.getElementById('devModeWarningClose').addEventListener('click', function() {
+            localStorage.setItem('MECH2.devModeWarning', true)
+            document.getElementById('devModeWarningBox').remove()
+        })
+    }
+}
+isDeveloperModeEnabled()
 console.time('MEC2Functions')
 document.getElementById('help')?.insertAdjacentHTML('afterend', '<a href="/ChildCare/PrivacyAndSystemSecurity.htm?from=mec2functions" target="_blank" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>')
 let pageWrap = document.querySelector('#page-wrap')
@@ -2552,7 +2567,7 @@ if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm) && !notEditMode)
 }; // SECTION_END Case_Application_Initiation
 
 // =================================================================================================================================================================================================
-// /////////////////////////////////////////////////////////////////////// CaseChildProvider (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// /////////////////////////////////////////////////////////////////////// CaseChildProvider (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
     //custom CSS to rearrange the page
     // $('label[for="providerLivesWithChild"]').text('Lives with Child: ').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
@@ -2891,7 +2906,7 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 queueMicrotask(() => { $('.hasDatepicker').datepicker("hide") })
             }
         })
-} ////////////////////////////////////////////////////////////////////// CaseChildProvider end (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+} ////////////////////////////////////////////////////////////////////// CaseChildProvider end (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // =================================================================================================================================================================================================
 
 // SECTION_START Case_Copay_Distribution
@@ -3397,7 +3412,7 @@ if (("CaseMemberII.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_Member_II
 
 // ==================================================================================================================================================================================================
-// ////////////////////////////////////////////////////////////////////////// Notes_htm start (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// ////////////////////////////////////////////////////////////////////////// Notes_htm start (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // SECTION_START Case_Notes custom styles
 if (("CaseNotes.htm").includes(thisPageNameHtm)) {
     if (!notEditMode) {
@@ -3544,7 +3559,7 @@ if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
         }
     }
 }; // SECTION_END Case_Notes and Provider_Notes layout fix
-// ////////////////////////////////////////////////////////////////////////// Notes_htm end (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// ////////////////////////////////////////////////////////////////////////// Notes_htm end (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ================================================================================================================================================================================================
 
 // SECTION_START Case_Overview
@@ -5239,7 +5254,6 @@ if (!iFramed) { // Keyboard_shortcuts start
     try {
         window.addEventListener('keydown', function(e) {
             if (e.altKey) {
-                console.log(e)
                 if (["d", "s", "n", "c", "e", "r", "w", "ArrowLeft", "ArrowRight"].includes(e.key)) { e.preventDefault() }
                 switch (e.key) {
                     case 'd':
@@ -5440,7 +5454,7 @@ function starFall() {
     window.ontouchmove = e => handleOnMove(e.touches[0]);
     document.body.onmouseleave = () => updateLastMousePosition(originPosition);
 }
-if (new Date().setHours(0, 0, 0, 0) === new Date("4/1/24").setHours(0, 0, 0, 0) && Math.ceil(Math.random() * 4) / 4 === 1) { starFall() }
+if (new Date().toLocaleDateString().slice(0, 4) === "4/1" && Math.ceil(Math.random() * 4) / 4 === 1) { starFall() }
 
 setTimeout(() => { focusEle !== "blank" && eleFocus(focusEle) }, 200)
 console.timeEnd('MEC2Functions')
