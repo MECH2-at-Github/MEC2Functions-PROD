@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.82
+// @version      0.4.83
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -644,7 +644,7 @@ const countyNumbersNeighbors = new Map([
     ["x192", { county: "White Earth Nation", code: "192", neighbors: ["Polk", "Norman", "Becker", "Clearwater", "Mahnomen"] }],
     ["x194", { county: "Red Lake Nation", code: "194", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods", "Beltrami"] }],
 ])
-const userCountyObject = countyNumbersNeighbors.get(userXnumber?.slice(0, 4)) ?? undefined
+const userCountyObject = countyNumbersNeighbors.get( userXnumber?.slice(0, 4).toLowerCase() ) ?? undefined
 
 const changeEvent = new Event('change')
 const doEvent = (element) => document.querySelector(element)?.dispatchEvent(changeEvent)
