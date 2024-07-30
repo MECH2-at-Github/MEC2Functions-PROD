@@ -4,58 +4,63 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.4.83
+// @version      0.5.03
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
 'use strict';
-// ====================================================================================================
-// /////////////////////////////////// CUSTOM_NAVIGATION SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ====================================================================================================
-function isDeveloperModeEnabled() {
-    let devModeWarning = localStorage.getItem('MECH2.devModeWarning')
-    if (!devModeWarning) {
+function noticeToUsers(lsValue) {
+    let noticeToUsersLS = localStorage.getItem('MECH2.noticeToUsersLS')
+    if (noticeToUsersLS !== lsValue) {
         document.querySelector('div.container:has(form)')?.insertAdjacentHTML('afterbegin', `
-        <div id="devModeWarningBox" class="error_alertbox_new">
-            <strong class="rederrortext">Notice: <a style="text-decoration: underline;" href="https://www.tampermonkey.net/changelog.php?show=dhdg" target="_blank">Tampermonkey</a> now requires "Developer Mode" enabled in Chrome. ⋮ › Extension › Manage Extensions (upper right corner).</strong>
-            <span style="float: right !important; cursor: pointer;" id="devModeWarningClose">✖</span>
+        <div id="noticeToUsersLS" class="error_alertbox_new">
+            <strong class="rederrortext">Notice: Navigation buttons had [+] buttons removed and are replaced with right clicking the button to open the page in a New Tab.</strong>
+            <span style="float: right !important; cursor: pointer; color: black !important;" id="noticeToUsersLSclose">✖</span>
         </div>`)
-        document.getElementById('devModeWarningClose').addEventListener('click', function() {
-            localStorage.setItem('MECH2.devModeWarning', true)
-            document.getElementById('devModeWarningBox').remove()
+        document.getElementById('noticeToUsersLSclose').addEventListener('click', function() {
+            localStorage.setItem('MECH2.noticeToUsersLS', lsValue)
+            document.getElementById('noticeToUsersLS').remove()
         })
     }
 }
-isDeveloperModeEnabled()
+noticeToUsers("navButtons")
+// ====================================================================================================
+// /////////////////////////////////// CUSTOM_NAVIGATION SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// ====================================================================================================
 console.time('MEC2Functions')
 document.getElementById('help')?.insertAdjacentHTML('afterend', '<a href="/ChildCare/PrivacyAndSystemSecurity.htm?from=mec2functions" target="_blank" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>')
-let pageWrap = document.querySelector('#page-wrap')
-let notEditMode = document.querySelectorAll('#page-wrap').length;
+const pageWrap = document.querySelector('#page-wrap')
+const notEditMode = document.querySelectorAll('#page-wrap').length;
 let iFramed = window.location !== window.parent.location ? 1 : 0
-let greenline = document.querySelector(".line_mn_green")
+let greenline = document.querySelector(".line_mn_green") ?? undefined
 let focusEle = "blank"
+const longDateFormat = '{day: "2-digit", month: "2-digit", year: "numeric"}'
 let caseId = document.getElementById('caseId')?.value ?? undefined
 let providerId = caseId ?? document.getElementById('providerId')?.value
-let caseIdORproviderId = caseId ?? providerId
-greenline.id = "greenline"
-greenline.closest('.container')?.insertAdjacentHTML('afterend', `
-<nav class="primary-navigation container">
-    <div class="primary-navigation-row">
-        <div id="buttonPanelOne"></div>
-        <div id="buttonPanelOneNTF"></div>
-    </div>
-    <div class="primary-navigation-row">
-        <div id="buttonPanelTwo"></div>
-    </div>
-    <div class="primary-navigation-row">
-        <div id="buttonPanelThree"></div>
+let caseIdORproviderId = caseId ?? providerId ?? undefined
+if (greenline) {
+    greenline.id = "greenline"
+    greenline.closest('.container')?.insertAdjacentHTML('afterend', `
+<nav class="navigation container">
+    <div class="primary-navigation">
+        <div class="primary-navigation-row">
+            <div id="buttonPanelOne"></div>
+            <div id="buttonPanelOneNTF"></div>
+        </div>
+        <div class="primary-navigation-row">
+            <div id="buttonPanelTwo"></div>
+        </div>
+        <div class="primary-navigation-row">
+            <div id="buttonPanelThree"></div>
+        </div>
     </div>
     <div id="secondaryActionArea" class="button-container flex-horizontal db-container"></div>
 </nav>
-`)
+    `)
+}
 try {
     if (notEditMode) {
-        document.querySelector('.primary-navigation')?.insertAdjacentElement('beforebegin', pageWrap);
+        document.querySelector('.navigation')?.insertAdjacentElement('beforebegin', pageWrap);
         pageWrap?.classList.add('container')
     }
 }
@@ -64,41 +69,64 @@ finally { document.documentElement.style.setProperty('--mainPanelMovedDown', '0'
 let buttonDivOne = document.getElementById('buttonPanelOne');
 let buttonDivTwo = document.getElementById('buttonPanelTwo');
 let buttonDivThree = document.getElementById('buttonPanelThree');
-let searchIcon = "<span style='font-size: 80%'>🔍</span>"
+let searchIcon = "<span style='font-size: 80%; margin-left: 2px;'>🔍</span>"
 let thisPageName = window.location.pathname.substring(window.location.pathname.lastIndexOf("/") + 1, window.location.pathname.lastIndexOf("."))
 let thisPageNameHtm = thisPageName + ".htm"
 let slashThisPageNameHtm = "/" + thisPageNameHtm
-if (("Welcome.htm").includes(thisPageNameHtm)) { location.assign("Alerts.htm") } //auto-redirect from Welcome to Alerts
+if (("Welcome.htm").includes(thisPageNameHtm)) {
+    localStorage.removeItem('MECH2.devModeWarning') // remove after pushed to public
+    location.assign("Alerts.htm") //auto-redirect from Welcome to Alerts
+}
 let reviewingEligibility = (thisPageNameHtm.indexOf("CaseEligibilityResult") > -1 && thisPageNameHtm.indexOf("CaseEligibilityResultSelection.htm") < 0)
-document.querySelectorAll('tbody').forEach((e) => {
-    e.addEventListener('click', (event) => {
-        if (event.target.closest('tr') && !event.target.closest('tr').classList.contains('selected') ) {
-            e.querySelector('.selected')?.classList.remove('selected')
-            event.target.closest('tr')?.classList.add('selected')
-        }
+function getTableRow(ele) {
+    switch (ele.nodeName) {
+        case "TR":
+            return ele
+            break
+        case "TD":
+            return ele.parentElement
+            break
+        // case "A":
+        //     if (ele.parentElement.parentElement.nodeName === "TR") { return ele.parentElement.parentElement }
+        //     break
+        default:
+            return undefined
+            break
+    }
+}
+document.querySelectorAll('tbody').forEach((tbody) => {
+    tbody.addEventListener('click', (event) => {
+            let closestTr = getTableRow(event.target)
+            if (closestTr && !closestTr.classList.contains('selected') ) {
+                tbody.querySelector('.selected')?.classList.remove('selected')
+                closestTr?.classList.add('selected')
+            }
     })
 }) //Fix for table entries losing selected class when clicked on. There is no way to know if a table shouldn't get the .selected class, so it does it for all.
-$("h4").click((e) => $(e.target).nextAll().toggleClass("hidden")) //Make all h4 clicky hidden
+try {
+    $("h4").click((e) => $(e.target).nextAll().toggleClass("hidden")) //Make all h4 clicky hidden -- need a non-jQuery nextAll to switch to vanilla
+} catch(err) {console.log(err)}
 
-function fGetCaseParameters() { // Parameters for navigating from Alerts or Lists, and the column
+function getCaseParameters() { // Parameters for navigating from Alerts or Lists, and the column
     const caseTableMap = new Map([
-        ["Alerts.htm", [document.querySelector("table#caseOrProviderAlertsTable > tbody"), 3] ],
-        ["ClientSearch.htm", [document.querySelector('table#clientSearchProgramResults > tbody'), 1] ],
+        ["Alerts.htm", ["table#caseOrProviderAlertsTable > tbody", 3] ],
+        ["ClientSearch.htm", ['table#clientSearchProgramResults > tbody', 1] ],
     ])
-    let caseTableFromMap = caseTableMap.get(thisPageNameHtm) ?? [document.querySelector('table > tbody'), 1]
-    let parameter2alerts = caseTableFromMap[0].querySelector('tr > td:nth-of-type(2)') === null ? undefined : '?parm2=' + caseTableFromMap[0].querySelector('tr.selected > td:nth-of-type(' + caseTableFromMap[1] + ') > a')?.textContent
-    if (parameter2alerts === undefined) { return }
+    let caseTableFromMap = caseTableMap.get(thisPageNameHtm) ?? ['table > tbody', 1]
+    let parameter2alerts = document.querySelector(caseTableFromMap[0] + ' > tr > td:nth-of-type(2)') === null ? undefined : '?parm2=' + document.querySelector(caseTableFromMap[0] + ' > tr.selected > td:nth-of-type(' + caseTableFromMap[1] + ') > a')?.textContent
+    if (!parameter2alerts) { return undefined }
     let parameter3alerts = document.getElementById('periodBeginDate')?.value === undefined ? '' : '&parm3=' + document.getElementById('periodBeginDate')?.value.replace(/\//g, '') + document.getElementById('periodEndDate')?.value.replace(/\//g, '')
     return parameter2alerts + parameter3alerts
 }
-function fGetProviderParameters() {
+function getProviderParameters() {
     const providerTableMap = new Map([
-        ["Alerts.htm", [document.querySelector("table#caseOrProviderAlertsTable > tbody"), 3] ],
-        ["ProviderRegistrationList.htm", [document.querySelector('table#providerRegistrationTable > tbody'), 2] ],
-        ["ProviderSearch.htm", [document.querySelector('table#providerSearchTable > tbody'), 1] ],
+        ["Alerts.htm", ["table#caseOrProviderAlertsTable > tbody", 3] ],
+        ["ProviderRegistrationList.htm", ['table#providerRegistrationTable > tbody', 2] ],
+        ["ProviderSearch.htm", ['table#providerSearchTable > tbody', 1] ],
     ])
     let providerTableFromMap = providerTableMap.get(thisPageNameHtm) ?? undefined
-    let parameter2alerts = providerTableFromMap[0].querySelector('tr > td:nth-of-type(2)') === null ? '' : '?providerId=' + providerTableFromMap[0].querySelector('tr.selected > td:nth-of-type(' + providerTableFromMap[1] + ')')?.textContent
+    if (!providerTableFromMap) { return undefined }
+    let parameter2alerts = document.querySelector(providerTableFromMap[0] + ' > tr > td:nth-of-type(2)') === null ? '' : '?providerId=' + document.querySelector(providerTableFromMap[0] + ' > tr.selected > td:nth-of-type(' + providerTableFromMap[1] + ')')?.textContent
     return parameter2alerts
 }
 // ================================================================================================
@@ -109,318 +137,288 @@ function fGetProviderParameters() {
 // ///////////////////////////// PRIMARY_NAVIGATION_BUTTONS SECTION_START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ====================================================================================================
 
+
+const rowMap = new Map([
+    [ "rowOne", [ "Alerts.htm", "CaseNotes.htm", "CaseOverview.htm", "CasePageSummary.htm", "ClientSearch.htm", "ProviderSearch.htm", "ActiveCaseList.htm", "PendingCaseList.htm", "InactiveCaseList.htm", "CaseApplicationInitiation.htm", ] ],
+    [ "rowTwo", [ "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "Billing.btn", "CSI.btn", "Transfer.btn", "Claims.btn", ] ],
+])
+// let workerRole = ""
+// switch (workerRole) {
+//     case "financial":
+//         rowMap.set( "rowTwo", [ "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "Billing.btn", "CSI.btn", "Transfer.btn", "Claims.btn", ] )
+//         break
+//     case "payment":
+//         rowMap.set( "rowTwo", [ "Billing.btn", "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "CSI.btn", "Transfer.btn", "Claims.btn", ] )
+//         break
+//     case "provider":
+//         rowMap.set( "rowTwo", [ "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "Billing.btn", "CSI.btn", "Transfer.btn", "Claims.btn", ] )
+//         break
+// }
+const rowPagesMap = new Map([
+    [ "Member.btn", [ "CaseMember.htm", "CaseMemberII.htm", "CaseParent.htm", "CaseCSE.htm", "CaseSchool.htm", "CaseChildProvider.htm", "CaseSpecialNeeds.htm", "CaseDisability.htm", "CaseFraud.htm", "CaseImmigration.htm", "CaseAlias.htm", "CaseRemoveMember.htm", "CaseMemberHistory.htm" ], ],
+    [ "Case.btn", [ "CaseEditSummary.htm", "CaseAddress.htm", "CaseAction.htm", "FundingAvailability.htm", "CaseRedetermination.htm", "ApplicationInformation.htm", "CaseReinstate.htm" ], ],
+    [ "Activity_and_Income.btn", [ "CaseEarnedIncome.htm", "CaseUnearnedIncome.htm", "CaseLumpSum.htm", "CaseExpense.htm", "CaseEducationActivity.htm", "CaseEmploymentActivity.htm", "CaseSupportActivity.htm", "CaseJobSearchTracking.htm" ], ],
+    [ "Eligibility.btn", [ "CaseEligibilityResultSelection.htm", "CaseEligibilityResultOverview.htm", "CaseEligibilityResultFamily.htm", "CaseEligibilityResultPerson.htm", "CaseEligibilityResultActivity.htm", "CaseEligibilityResultFinancial.htm", "CaseEligibilityResultApproval.htm", "CaseCreateEligibilityResults.htm" ], ],
+    [ "SA.btn", [ "CaseServiceAuthorizationOverview.htm", "CaseCopayDistribution.htm", "CaseServiceAuthorizationApproval.htm", "CaseCreateServiceAuthorizationResults.htm" ], ],
+    [ "Notices.btn", [ "CaseNotices.htm", "CaseSpecialLetter.htm", "CaseMemo.htm" ], ],
+    [ "Provider_Info.btn", [ "ProviderOverview.htm", "ProviderNotes.htm", "ProviderInformation.htm", "ProviderAddress.htm", "ProviderParentAware.htm", "ProviderAccreditation.htm", "ProviderTraining.htm", "ProviderRates.htm", "ProviderLicense.htm", "ProviderAlias.htm", "ProviderBackgroundStudy.htm", "ProviderFeesAndAccounts.htm", "ProviderRegistrationAndRenewal.htm", "ProviderTaxInfo.htm", "ProviderPaymentHistory.htm" ], ],
+    [ "Provider_Notices.btn", [ "ProviderNotices.htm", "ProviderSpecialLetter.htm", "ProviderMemo.htm" ], ],
+    [ "Pro.btn", [ "ProviderProUserAccess.htm", "ProUserDetail.htm", "ProUserSearch.htm", "ProUserProviderRelationship.htm", "ProUserResetPassword.htm" ], ],
+    [ "Billing.btn", [ "FinancialBilling.htm", "FinancialBillingApproval.htm", "BillsList.htm", "ElectronicBills.htm", "CasePaymentHistory.htm", "FinancialAbsentDayHolidayTracking.htm", "FinancialBillingRegistrationFeeTracking.htm", "FinancialManualPayment.htm" ], ],
+    [ "CSI.btn", [ "CaseCSIA.htm", "CaseCSIB.htm", "CaseCSIC.htm", "CaseCSID.htm" ], ],
+    [ "Transfer.btn", [ "CaseTransfer.htm", "ServicingAgencyIncomingTransfers.htm", "ServicingAgencyOutgoingTransfers.htm", "FinancialClaimTransfer.htm" ], ],
+    [ "Claims.btn", [ "FinancialClaimEstablishment.htm", "FinancialClaimMaintenanceAmountDetails.htm", "FinancialClaimMaintenanceSummary.htm", "FinancialClaimNoticeOverpaymentText.htm", "FinancialClaimNotes.htm", "FinancialClaimNotices.htm", "ProviderFraud.htm", "FinancialClaimMaintenanceCase.htm", "FinancialClaimMaintenancePerson.htm", "FinancialClaimMaintenanceProvider.htm" ], ],
+])
+const allPagesMap = new Map([
+    [ "Alerts.htm", { label: "Alerts", target: "_self", parentId: "Alerts", row: "1" }, ],
+    [ "CaseNotes.htm", { label: "Notes", target: "_self", parentId: "Case Notes", row: "1" }, ],
+    [ "CaseOverview.htm", { label: "Overview", target: "_self", parentId: "Case Overview", row: "1" }, ],
+    [ "CasePageSummary.htm", { label: "Summary", target: "_self", parentId: "Page Summary", row: "1" }, ],
+    [ "ClientSearch.htm", { label: "Client " + searchIcon, target: "_self", parentId: "Client Search", row: "1" }, ],
+    [ "ProviderSearch.htm", { label: "Provider " + searchIcon, target: "_self", parentId: "Provider Search", row: "1" }, ],
+    [ "ActiveCaseList.htm", { label: "Active", target: "_self", parentId: "Active Caseload List", row: "1" }, ],
+    [ "PendingCaseList.htm", { label: "Pending", target: "_self", parentId: "Pending Case List", row: "1" }, ],
+    [ "InactiveCaseList.htm", { label: "Inactive", target: "_self", parentId: "Inactive Case List", row: "1" }, ],
+    [ "CaseApplicationInitiation.htm", { label: "New App", target: "_self", parentId: "Case Application Initiation", row: "1" }, ],
+
+    [ "CaseMember.htm", { label: "Member I", target: "_self", parentId: "Member", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseMemberII.htm", { label: "Member II", target: "_self", parentId: "Member II", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseParent.htm", { label: "Parent", target: "_self", parentId: "Parent", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseCSE.htm", { label: "CSE", target: "_self", parentId: "Child Support Enforcement", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseSchool.htm", { label: "School", target: "_self", parentId: "School", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseChildProvider.htm", { label: "Provider", target: "_self", parentId: "Child Provider", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseSpecialNeeds.htm", { label: "Special Needs", target: "_self", parentId: "Special Needs", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseDisability.htm", { label: "Disability", target: "_self", parentId: "Disability", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseFraud.htm", { label: "Fraud", target: "_self", parentId: "Case Fraud", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseImmigration.htm", { label: "Immigration", target: "_self", parentId: "Immigration", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseAlias.htm", { label: "Alias", target: "_self", parentId: "Case Alias", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseRemoveMember.htm", { label: "Remove", target: "_self", parentId: "Remove a Member", rowTwoParent: "Member.btn", row: "3", }, ],
+    [ "CaseMemberHistory.htm", { label: "History", target: "_self", parentId: "Member History", rowTwoParent: "Member.btn", row: "3", }, ],
+
+    [ "CaseEarnedIncome.htm", { label: "Earned", target: "_self", parentId: "Earned Income", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+    [ "CaseUnearnedIncome.htm", { label: "Unearned", target: "_self", parentId: "Unearned Income", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+    [ "CaseLumpSum.htm", { label: "Lump Sum", target: "_self", parentId: "Lump Sum", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+    [ "CaseExpense.htm", { label: "Expenses", target: "_self", parentId: "Expenses", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+    [ "CaseEducationActivity.htm", { label: "Education", target: "_self", parentId: "Education Activity", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+    [ "CaseEmploymentActivity.htm", { label: "Employment", target: "_self", parentId: "Employment Activity", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+    [ "CaseSupportActivity.htm", { label: "Support", target: "_self", parentId: "Support Activity", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+    [ "CaseJobSearchTracking.htm", { label: "Job Search", target: "_self", parentId: "Job Search Tracking", rowTwoParent: "Activity_and_Income.btn", row: "3", }, ],
+
+    [ "CaseEditSummary.htm", { label: "Edit Summary", target: "_self", parentId: "Edit Summary", rowTwoParent: "Case.btn", row: "3", }, ],
+    [ "CaseAddress.htm", { label: "Address", target: "_self", parentId: "Case Address", rowTwoParent: "Case.btn", row: "3", }, ],
+    [ "CaseAction.htm", { label: "Case Action", target: "_self", parentId: "Case Action", rowTwoParent: "Case.btn", row: "3", }, ],
+    [ "FundingAvailability.htm", { label: "Funding Availability", target: "_self", parentId: "Funding Availability", rowTwoParent: "Case.btn", row: "3", }, ],
+    [ "CaseRedetermination.htm", { label: "Redetermination", target: "_self", parentId: "Case Redetermination", rowTwoParent: "Case.btn", row: "3", }, ],
+    [ "ApplicationInformation.htm", { label: "Application Info", target: "_self", parentId: "Case Application Info", rowTwoParent: "Case.btn", row: "3", }, ],
+    [ "CaseReinstate.htm", { label: "Reinstate", target: "_self", parentId: "Reinstate", rowTwoParent: "Case.btn", row: "3", }, ],
+
+    [ "CaseEligibilityResultSelection.htm", { label: "Selection", target: "_self", parentId: "Eligibility Results Selection", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+    [ "CaseEligibilityResultOverview.htm", { label: "Overview", target: "_self", parentId: "Results Overview", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+    [ "CaseEligibilityResultFamily.htm", { label: "Family", target: "_self", parentId: "Family Results", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+    [ "CaseEligibilityResultPerson.htm", { label: "Person", target: "_self", parentId: "Person Results", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+    [ "CaseEligibilityResultActivity.htm", { label: "Activity", target: "_self", parentId: "Activity Results", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+    [ "CaseEligibilityResultFinancial.htm", { label: "Financial", target: "_self", parentId: "Financial Results", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+    [ "CaseEligibilityResultApproval.htm", { label: "Approval", target: "_self", parentId: "Approval Results", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+    [ "CaseCreateEligibilityResults.htm", { label: "Create Eligibility Results", target: "_self", parentId: "Create Eligibility Results", rowTwoParent: "Eligibility.btn", row: "3", }, ],
+
+    [ "CaseServiceAuthorizationOverview.htm", { label: "Overview", target: "_self", parentId: "Service Authorization Overview", rowTwoParent: "SA.btn", row: "3", }, ],
+    [ "CaseCopayDistribution.htm", { label: "Copay", target: "_self", parentId: "Copay Distribution", rowTwoParent: "SA.btn", row: "3", }, ],
+    [ "CaseServiceAuthorizationApproval.htm", { label: "Approval", target: "_self", parentId: "Service Authorization Approval", rowTwoParent: "SA.btn", row: "3", }, ],
+    [ "CaseCreateServiceAuthorizationResults.htm", { label: "Create SA", target: "_self", parentId: "Create Service Authorization Results", rowTwoParent: "SA.btn", row: "3", }, ],
+
+    [ "CaseCSIA.htm", { label: "CSIA", target: "_self", parentId: "CSIA", rowTwoParent: "CSI.btn", row: "3", }, ],
+    [ "CaseCSIB.htm", { label: "CSIB", target: "_self", parentId: "CSIB", rowTwoParent: "CSI.btn", row: "3", }, ],
+    [ "CaseCSIC.htm", { label: "CSIC", target: "_self", parentId: "CSIC", rowTwoParent: "CSI.btn", row: "3", }, ],
+    [ "CaseCSID.htm", { label: "CSID", target: "_self", parentId: "CSID", rowTwoParent: "CSI.btn", row: "3", }, ],
+
+    [ "CaseNotices.htm", { label: "Notices", target: "_self", parentId: "Case Notices", rowTwoParent: "Notices.btn", row: "3", }, ],
+    [ "CaseSpecialLetter.htm", { label: "Special Letter", target: "_self", parentId: "Case Special Letter", rowTwoParent: "Notices.btn", row: "3", }, ],
+    [ "CaseMemo.htm", { label: "Memo", target: "_self", parentId: "Case Memo", rowTwoParent: "Notices.btn", row: "3", }, ],
+
+    [ "FinancialBilling.htm", { label: "Billing", target: "_self", parentId: "Billing", rowTwoParent: "Billing.btn", row: "3", }, ],
+    [ "FinancialBillingApproval.htm", { label: "Billing Approval", target: "_self", parentId: "Billing Approval", rowTwoParent: "Billing.btn", row: "3", }, ],
+    [ "BillsList.htm", { label: "Bills List", target: "_self", parentId: "Bills List", rowTwoParent: "Billing.btn", row: "3", }, ],
+    [ "ElectronicBills.htm", { label: "eBills", target: "_self", parentId: "Electronic Bills", rowTwoParent: "Billing.btn", row: "3", }, ],
+    [ "CasePaymentHistory.htm", { label: "Payment History", target: "_self", parentId: "Case Payment History", rowTwoParent: "Billing.btn", row: "3", }, ],
+    [ "FinancialAbsentDayHolidayTracking.htm", { label: "Absent Days", target: "_self", parentId: "Tracking Absent Day Holiday", rowTwoParent: "Billing.btn", row: "3", }, ],
+    [ "FinancialBillingRegistrationFeeTracking.htm", { label: "Registration Fee Tracking", target: "_self", parentId: "Tracking Registration Fee", rowTwoParent: "Billing.btn", row: "3", }, ],
+    [ "FinancialManualPayment.htm", { label: "Manual Payments", target: "_self", parentId: "Manual Payments", rowTwoParent: "Billing.btn", row: "3", }, ],
+
+    [ "ProviderOverview.htm", { label: "Overview", target: "_self", parentId: "Provider Overview", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderNotes.htm", { label: "Notes", target: "_self", parentId: "Provider Notes", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderInformation.htm", { label: "Info", target: "_self", parentId: "Provider Information", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderAddress.htm", { label: "Address", target: "_self", parentId: "Provider Address", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderParentAware.htm", { label: "Parent Aware", target: "_self", parentId: "Parent Aware", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderAccreditation.htm", { label: "Accred.", target: "_self", parentId: "Accreditation", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderTraining.htm", { label: "Training", target: "_self", parentId: "Training", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderRates.htm", { label: "Rates", target: "_self", parentId: "Rates", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderLicense.htm", { label: "License", target: "_self", parentId: "License", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderAlias.htm", { label: "Alias", target: "_self", parentId: "Provider Alias", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderBackgroundStudy.htm", { label: "Background", target: "_self", parentId: "Background Study", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderFeesAndAccounts.htm", { label: "Acct.", target: "_self", parentId: "Fees Accounts", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderRegistrationAndRenewal.htm", { label: "Registration", target: "_self", parentId: "Registration Renewal", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderTaxInfo.htm", { label: "Tax", target: "_self", parentId: "Tax Info", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+    [ "ProviderPaymentHistory.htm", { label: "Payments", target: "_self", parentId: "Provider Payment History", rowTwoParent: "Provider_Info.btn", row: "3", }, ],
+
+    [ "ProviderNotices.htm", { label: "Notices", target: "_self", parentId: "Provider Notices", rowTwoParent: "Provider_Notices.btn", row: "3", }, ],
+    [ "ProviderSpecialLetter.htm", { label: "Special Letter", target: "_self", parentId: "Provider Special Letter", rowTwoParent: "Provider_Notices.btn", row: "3", }, ],
+    [ "ProviderMemo.htm", { label: "Memo", target: "_self", parentId: "Provider Memo", rowTwoParent: "Provider_Notices.btn", row: "3", }, ],
+
+    [ "ProviderProUserAccess.htm", { label: "User Access", target: "_self", parentId: "PRO User Access", rowTwoParent: "Pro.btn", row: "3", }, ],
+    [ "ProUserDetail.htm", { label: "User Detail", target: "_self", parentId: "Pro User Details", rowTwoParent: "Pro.btn", row: "3", }, ],
+    [ "ProUserSearch.htm", { label: "User Search", target: "_self", parentId: "Pro User Search", rowTwoParent: "Pro.btn", row: "3", }, ],
+    [ "ProUserProviderRelationship.htm", { label: "Provider Relationship", target: "_self", parentId: "Pro User Provider Relationships", rowTwoParent: "Pro.btn", row: "3", }, ],
+    [ "ProUserResetPassword.htm", { label: "Reset Password", target: "_self", parentId: "Pro User Reset Password", rowTwoParent: "Pro.btn", row: "3", }, ],
+
+    [ "CaseTransfer.htm", { label: "Case Transfer", target: "_self", parentId: "Case Transfer", rowTwoParent: "Transfer.btn", row: "3", }, ],
+    [ "ServicingAgencyIncomingTransfers.htm", { label: "Incoming", target: "_blank", parentId: "Incoming Transfers", rowTwoParent: "Transfer.btn", row: "3", }, ],
+    [ "ServicingAgencyOutgoingTransfers.htm", { label: "Outgoing", target: "_blank", parentId: "Outgoing Transfers", rowTwoParent: "Transfer.btn", row: "3", }, ],
+    [ "FinancialClaimTransfer.htm", { label: "Claim Transfer", target: "_blank", parentId: "Claim Transfer", rowTwoParent: "Transfer.btn", row: "3", }, ],
+
+    [ "FinancialClaimEstablishment.htm", { label: "Establishment", target: "_blank", parentId: "Claim Establishment", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimMaintenanceAmountDetails.htm", { label: "Details", target: "_self", parentId: "Maintenance Details", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimMaintenanceSummary.htm", { label: "Summary", target: "_self", parentId: "Maintenance Summary", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimNoticeOverpaymentText.htm", { label: "Overpayment Text", target: "_self", parentId: "Overpayment Text", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimNotes.htm", { label: "Notes", target: "_self", parentId: "Claim Notes", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimNotices.htm", { label: "Notices", target: "_self", parentId: "Claim Notices History", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "ProviderFraud.htm", { label: "Provider Fraud", target: "_self", parentId: "Provider Fraud", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimMaintenanceCase.htm", { label: "Maint-Case", target: "_self", parentId: "Maintenance Case", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimMaintenancePerson.htm", { label: "Maint-Person", target: "_self", parentId: "Maintenance Person", rowTwoParent: "Claims.btn", row: "3", }, ],
+    [ "FinancialClaimMaintenanceProvider.htm", { label: "Maint-Provider", target: "_self", parentId: "Maintenance Provider", rowTwoParent: "Claims.btn", row: "3", }, ],
+])
+const listPagesArray = [ "Alerts.htm", "ActiveCaseList.htm", "ClientSearch.htm", "InactiveCaseList.htm", "PendingCaseList.htm", "ProviderRegistrationList.htm", "ProviderSearch.htm", ]
+
 if (!iFramed) {
     try {
-        // SECTION_START Declaring_navigation_button_arrays
-    // const objectToMap = obj => { // https://www.tutorialspoint.com/convert-object-to-a-map-javascript
-    //    const keys = Object.keys(obj);
-    //    const map = new Map();
-    //    for(let i = 0; i < keys.length; i++){
-    //       //inserting new key value pair inside map
-    //       map.set(keys[i], obj[keys[i]]);
-    //    };
-    //    return map;
-    // };
-        const oRowOneButtons = { //Goto Buttons, objectGroupName: { buttonText: "Name as it appears on a button", gotoPage: "gotoPageName", opensIn: "_self or _blank", parentId: "Id of parent", buttonId: "Id of Button'],
-            alerts: { buttonText: "Alerts", gotoPage: "Alerts", opensIn: "_self", parentId: "Alerts", buttonId: "AlertsSelf" },
-            alertsPlus: { buttonText: "+", gotoPage: "Alerts", opensIn: "_blank", parentId: "Alerts", buttonId: "AlertsBlank" },
-            notes: { buttonText: "Notes", gotoPage: "CaseNotes", opensIn: "_self", parentId: "Case Notes", buttonId: "CaseNotesSelf" },
-            notesPlus: { buttonText: "+", gotoPage: "CaseNotes", opensIn: "_blank", parentId: "Case Notes", buttonId: "CaseNotesBlank" },
-            overview: { buttonText: "Overview", gotoPage: "CaseOverview", opensIn: "_self", parentId: "Case Overview", buttonId: "CaseOverviewSelf" },
-            overviewPlus: { buttonText: "+", gotoPage: "CaseOverview", opensIn: "_blank", parentId: "Case Overview", buttonId: "CaseOverviewBlank" },
-            summary: { buttonText: "Summary", gotoPage: "CasePageSummary", opensIn: "_self", parentId: "Page Summary", buttonId: "CasePageSummarySelf" },
-            clientSearch: { buttonText: "Client " + searchIcon, gotoPage: "ClientSearch", opensIn: "_self", parentId: "Client Search", buttonId: "ClientSearchSelf" },
-            clientSearchPlus: { buttonText: "+", gotoPage: "ClientSearch", opensIn: "_blank", parentId: "Client Search", buttonId: "ClientSearchBlank" },
-            providerSearch: { buttonText: "Provider " + searchIcon, gotoPage: "ProviderSearch", opensIn: "_self", parentId: "Provider Search", buttonId: "ProviderSearchSelf" },
-            providerSearchPlus: { buttonText: "+", gotoPage: "ProviderSearch", opensIn: "_blank", parentId: "Provider Search", buttonId: "ProviderSearchBlank" },
-            activeCaseList: { buttonText: "Active", gotoPage: "ActiveCaseList", opensIn: "_self", parentId: "Active Caseload List", buttonId: "ActiveCaseListSelf" },
-            activeCaseListPlus: { buttonText: "+", gotoPage: "ActiveCaseList", opensIn: "_blank", parentId: "Active Caseload List", buttonId: "ActiveCaseListBlank" },
-            pendingCaseList: { buttonText: "Pending", gotoPage: "PendingCaseList", opensIn: "_self", parentId: "Pending Case List", buttonId: "PendingCaseListSelf" },
-            pendingCaseListPlus: { buttonText: "+", gotoPage: "PendingCaseList", opensIn: "_blank", parentId: "Pending Case List", buttonId: "PendingCaseListBlank" },
-            inactiveCaseList: { buttonText: "Inactive", gotoPage: "InactiveCaseList", opensIn: "_self", parentId: "Inactive Case List", buttonId: "InactiveCaseListSelf" },
-            inactiveCaseListPlus: { buttonText: "+", gotoPage: "InactiveCaseList", opensIn: "_blank", parentId: "Inactive Case List", buttonId: "InactiveCaseListBlank" },
-            newApplication: { buttonText: "New App", gotoPage: "CaseApplicationInitiation", opensIn: "_self", parentId: "Case Application Initiation", buttonId: "NewAppSelf" },
-            newApplicationPlus: { buttonText: "+", gotoPage: "CaseApplicationInitiation", opensIn: "_blank", parentId: "Case Application Initiation", buttonId: "NewAppBlank" },
-        };
-        const oRowTwoButtons = { //   Main Row (2nd row, categories) buttons, { buttonText: "Name as it appears on a button", buttonId: "oRowTwoButtonsId" },
-            member: { buttonText: "Member", buttonId: "memberMainButtons" },
-            case: { buttonText: "Case", buttonId: "caseButtons" },
-            activityIncome: { buttonText: "Activity and Income", buttonId: "activityIncomeButtons" },
-            eligibility: { buttonText: "Eligibility", buttonId: "eligibilityButtons" },
-            sa: { buttonText: "SA", buttonId: "saButtons" },
-            notices: { buttonText: "Notices", buttonId: "noticesButtons" },
-            providerInfo: { buttonText: "Provider Info", buttonId: "providerButtons" },
-            providerNotices: { buttonText: "Provider Notices", buttonId: "providerNoticesButtons" },
-            billing: { buttonText: "Billing", buttonId: "billingButtons" },
-            csi: { buttonText: "CSI", buttonId: "csiButtons" },
-            transfer: { buttonText: "Transfer", buttonId: "transferButtons" },
-            claims: { buttonText: "Claims", buttonId: "claimsButtons" },
-        };
-
-        const oRowThreeButtons = {
-            memberMainButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                caseMemberi: { buttonName: "Member I", pageWithoutDotHtm: "CaseMember", opensIn: "_self", parentId: "Member", buttonId: "CaseMemberSelf", rowTwoParent: "memberMainButtons" },
-                caseMemberii: { buttonName: "Member II", pageWithoutDotHtm: "CaseMemberII", opensIn: "_self", parentId: "Member II", buttonId: "CaseMemberIISelf", rowTwoParent: "memberMainButtons" },
-                caseParent: { buttonName: "Parent", pageWithoutDotHtm: "CaseParent", opensIn: "_self", parentId: "Parent", buttonId: "CaseParentSelf", rowTwoParent: "memberMainButtons" },
-                caseCse: { buttonName: "CSE", pageWithoutDotHtm: "CaseCSE", opensIn: "_self", parentId: "Child Support Enforcement", buttonId: "CaseCSESelf", rowTwoParent: "memberMainButtons" },
-                caseSchool: { buttonName: "School", pageWithoutDotHtm: "CaseSchool", opensIn: "_self", parentId: "School", buttonId: "CaseSchoolSelf", rowTwoParent: "memberMainButtons" },
-                caseProvider: { buttonName: "Provider", pageWithoutDotHtm: "CaseChildProvider", opensIn: "_self", parentId: "Child Provider", buttonId: "CaseChildProviderSelf", rowTwoParent: "memberMainButtons" },
-                caseSpecialNeeds: { buttonName: "Special Needs", pageWithoutDotHtm: "CaseSpecialNeeds", opensIn: "_self", parentId: "Special Needs", buttonId: "CaseSpecialNeedsSelf", rowTwoParent: "memberMainButtons" },
-                caseDisability: { buttonName: "Disability", pageWithoutDotHtm: "CaseDisability", opensIn: "_self", parentId: "Disability", buttonId: "CaseDisabilitySelf", rowTwoParent: "memberMainButtons" },
-                caseFraud: { buttonName: "Fraud", pageWithoutDotHtm: "CaseFraud", opensIn: "_self", parentId: "Case Fraud", buttonId: "CaseFraudSelf", rowTwoParent: "memberMainButtons" },
-                caseImmigration: { buttonName: "Immigration", pageWithoutDotHtm: "CaseImmigration", opensIn: "_self", parentId: "Immigration", buttonId: "CaseImmigrationSelf", rowTwoParent: "memberMainButtons" },
-                caseAlias: { buttonName: "Alias", pageWithoutDotHtm: "CaseAlias", opensIn: "_self", parentId: "Case Alias", buttonId: "CaseAliasSelf", rowTwoParent: "memberMainButtons" },
-                caseRemoveMember: { buttonName: "Remove", pageWithoutDotHtm: "CaseRemoveMember", opensIn: "_self", parentId: "Remove a Member", buttonId: "CaseRemoveMemberSelf", rowTwoParent: "memberMainButtons" },
-                caseMemberHistory: { buttonName: "History", pageWithoutDotHtm: "CaseMemberHistory", opensIn: "_self", parentId: "Member History", buttonId: "CaseMemberHistorySelf", rowTwoParent: "memberMainButtons" },
-                caseMemberHistoryPlus: { buttonName: "+", pageWithoutDotHtm: "CaseMemberHistory", opensIn: "_blank", parentId: "Member History", buttonId: "CaseMemberHistoryBlank", rowTwoParent: "memberMainButtons" },
-            },
-            activityIncomeButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                caseEarnedIncome: { buttonName: "Earned", pageWithoutDotHtm: "CaseEarnedIncome", opensIn: "_self", parentId: "Earned Income", buttonId: "CaseEarnedIncomeSelf", rowTwoParent: "activityIncomeButtons" },
-                caseUnearnedIncome: { buttonName: "Unearned", pageWithoutDotHtm: "CaseUnearnedIncome", opensIn: "_self", parentId: "Unearned Income", buttonId: "CaseUnearnedIncomeSelf", rowTwoParent: "activityIncomeButtons" },
-                caseLumpSumIncome: { buttonName: "Lump Sum", pageWithoutDotHtm: "CaseLumpSum", opensIn: "_self", parentId: "Lump Sum", buttonId: "CaseLumpSumSelf", rowTwoParent: "activityIncomeButtons" },
-                caseExpensesIncome: { buttonName: "Expenses", pageWithoutDotHtm: "CaseExpense", opensIn: "_self", parentId: "Expenses", buttonId: "CaseExpensesSelf", rowTwoParent: "activityIncomeButtons" },
-                caseEducationActivity: { buttonName: "Education", pageWithoutDotHtm: "CaseEducationActivity", opensIn: "_self", parentId: "Education Activity", buttonId: "CaseEducationActivitySelf", rowTwoParent: "activityIncomeButtons" },
-                caseEmploymentActivity: { buttonName: "Employment", pageWithoutDotHtm: "CaseEmploymentActivity", opensIn: "_self", parentId: "Employment Activity", buttonId: "CaseEmploymentActivitySelf", rowTwoParent: "activityIncomeButtons" },
-                caseSupportActivity: { buttonName: "Support", pageWithoutDotHtm: "CaseSupportActivity", opensIn: "_self", parentId: "Support Activity", buttonId: "CaseSupportActivitySelf", rowTwoParent: "activityIncomeButtons" },
-                caseJobSearchTracking: { buttonName: "Job Search", pageWithoutDotHtm: "CaseJobSearchTracking", opensIn: "_self", parentId: "Job Search Tracking", buttonId: "CaseJobSearchTrackingSelf", rowTwoParent: "activityIncomeButtons" },
-            },
-            caseButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                editSummary: { buttonName: "Edit Summary", pageWithoutDotHtm: "CaseEditSummary", opensIn: "_self", parentId: "Edit Summary", buttonId: "CaseEditSummarySelf", rowTwoParent: "caseButtons" },
-                caseAddress: { buttonName: "Address", pageWithoutDotHtm: "CaseAddress", opensIn: "_self", parentId: "Case Address", buttonId: "CaseAddressSelf", rowTwoParent: "caseButtons" },
-                caseAction: { buttonName: "Case Action", pageWithoutDotHtm: "CaseAction", opensIn: "_self", parentId: "Case Action", buttonId: "CaseActionSelf", rowTwoParent: "caseButtons" },
-                caseFunding: { buttonName: "Funding Availability", pageWithoutDotHtm: "FundingAvailability", opensIn: "_self", parentId: "Funding Availability", buttonId: "FundingAvailabilitySelf", rowTwoParent: "caseButtons" },
-                caseRedetermination: { buttonName: "Redetermination", pageWithoutDotHtm: "CaseRedetermination", opensIn: "_self", parentId: "Case Redetermination", buttonId: "CaseRedeterminationSelf", rowTwoParent: "caseButtons" },
-                caseAppInfo: { buttonName: "Application Info", pageWithoutDotHtm: "ApplicationInformation", opensIn: "_self", parentId: "Case Application Info", buttonId: "CaseApplicationInfoSelf", rowTwoParent: "caseButtons" },
-                caseReinstate: { buttonName: "Reinstate", pageWithoutDotHtm: "CaseReinstate", opensIn: "_self", parentId: "Reinstate", buttonId: "CaseReinstateSelf", rowTwoParent: "caseButtons" },
-            },
-            eligibilityButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                eligibilitySelection: { buttonName: "Selection", pageWithoutDotHtm: "CaseEligibilityResultSelection", opensIn: "_self", parentId: "Eligibility Results Selection", buttonId: "CaseEligibilityResultSelectionSelf", rowTwoParent: "eligibilityButtons" },
-                eligibilityOverview: { buttonName: "Overview", pageWithoutDotHtm: "CaseEligibilityResultOverview", opensIn: "_self", parentId: "Results Overview", buttonId: "CaseEligibilityResultOverviewSelf", rowTwoParent: "eligibilityButtons" },
-                eligibilityFamily: { buttonName: "Family", pageWithoutDotHtm: "CaseEligibilityResultFamily", opensIn: "_self", parentId: "Family Results", buttonId: "CaseEligibilityResultFamilySelf", rowTwoParent: "eligibilityButtons" },
-                eligibilityPerson: { buttonName: "Person", pageWithoutDotHtm: "CaseEligibilityResultPerson", opensIn: "_self", parentId: "Person Results", buttonId: "CaseEligibilityResultPersonSelf", rowTwoParent: "eligibilityButtons" },
-                eligibilityActivity: { buttonName: "Activity", pageWithoutDotHtm: "CaseEligibilityResultActivity", opensIn: "_self", parentId: "Activity Results", buttonId: "CaseEligibilityResultActivitySelf", rowTwoParent: "eligibilityButtons" },
-                eligibilityFinancial: { buttonName: "Financial", pageWithoutDotHtm: "CaseEligibilityResultFinancial", opensIn: "_self", parentId: "Financial Results", buttonId: "CaseEligibilityResultFinancialSelf", rowTwoParent: "eligibilityButtons" },
-                eligibilityApproval: { buttonName: "Approval", pageWithoutDotHtm: "CaseEligibilityResultApproval", opensIn: "_self", parentId: "Approval Results", buttonId: "CaseEligibilityResultApprovalSelf", rowTwoParent: "eligibilityButtons" },
-                eligibilityCreateResults: { buttonName: "Create Eligibility Results", pageWithoutDotHtm: "CaseCreateEligibilityResults", opensIn: "_self", parentId: "Create Eligibility Results", buttonId: "CaseCreateEligibilityResultsSelf", rowTwoParent: "eligibilityButtons" },
-            },
-            saButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                saOverview: { buttonName: "Overview", pageWithoutDotHtm: "CaseServiceAuthorizationOverview", opensIn: "_self", parentId: "Service Authorization Overview", buttonId: "CaseServiceAuthorizationOverviewSelf", rowTwoParent: "saButtons" },
-                saCopay: { buttonName: "Copay", pageWithoutDotHtm: "CaseCopayDistribution", opensIn: "_self", parentId: "Copay Distribution", buttonId: "CaseCopayDistributionSelf", rowTwoParent: "saButtons" },
-                saApproval: { buttonName: "Approval", pageWithoutDotHtm: "CaseServiceAuthorizationApproval", opensIn: "_self", parentId: "Service Authorization Approval", buttonId: "CaseServiceAuthorizationApprovalSelf", rowTwoParent: "saButtons" },
-                saCreateResults: { buttonName: "Create SA", pageWithoutDotHtm: "CaseCreateServiceAuthorizationResults", opensIn: "_self", parentId: "Create Service Authorization Results", buttonId: "CaseCreateServiceAuthorizationResultsSelf", rowTwoParent: "saButtons" },
-            },
-            csiButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                csiA: { buttonName: "CSIA", pageWithoutDotHtm: "CaseCSIA", opensIn: "_self", parentId: "CSIA", buttonId: "CSIAself", rowTwoParent: "csiButtons" },
-                csiB: { buttonName: "CSIB", pageWithoutDotHtm: "CaseCSIB", opensIn: "_self", parentId: "CSIB", buttonId: "CSIBself", rowTwoParent: "csiButtons" },
-                csiC: { buttonName: "CSIC", pageWithoutDotHtm: "CaseCSIC", opensIn: "_self", parentId: "CSIC", buttonId: "CSICself", rowTwoParent: "csiButtons" },
-                csiD: { buttonName: "CSID", pageWithoutDotHtm: "CaseCSID", opensIn: "_self", parentId: "CSID", buttonId: "CSIDself", rowTwoParent: "csiButtons" },
-            },
-            noticesButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                caseNotices: { buttonName: "Notices", pageWithoutDotHtm: "CaseNotices", opensIn: "_self", parentId: "Case Notices", buttonId: "CaseNoticesSelf", rowTwoParent: "noticesButtons" },
-                caseSpecialLetter: { buttonName: "Special Letter", pageWithoutDotHtm: "CaseSpecialLetter", opensIn: "_self", parentId: "Case Special Letter", buttonId: "CaseSpecialLetterSelf", rowTwoParent: "noticesButtons" },
-                caseMemo: { buttonName: "Memo", pageWithoutDotHtm: "CaseMemo", opensIn: "_self", parentId: "Case Memo", buttonId: "CaseMemoSelf", rowTwoParent: "noticesButtons" },
-            },
-            billingButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                financialBilling: { buttonName: "Billing", pageWithoutDotHtm: "FinancialBilling", opensIn: "_self", parentId: "Billing", buttonId: "FinancialBillingSelf", rowTwoParent: "billingButtons" },
-                financialBillingApproval: { buttonName: "Billing Approval", pageWithoutDotHtm: "FinancialBillingApproval", opensIn: "_self", parentId: "Billing Approval", buttonId: "FinancialBillingApprovalSelf", rowTwoParent: "billingButtons" },
-                financialBillsList: { buttonName: "Bills List", pageWithoutDotHtm: "BillsList", opensIn: "_self", parentId: "Bills List", buttonId: "BillsListSelf", rowTwoParent: "billingButtons" },
-                financialPayHistory: { buttonName: "Payment History", pageWithoutDotHtm: "CasePaymentHistory", opensIn: "_self", parentId: "Case Payment History", buttonId: "CasePaymentHistorySelf", rowTwoParent: "billingButtons" },
-                financialAbsentDays: { buttonName: "Absent Days", pageWithoutDotHtm: "FinancialAbsentDayHolidayTracking", opensIn: "_self", parentId: "Tracking Absent Day Holiday", buttonId: "FinancialAbsentDayHolidayTrackingSelf", rowTwoParent: "billingButtons" },
-                financialRegistrationFee: { buttonName: "Registration Fee Tracking", pageWithoutDotHtm: "FinancialBillingRegistrationFeeTracking", opensIn: "_self", parentId: "Tracking Registration Fee", buttonId: "FinancialBillingRegistrationFeeTrackingSelf", rowTwoParent: "billingButtons" },
-                financialManualPayments: { buttonName: "Manual Payments", pageWithoutDotHtm: "FinancialManualPayment", opensIn: "_self", parentId: "Manual Payments", buttonId: "FinancialManualPaymentSelf", rowTwoParent: "billingButtons" },
-            },
-            providerButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                providerOverview: { buttonName: "Overview", pageWithoutDotHtm: "ProviderOverview", opensIn: "_self", parentId: "Provider Overview", buttonId: "ProviderOverviewSelf", rowTwoParent: "providerButtons" },
-                providerNotes: { buttonName: "Notes", pageWithoutDotHtm: "ProviderNotes", opensIn: "_self", parentId: "Provider Notes", buttonId: "ProviderNotesSelf", rowTwoParent: "providerButtons" },
-                providerInformation: { buttonName: "Info", pageWithoutDotHtm: "ProviderInformation", opensIn: "_self", parentId: "Provider Information", buttonId: "ProviderInformationSelf", rowTwoParent: "providerButtons" },
-                providerAddress: { buttonName: "Address", pageWithoutDotHtm: "ProviderAddress", opensIn: "_self", parentId: "Provider Address", buttonId: "ProviderAddressSelf", rowTwoParent: "providerButtons" },
-                providerParentAware: { buttonName: "Parent Aware", pageWithoutDotHtm: "ProviderParentAware", opensIn: "_self", parentId: "Parent Aware", buttonId: "ProviderParentAwareSelf", rowTwoParent: "providerButtons" },
-                providerAccreditation: { buttonName: "Accred.", pageWithoutDotHtm: "ProviderAccreditation", opensIn: "_self", parentId: "Accreditation", buttonId: "ProviderAccreditationSelf", rowTwoParent: "providerButtons" },
-                providerTraining: { buttonName: "Training", pageWithoutDotHtm: "ProviderTraining", opensIn: "_self", parentId: "Training", buttonId: "ProviderTrainingSelf", rowTwoParent: "providerButtons" },
-                providerRates: { buttonName: "Rates", pageWithoutDotHtm: "ProviderRates", opensIn: "_self", parentId: "Rates", buttonId: "ProviderRatesSelf", rowTwoParent: "providerButtons" },
-                providerLicense: { buttonName: "License", pageWithoutDotHtm: "ProviderLicense", opensIn: "_self", parentId: "License", buttonId: "ProviderLicenseSelf", rowTwoParent: "providerButtons" },
-                providerAlias: { buttonName: "Alias", pageWithoutDotHtm: "ProviderAlias", opensIn: "_self", parentId: "Provider Alias", buttonId: "ProviderAliasSelf", rowTwoParent: "providerButtons" },
-                providerBackground: { buttonName: "Background", pageWithoutDotHtm: "ProviderBackgroundStudy", opensIn: "_self", parentId: "Background Study", buttonId: "ProviderBackgroundStudySelf", rowTwoParent: "providerButtons" },
-                providerFeesAndAccounts: { buttonName: "Accounts", pageWithoutDotHtm: "ProviderFeesAndAccounts", opensIn: "_self", parentId: "Fees Accounts", buttonId: "ProviderFeesAndAccounts", rowTwoParent: "providerButtons" },
-                providerRegistrationAndRenewal: { buttonName: "Registration", pageWithoutDotHtm: "ProviderRegistrationAndRenewal", opensIn: "_self", parentId: "Registration Renewal", buttonId: "ProviderRegistrationSelf", rowTwoParent: "providerButtons" },
-                providerTaxInfo: { buttonName: "Tax", pageWithoutDotHtm: "ProviderTaxInfo", opensIn: "_self", parentId: "Tax Info", buttonId: "ProviderTaxInfoSelf", rowTwoParent: "providerButtons" },
-                providerPaymentHistory: { buttonName: "Payments", pageWithoutDotHtm: "ProviderPaymentHistory", opensIn: "_self", parentId: "Provider Payment History", buttonId: "ProviderPaymentHistory", rowTwoParent: "providerButtons" },
-            },
-            providerNoticesButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                providerNotices: { buttonName: "Notices", pageWithoutDotHtm: "ProviderNotices", opensIn: "_self", parentId: "Provider Notices", buttonId: "ProviderNoticesSelf", rowTwoParent: "providerNoticesButtons" },
-                providerSpecialLetter: { buttonName: "Special Letter", pageWithoutDotHtm: "ProviderSpecialLetter", opensIn: "_self", parentId: "Provider Special Letter", buttonId: "ProviderSpecialLetterSelf", rowTwoParent: "providerNoticesButtons" },
-                providerMemo: { buttonName: "Memo", pageWithoutDotHtm: "ProviderMemo", opensIn: "_self", parentId: "Provider Memo", buttonId: "ProviderMemoSelf", rowTwoParent: "providerNoticesButtons" },
-            },
-            transferButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                caseTransfer: { buttonName: "Case Transfer", pageWithoutDotHtm: "CaseTransfer", opensIn: "_self", parentId: "Case Transfer", buttonId: "CaseTransferSelf", rowTwoParent: "transferButtons" },
-                incomingTransfer: { buttonName: "Incoming", pageWithoutDotHtm: "ServicingAgencyIncomingTransfers", opensIn: "_blank", parentId: "Incoming Transfers", buttonId: "ServicingAgencyIncomingTransfersSelf", rowTwoParent: "transferButtons" },
-                outgoingTransfer: { buttonName: "Outgoing", pageWithoutDotHtm: "ServicingAgencyOutgoingTransfers", opensIn: "_blank", parentId: "Outgoing Transfers", buttonId: "ServicingAgencyOutgoingTransfersSelf", rowTwoParent: "transferButtons" },
-                financialClaimTransfer: { buttonName: "Claim Transfer", pageWithoutDotHtm: "FinancialClaimTransfer", opensIn: "_blank", parentId: "Claim Transfer", buttonId: "FinancialClaimTransferSelf", rowTwoParent: "transferButtons" },
-            },
-            claimsButtons: {//objectName: { buttonName: "Button Name", pageWithoutDotHtm: "PageNameWithoutDotHtm", opensIn: "_self or _blank", parentId: "Id of Parent", buttonId: "Id of Button", rowTwoParent: "RowTwoParent"},
-                claimEstablishment: { buttonName: "Establishment", pageWithoutDotHtm: "FinancialClaimEstablishment", opensIn: "_blank", parentId: "Claim Establishment", buttonId: "FinancialClaimEstablishmentBlank", rowTwoParent: "claimsButtons" },
-                claimDetails: { buttonName: "Details", pageWithoutDotHtm: "FinancialClaimMaintenanceAmountDetails", opensIn: "_self", parentId: "Maintenance Details", buttonId: "FinancialClaimMaintenanceAmountDetailsSelf", rowTwoParent: "claimsButtons" },
-                claimSummary: { buttonName: "Summary", pageWithoutDotHtm: "FinancialClaimMaintenanceSummary", opensIn: "_self", parentId: "Maintenance Summary", buttonId: "FinancialClaimMaintenanceSummarySelf", rowTwoParent: "claimsButtons" },
-                claimOverpaymentText: { buttonName: "Overpayment Text", pageWithoutDotHtm: "FinancialClaimNoticeOverpaymentText", opensIn: "_self", parentId: "Overpayment Text", buttonId: "FinancialClaimNoticeOverpaymentTextSelf", rowTwoParent: "claimsButtons" },
-                claimNotes: { buttonName: "Notes", pageWithoutDotHtm: "FinancialClaimNotes", opensIn: "_self", parentId: "Claim Notes", buttonId: "FinancialClaimNotesSelf", rowTwoParent: "claimsButtons" },
-                claimNotices: { buttonName: "Notices", pageWithoutDotHtm: "FinancialClaimNotices", opensIn: "_self", parentId: "Claim Notices History", buttonId: "FinancialClaimNoticesSelf", rowTwoParent: "claimsButtons" },
-                providerFraud: { buttonName: "Provider Fraud", pageWithoutDotHtm: "ProviderFraud", opensIn: "_self", parentId: "Provider Fraud", buttonId: "ProviderFraudSelf", rowTwoParent: "providerButtons"},
-                claimMaintenanceCase: { buttonName: "Maint-Case", pageWithoutDotHtm: "FinancialClaimMaintenanceCase", opensIn: "_self", parentId: "Maintenance Case", buttonId: "FinancialClaimMaintenanceCaseSelf", rowTwoParent: "claimsButtons" },
-                claimMaintenancePerson: { buttonName: "Maint-Person", pageWithoutDotHtm: "FinancialClaimMaintenancePerson", opensIn: "_self", parentId: "Maintenance Person", buttonId: "FinancialClaimMaintenancePersonSelf", rowTwoParent: "claimsButtons" },
-                claimMaintenanceProvider: { buttonName: "Maint-Provider", pageWithoutDotHtm: "FinancialClaimMaintenanceProvider", opensIn: "_self", parentId: "Maintenance Provider", buttonId: "FinancialClaimMaintenanceProviderSelf", rowTwoParent: "claimsButtons" },
-            }
-        }
-
-        function fRowOneButtonsString() {//row 2 buttons - Member, Case, Activity and Income...
-            let vRowOneButtonsString = ""
-            for (let page in oRowOneButtons) {
-                let buttonProperties = {
-                    text: oRowOneButtons[page].buttonText,
-                    id: oRowOneButtons[page].buttonId,
-                    pageName: oRowOneButtons[page].gotoPage,
-                    howToOpen: notEditMode ? oRowOneButtons[page].opensIn : "_blank",
-                    parentId: oRowOneButtons[page].parentId,
-                    classes: oRowOneButtons[page].buttonText === "+" ? 'cButton cButton__nav cButton__nav__plus' : 'cButton cButton__nav',
-                }
-                let vButtonHtml = '<button type="button" tabindex="-1" class="' + buttonProperties.classes + '" id="' + buttonProperties.id + '" data-how-to-open="' + buttonProperties.howToOpen + '" data-page-name="' + buttonProperties.pageName + '" data-page-link-using-id="' + buttonProperties.parentId + '">' + buttonProperties.text + '</button>'
-                vRowOneButtonsString += vButtonHtml
-            }
-            return vRowOneButtonsString
-        }
-
-        buttonDivOne.insertAdjacentHTML("beforeend", fRowOneButtonsString())
-        buttonDivOne.addEventListener('click', function(event) {//sends the gotoButtons array value 4 to gotoPage
-            if (event.target.closest('button')?.tagName?.toLowerCase() === 'button' && !(["FieldNotesNT", "FieldOverviewNT"]).includes(event.target.closest('button').id)) {
-                gotoPage(event.target.closest('button').id)
-            }
-        })
-        function fRow2ButtonsString() {//row 2 buttons - Member...
-            let vRowTwoButtonsString = ""
-            for (let group in oRowTwoButtons) {
-                let vButtonHtml = '<button type="button" tabindex="-1" class="cButton cButton__nav" id="' + oRowTwoButtons[group].buttonId + '">' + oRowTwoButtons[group].buttonText + '</button>'
-                vRowTwoButtonsString += vButtonHtml
-            }
-            return vRowTwoButtonsString
-        }
-        if (notEditMode) {
-            buttonDivTwo.insertAdjacentHTML("beforeend", fRow2ButtonsString())
-            buttonDivTwo.addEventListener('click', function(event) {// sends the oRowTwoButtons button ID
-                if (notEditMode && event.target.tagName?.toLowerCase() === 'button') {
-                    document.getElementById('buttonPanelThree').replaceChildren()
-                    fRowThreeButtonsString(event.target.id)
-                    highlightPageAndCategory()
+        function createNavButtons() {
+            rowMap.forEach(function(valueArray, row) {
+                if (row === "rowOne") {
+                    let htmlStringOne = ""
+                    valueArray.forEach(function(page) {
+                        let thisBtn = allPagesMap.get(page)
+                        let buttonString = '<button id="' + page + '" class="cButton cButton__nav">' + thisBtn.label + '</button>'
+                        htmlStringOne += buttonString
+                    })
+                    buttonDivOne.insertAdjacentHTML('afterbegin', htmlStringOne)
+                } else if (row === "rowTwo") {
+                    let htmlStringTwo = ""
+                    valueArray.forEach(function(label) {
+                        let buttonString = '<button id="' + label + '" class="cButton cButton__nav">' + label.replaceAll(/_/g,' ').split(".")[0] + '</button>'
+                        htmlStringTwo += buttonString
+                    })
+                    buttonDivTwo.insertAdjacentHTML('afterbegin', htmlStringTwo)
                 }
             })
         }
-
-        function highlightPageAndCategory() { // Highlight_Row_2_3_Buttons
-            if (notEditMode) {
-                try {
-                    let parentPage = findPageParent()
-                    if (parentPage !== undefined) {
-                        if (parentPage[0] !== "undefined") {
-                            $('#' + oRowThreeButtons[parentPage[0]][parentPage[1]].rowTwoParent).add('#' + oRowThreeButtons[parentPage[0]][parentPage[1]].buttonId).addClass('cButton__nav__open-page')
-                        } else if ([parentPage[1]] !== "undefined") {
-                            $('#' + oRowOneButtons[parentPage[1]].buttonId).addClass('cButton__nav__open-page')
-                        }
-                    }
-                }
-                catch (error) { console.trace("highlightPageAndCategory", error) }
-                finally {
-                    if ($('#eligibilityButtons.cButton__nav__open-page, #eligibilityButtons.cButton__nav__browsing').length && !reviewingEligibility) {
-                        $('#buttonPanelThree > button[id^="CaseEligibilityResult"]:not(#CaseEligibilityResultSelectionSelf)').addClass('hidden')
-                    }
-                }
-            }
-        } // Highlight_Row_2_3_Buttons
-        // Activate_Row_3_from_click_or_page_load
-        function fRowThreeButtonsString(idOfRowTwoGroupButton) {
-            let vRowThreeButtonsString = ""
-            for (let button in oRowThreeButtons[idOfRowTwoGroupButton]) {
-                let buttonProperties = oRowThreeButtons[idOfRowTwoGroupButton][button]
-                buttonProperties.classes = buttonProperties.buttonName === "+" ? "cButton cButton__nav cButton__nav__plus" : "cButton cButton__nav"
-                let vButtonHtml = '<button type="button" tabindex="-1" class="' + buttonProperties.classes + '" id="' + buttonProperties.buttonId + '" data-how-to-open="' + buttonProperties.opensIn + '" data-page-name="' + buttonProperties.pageWithoutDotHtm + '" data-page-link-using-id="' + buttonProperties.parentId + '">' + buttonProperties.buttonName + '</button>'
-                vRowThreeButtonsString += vButtonHtml
-            }
-            buttonDivThree.insertAdjacentHTML("beforeend", vRowThreeButtonsString)
-        } // Activate_Row_3_from_click_or_page_load
-
-        function findPageParent() {
-            for (let grouping in oRowThreeButtons) {
-                for (let page in oRowThreeButtons[grouping]) {
-                    if (Object.hasOwn(oRowThreeButtons[grouping][page], "pageWithoutDotHtm") && oRowThreeButtons[grouping][page].pageWithoutDotHtm === thisPageName) {
-                        if (notEditMode && $('#buttonPanelThree').children().length === 0) { fRowThreeButtonsString(oRowThreeButtons[grouping][page].rowTwoParent) }
-                        return [grouping, page]
-                    }
-                    else {
-                        for (let page in oRowOneButtons) {
-                            if (Object.hasOwn(oRowOneButtons[page], "gotoPage") && oRowOneButtons[page].gotoPage === thisPageName) {
-                                return ["undefined", page]
-                            }
-                        }
-                    }
-                }
+        createNavButtons()
+        //
+        function highlightNavOnPageLoad() {
+            let thisPageNameMap = allPagesMap.get(thisPageNameHtm)
+            if (!thisPageNameMap) { return }
+            if ( thisPageNameMap.row === "1" ) {
+                document.getElementById(thisPageNameHtm).classList.add('cButton__nav__open-page')
+            } else if ( thisPageNameMap.row === "3" ) {
+                populateNavRowThree(thisPageNameMap.rowTwoParent)
+                document.getElementById(thisPageNameMap.rowTwoParent).classList.add('cButton__nav__open-page')
             }
         }
-
+        highlightNavOnPageLoad()
+        //
+        function populateNavRowThree(rowTwoCategory) {
+            let buttonDivThreeInnerHTML = ""
+            let rowThreePageArray = rowPagesMap.get(rowTwoCategory)
+            rowThreePageArray.forEach((mapPageName) => {
+                let mapPageData = allPagesMap.get(mapPageName)
+                let classList = "cButton cButton__nav"
+                if (thisPageNameHtm === mapPageName) { classList += " cButton__nav__open-page" }
+                if (rowTwoCategory === "Eligibility.btn") {
+                    if (!reviewingEligibility && !["CaseEligibilityResultSelection.htm", "CaseCreateEligibilityResults.htm", ].includes(mapPageName) ) { classList += " hidden" }
+                }
+                buttonDivThreeInnerHTML += '<button class="' + classList + '" id="' + mapPageName + '">' + mapPageData.label + '</button>'
+            })
+            buttonDivThree.innerHTML = buttonDivThreeInnerHTML
+        }
+        //
+        function openNav(allPagesMapKey, target) {
+            let qMarkParameters = ""
+            let onListPage = listPagesArray.includes(thisPageNameHtm) ? 1 : 0
+            let caseOrProviderForList = ( onListPage && (["ProviderRegistrationList.htm", "ProviderSearch.htm"].includes(thisPageNameHtm) || (thisPageNameHtm === "Alerts.htm" && document.getElementById('caseOrProviderType').value === "Provider") ) ) ? "provider" : "case"
+            if (onListPage) {
+                switch (caseOrProviderForList) {
+                    case "provider":
+                        qMarkParameters = getProviderParameters() ?? ''
+                        break
+                    case "case":
+                        qMarkParameters = getCaseParameters() ?? ''
+                        break
+                }
+                if (target === "_self") { document.querySelector('body').style.opacity = ".8" }
+                window.open('/ChildCare/' + allPagesMapKey + qMarkParameters, target)
+                return
+            }
+            if (notEditMode) {
+                let targetPage = allPagesMap.get(allPagesMapKey).parentId.replace(/ /g, '\ ')
+                if (target === "_self") { document.querySelector('body').style.opacity = ".8" }
+                window.open( document.getElementById(targetPage).firstElementChild.href, target )
+            } else if (!notEditMode) {
+                qMarkParameters = (caseId) ? "?parm2=" + caseId : ''
+                window.open('/ChildCare/' + allPagesMapKey + qMarkParameters, "_blank")
+            }
+        }
+        //
+        function clickRowTwo(target) {
+            document.querySelectorAll('#buttonPanelTwo > .cButton__nav__browsing').forEach((e) => e.classList.remove('cButton__nav__browsing'))
+            populateNavRowThree(target.id)
+            target.classList.add('cButton__nav__browsing')
+        }
         document.querySelector('.primary-navigation').addEventListener('click', (event) => {
-            if (event.target.dataset.howToOpen === "_self") { document.querySelector('body').style.opacity = ".8" }
-            if (event.target.tagName === 'BUTTON') {
-                if (event.target.parentNode.id !== "buttonPanelThree") { document.querySelectorAll('.cButton__nav__browsing').forEach((e) => e?.classList.remove('cButton__nav__browsing')) }
-                document.querySelector('.primary-navigation-row button#' + event.target.id + ':not(.cButton__nav__open-page):not(#buttonPanelOneNTF>button):not([data-how-to-open="_blank"])')?.classList.add("cButton__nav__browsing")
-                if (document.querySelectorAll('#eligibilityButtons.cButton__nav__open-page, #eligibilityButtons.cButton__nav__browsing').length && !reviewingEligibility) {
-                    document.querySelectorAll('#buttonPanelThree > button[id^="CaseEligibilityResult"]:not(#CaseEligibilityResultSelectionSelf)').forEach((e) => e?.classList.add('hidden'))
-                }
+            if ( event.target.parentElement.id === 'buttonPanelOneNTF' || event.target.nodeName !== "BUTTON") { return }
+            if ( event.target.parentElement.id === "buttonPanelTwo") {
+                clickRowTwo(event.target)
+                // document.querySelectorAll('#buttonPanelTwo > .cButton__nav__browsing').forEach((e) => e.classList.remove('cButton__nav__browsing'))
+                // populateNavRowThree(event.target.id)
+                // event.target.classList.add('cButton__nav__browsing')
+                return
             }
-        })
-        highlightPageAndCategory() // to highlight on page load
-
-        buttonDivThree.addEventListener('click', function(event) {
-            if (notEditMode && event.target.tagName?.toLowerCase() === 'button') { gotoPage(event.target.id) }
-        })
-        // Activate row three from click or page load
-
-        // Use_Button_Click_Id_to_Load_href
-        function gotoPage(loadThisPage) {
-            let loadThisPageNode = document.getElementById(loadThisPage)
-            let loadThisPageNodeName = loadThisPageNode.dataset.pageName
-            let listPages = ["Alerts", "ActiveCaseList", "ClientSearch", "InactiveCaseList", "PendingCaseList", "ProviderRegistrationList", "ProviderSearch"]
-            if ( listPages.includes(loadThisPageNodeName) ) { window.open(document.getElementById(loadThisPageNode.dataset.pageLinkUsingId).firstElementChild.href, loadThisPageNode.dataset.howToOpen); return } //Going to a list page...
-            if ( listPages.includes(thisPageName) ) {
-                if (["ProviderRegistrationList.htm", "ProviderSearch.htm"].includes(thisPageNameHtm) || (thisPageNameHtm === "Alerts.htm" && (document.querySelector('#caseOrProviderAlertsTable > tbody > tr.selected > td:nth-of-type(1)')?.textContent === "Provider")) ) {
-                    if (loadThisPageNode.id.indexOf("Provider") === 0) { window.open('/ChildCare/' + loadThisPageNode.dataset.pageName + '.htm' + fGetProviderParameters(), loadThisPageNode.dataset.howToOpen) }
-                } else {
-                    let caseParameters = fGetCaseParameters() ?? ""
-                    window.open('/ChildCare/' + loadThisPageNode.dataset.pageName + '.htm' + caseParameters, loadThisPageNode.dataset.howToOpen)
-                }
-            } else {
-                if (notEditMode) { window.open(document.getElementById(loadThisPageNode.dataset.pageLinkUsingId).firstElementChild.href, loadThisPageNode.dataset.howToOpen) }
-                else if (!notEditMode && (loadThisPageNode.dataset.howToOpen === "_blank")) {
-                    let maybeParm2 = caseId ? "?parm2=" + caseId : ''
-                    window.open('/ChildCare/' + loadThisPageNode.dataset.pageName + '.htm' + maybeParm2, "_blank")
-                }
+            if (!notEditMode) {
+                openNav(event.target.id, "_blank")
+                return
             }
-        } // SECTION_END Use_Button_Click_Id_to_Load_href
+            openNav(event.target.id, "_self")
+        })
+        document.querySelector('.primary-navigation').addEventListener('contextmenu', (event) => {
+            if ( event.target.parentElement.id === 'buttonPanelOneNTF' || window.event.ctrlKey ) { return }
+            if ( event.target.parentElement.id === "buttonPanelTwo") {
+                event.preventDefault()
+                clickRowTwo(event.target)
+                return
+            }
+            if ( event.target.nodeName !== "BUTTON" || event.target.id.indexOf('.btn') > -1 ) { event.preventDefault(); return }
+            openNav(event.target.id, "_blank")
+        })
 
         if (("getProviderOverview.htm").includes(thisPageNameHtm)) {
-            document.querySelector('#providerButtons').click()
-            document.querySelector('#ProviderOverviewSelf').classList.add('cButton__nav__open-page')
+            let getProviderOverview = document.getElementById('Provider_Info.btn')
+            getProviderOverview.click()
+            getProviderOverview.classList.replace('cButton__nav__browsing', 'cButton__nav__open-page')
+            document.getElementById('ProviderOverview.htm').classList.add('cButton__nav__open-page')
         }
+        if ( "ProviderSearch.htm".includes(thisPageNameHtm) ) { document.getElementById('Provider_Info.btn').click() }
         // SECTION_START New_Tab_Case_Number_Field
         function newTabFieldButtons() {
             let buttonDivOneNTF = document.getElementById("buttonPanelOneNTF")
             document.getElementById('buttonPanelOneNTF').insertAdjacentHTML('afterbegin', `
-<input id="newTabField" list="history" autocomplete="off" class="form-control" placeholder="Case #" style="width: 10ch;"></input>
-<button type="button" data-page-name="CaseNotes" id="FieldNotesNT" class="cButton cButton__nav">Notes</button>
-<button type="button" data-page-name="CaseOverview" id="FieldOverviewNT" class="cButton cButton__nav">Overview</button>
-`)
+                <input id="newTabField" list="history" autocomplete="off" class="form-control" placeholder="Case #" style="width: 10ch;"></input>
+                <button type="button" data-page-name="CaseNotes" id="FieldNotesNT" class="cButton cButton__nav">Notes</button>
+                <button type="button" data-page-name="CaseOverview" id="FieldOverviewNT" class="cButton cButton__nav">Overview</button>
+            `)
             buttonDivOneNTF.addEventListener('click', function(event) {
                 if (event.target.closest('button')?.tagName?.toLowerCase() === 'button' && (/\b\d{1,8}\b/).test(document.getElementById('newTabField').value)) {
                     event.preventDefault()
                     openCaseNumber(event.target.dataset.pageName, document.getElementById('newTabField').value)
                 }
             })
-            $('#newTabField').keydown(function(e) {
+            document.getElementById('newTabField').addEventListener('keydown', function(e) {
                 if (e.target.value.length > 7) {
                     e.stopImmediatePropagation()
                     if (!['ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'v', 'Home', 'End', 'a', 'z'].includes(e.key)) {
@@ -432,22 +430,19 @@ if (!iFramed) {
                 switch (e.key) {
                     case 'n':
                         e.preventDefault();
-                        window.open('/ChildCare/CaseNotes.htm?parm2=' + $('#newTabField').val(), '_blank');
+                        window.open('/ChildCare/CaseNotes.htm?parm2=' + document.getElementById('newTabField').value, '_blank');
                         break
                     case 'o':
                     case 'Enter':
                         e.preventDefault();
-                        window.open('/ChildCare/CaseOverview.htm?parm2=' + $('#newTabField').val(), '_blank');
+                        window.open('/ChildCare/CaseOverview.htm?parm2=' + document.getElementById('newTabField').value, '_blank');
                         break
                 }
             })
         };
         function openCaseNumber(pageName, enteredCaseNumber) {
-            if (pageName == "CaseNotes") {
-                window.open('/ChildCare/CaseNotes.htm?parm2=' + enteredCaseNumber, '_blank');
-            } else {
-                window.open('/ChildCare/CaseOverview.htm?parm2=' + enteredCaseNumber, '_blank');
-            };
+            if (pageName == "CaseNotes") { window.open('/ChildCare/CaseNotes.htm?parm2=' + enteredCaseNumber, '_blank') }
+            else { window.open('/ChildCare/CaseOverview.htm?parm2=' + enteredCaseNumber, '_blank') }
         };
         newTabFieldButtons();
         !notEditMode && (document.querySelectorAll('#buttonPanelTwo, #buttonPanelThree').forEach((e) => e.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
@@ -460,9 +455,8 @@ if (!iFramed) {
 //
 function selectPeriodReversal(selectPeriod) {
     if (selectPeriod) {
-        $('#selectPeriod option').each(function() {
-            $(this).prependTo($(this).parent())
-        })
+        let periods = document.querySelectorAll('#selectPeriod > option')
+        for (let i = periods.length-1; i >= 0; i--) { periods[i].parentElement.append(periods[i]) }
     }
 };
 // ====================================================================================================
@@ -473,10 +467,10 @@ function nextPrevPeriodButtons() {
     try {
         if (notEditMode) {
             let currentPeriod = document.querySelector('#selectPeriod').value
-            if (reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || $('#submit').attr('disabled') === 'disabled') { return }
+            if (reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || document.querySelector('#submit, #caseInputSubmit')?.hasAttribute('Disabled')) { return }
             let lastAvailablePeriod = document.querySelector('#selectPeriod > option:first-child').value
             let selectPeriodDropdown = document.getElementById('selectPeriod');
-            let selectPeriodParent = document.getElementById('selectPeriod').parentNode;
+            let selectPeriodParent = document.getElementById('selectPeriod').parentElement;
             const buttonsNextPrev = [ //"Button Text", "ButtonId", "Next|Prev", "Stay|Go", "Left|Right - side of dropdown"]
                 ["«", "backGoSelect", "Prev", "Go", "Left"],
                 ["‹", "backSelect", "Prev", "Stay", "Right"],
@@ -496,18 +490,18 @@ function nextPrevPeriodButtons() {
             };
             currentPeriod === lastAvailablePeriod && document.getElementById('forwardGoSelect').classList.add('cButton__disabled')
             function checkPeriodMobility() {
-                document.querySelector('#selectPeriod').value === lastAvailablePeriod ? $('#forwardSelect').addClass('cButton__disabled') : $('#forwardSelect').removeClass('cButton__disabled')
+                document.querySelector('#selectPeriod').value === lastAvailablePeriod ? document.getElementById('forwardSelect').classList.add('cButton__disabled') : document.getElementById('forwardSelect').classList.remove('cButton__disabled')
             }
             checkPeriodMobility()
 
-            document.getElementById('selectPeriod').parentNode.addEventListener('click', function(event) {
+            document.getElementById('selectPeriod').parentElement.addEventListener('click', function(event) {
                 if (event.target.closest('button')?.tagName.toLowerCase() === 'button') { selectNextPrev(event.target.closest('button').id) }
             })
             function selectNextPrev(clickedButton) { //Subtracting goes up/forward dates;
                 if (document.getElementById(clickedButton).dataset.NextOrPrev === "Next") {
                     if (selectPeriodDropdown.selectedIndex === 0) { // top of list
-                        if (document.getElementById(clickedButton).dataset.StayOrGo === "Go") { document.getElementById('caseInputSubmit').click(); return }
-                        else { return }
+                        if (document.getElementById(clickedButton).dataset.StayOrGo === "Go") { document.getElementById('caseInputSubmit').click() }
+                        return
                     }
                     selectPeriodDropdown.selectedIndex--;
                     if (document.getElementById(clickedButton).dataset.StayOrGo === "Go") { document.getElementById('caseInputSubmit').click() }
@@ -644,8 +638,7 @@ const countyNumbersNeighbors = new Map([
     ["x192", { county: "White Earth Nation", code: "192", neighbors: ["Polk", "Norman", "Becker", "Clearwater", "Mahnomen"] }],
     ["x194", { county: "Red Lake Nation", code: "194", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods", "Beltrami"] }],
 ])
-const userCountyObject = countyNumbersNeighbors.get( userXnumber?.slice(0, 4).toLowerCase() ) ?? undefined
-
+const userCountyObj = countyNumbersNeighbors.get(userXnumber?.slice(0, 4).toLowerCase()) ?? undefined
 const changeEvent = new Event('change')
 const doEvent = (element) => document.querySelector(element)?.dispatchEvent(changeEvent)
 //
@@ -655,7 +648,8 @@ if (!iFramed) {
         let caseHistory = []
         if (localStorage.getItem('MECH2.caseHistoryLS') !== null) { caseHistory = JSON.parse(localStorage.getItem('MECH2.caseHistoryLS')) }
         function addToCaseHistoryArray() {
-            let caseName = commaNameToObject($('#caseHeaderData div.col-lg-4').contents().eq(2).text())
+            // let caseName = commaNameObject($('#caseHeaderData div.col-lg-4').contents().eq(2).text())
+            let caseName = commaNameObject(document.querySelector('title').innerText)
             const caseIdTest = (entry) => entry.caseIdNumber === caseId
             let foundDuplicate = caseHistory.findIndex(caseIdTest)
             if (foundDuplicate > -1) { caseHistory.splice(foundDuplicate, 1) }
@@ -666,7 +660,7 @@ if (!iFramed) {
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
         };
 
-        if ((/^\d+/).test(caseId) && caseId.length < 8 && notEditMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
+        if (thisPageNameHtm.indexOf('Provider') !== 0 && caseId && notEditMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
 
         let viewHistory = JSON.parse(localStorage.getItem('MECH2.caseHistoryLS'))
         function makeViewHistoryDatalist() {
@@ -685,51 +679,90 @@ if (!iFramed) {
 //======================== Case_History Section_End =================================
 
 if (!notEditMode && !iFramed) { //actualDate
-    let actualDateField = document.querySelector('#actualDate:not([disabled])')
+    // let actualDateField = document.querySelector('#actualDate:not([disabled])')
+    let actualDateField = document.querySelector('#actualDate') ?? document.querySelector('#effectiveDate, #employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate') ?? undefined
     var storedActualDate = sessionStorage.getItem('actualDateSS')
     if (actualDateField) {
-        if (storedActualDate?.length === undefined) {//storedActualDate === null || storedActualDate === '') {
+        if (!storedActualDate) {
             document.getElementById('save').addEventListener('click', function() {
                 sessionStorage.setItem('actualDateSS', actualDateField.value)
             })
         }
         else {
-            if (storedActualDate?.length && !actualDateField?.value.length && !actualDateField?.getAttribute('disabled')) {
+            if (storedActualDate && !actualDateField.value.length) {
                 actualDateField.classList.add('red-outline')
                 actualDateField.value = storedActualDate
             }
         }
     }
 } // actualDate
-if (!notEditMode && sessionStorage.getItem('processingApplication') === "yes" && $('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').length && !$('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').val().length) {
-    $('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').val(sessionStorage.getItem('actualDateSS'))
-}
+// if (!notEditMode && sessionStorage.getItem('processingApplication') === "yes" && document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate') && !document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').value.length) {
+//     document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').value = sessionStorage.getItem('actualDateSS')
+// }
 let excludedResetTabIndexList;
-function resetTabIndex(excludedList) {
-    const nonResetPages = ["CaseSpecialLetter.htm"]
+function resetTabIndex(excludedListString) {
+    const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
     // if ( !nonResetPages.includes(thisPageNameHtm) ) { $(':is(select, input, textarea, td.sorting)[tabindex]').removeAttr('tabindex') }
-    // if (!nonResetPages.includes(thisPageNameHtm)) { queueMicrotask(() => { document.querySelectorAll(':is(select, input, textarea, td.sorting):not([disabled], [readonly], ' + excludedList + ')[tabindex]').forEach((e) => e.removeAttribute('tabindex')) }) }
-    if (!nonResetPages.includes(thisPageNameHtm)) { queueMicrotask(() => { document.querySelectorAll('form > div[id] :is(.form-button, .form-control):not([type=hidden], .modal, ' + excludedList + ')').forEach((e) => e.removeAttribute('tabindex')) }) }
+    // if (!nonResetPages.includes(thisPageNameHtm)) { queueMicrotask(() => { document.querySelectorAll(':is(select, input, textarea, td.sorting):not([disabled], [readonly], ' + excludedListString + ')[tabindex]').forEach((e) => e.removeAttribute('tabindex')) }) }
+    if (!nonResetPages.includes(thisPageNameHtm)) { queueMicrotask(() => { document.querySelectorAll('form > div[id] :is(.form-button, .form-control):not([type=hidden], .modal, ' + excludedListString + ')').forEach((e) => e.removeAttribute('tabindex')) }) }
     document.querySelectorAll('input').forEach(function(e) { e.spellcheck = false })
 }
 // console.log(document.querySelectorAll('form > div[id] :is(.form-button, .form-control):not([type=hidden])'))
-setTimeout(function() { resetTabIndex() }, 400)
+// setTimeout(function() { resetTabIndex() }, 400)
 
+//can't handle classes or id, would need a split # and split .
+
+function jsNextNodes(nodeOrQuery, untilNodeOrQuery=0, nodeName=0) {
+    try {
+        let node = sanitizeNode(nodeOrQuery)
+        if (!node) { throw "jsNextNodes error: No node matched first query argument." }
+        let untilNode = untilNodeOrQuery ? sanitizeNode(untilNodeOrQuery) : undefined
+        // if (!untilNode) { console.log( "jsNextNodes error: No node matched second query argument." ) }
+        let untilNodeName = ( nodeName || ["A", "DIV", "INPUT", "SELECT", "H1", "H2", "H3", "H4", "H5", "TEXTAREA"].includes(nodeName) ) ? 1 : 0
+        nodeName = typeof(nodeName) === 'string' ? nodeName.toUpperCase() : undefined
+        let nextNodes = []
+        let startingNodeFound = 0
+        for (let i = 0; i < node.parentElement.children.length; i++) {
+            let currentNode = node.parentElement.children.item(i)
+            if (currentNode === node) { startingNodeFound = 1; continue }
+            if (startingNodeFound) {
+                let nodeNameMatch = (!nodeName || currentNode.nodeName === nodeName)
+                if (nodeNameMatch) { nextNodes.push(currentNode) }
+                if (untilNode && currentNode === untilNode) { return nextNodes }
+            }
+        }
+        return nextNodes
+    }
+    catch(error) { throw error }
+}
+function jsPrevNodes(nodeOrQuery, startingNodeOrQuery, nodeName) {
+    try {
+        let node = sanitizeNode(nodeOrQuery)
+        if (!node) { throw "jsNextNodes error: No node matched first query argument." }
+        let startingNode = sanitizeNode(startingNodeOrQuery)
+        // if (!startingNode) { throw "jsNextNodes error: No node matched second query argument." }
+        nodeName = typeof(nodeName) === 'string' ? nodeName.toUpperCase() : undefined
+        let startingNodeMatch = startingNode ? 0 : 1
+        let prevNodes = []
+        for (let i = 0; i < node.parentElement.children.length; i++) {
+            let currentNode = node.parentElement.children.item(i)
+            if (!startingNodeMatch && currentNode === startingNode) { startingNodeMatch = 1}
+            let nodeNameMatch = (!nodeName || currentNode.nodeName === nodeName)
+            if (currentNode !== node && nodeNameMatch && startingNodeMatch) { prevNodes.push(currentNode) }
+            else { return prevNodes }
+        }
+    }
+    catch(error) {}
+}
+function sanitizeNode(input) {
+    if ( !(input instanceof HTMLElement) && (typeof(input) !== 'string') ) { return undefined }
+    let sanitizedToNode = typeof(input) === "object" ? input : document.querySelector(input)
+    return sanitizedToNode ?? undefined
+}
+// console.log( jsPrevNodes( document.getElementById('new'), undefined, "input" ) )
 // ==============================================================================================================================================================================================
 // ////////////////////////////////////////////////////////////////////////// FOCUS_ELEMENT SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // SECTION_START Element_Focus
-function eleFocus(ele) {
-    // document.querySelectorAll('.focusedElement').forEach((e) => e.classList.remove('focusedElement'))
-    let eleToFocus = typeof(ele) === "object" ? ele : document.querySelector(ele)
-    if (eleToFocus) {
-        $(document).ready(function() {
-            if ( eleToFocus.nodeName === "INPUT" && eleToFocus.classList.contains('form-control') ) { eleToFocus.select() }
-            else { eleToFocus.focus() }
-            // eleToFocus.classList.add('focusedElement')
-            // document.querySelector('.focusedElement').focus()
-        });
-    } else { console.log("eleFocus failed to find element based on query:", ele, ". Check for missing #.") }
-};
 if (!iFramed) { // More element_focus
     // function firstEmptyId() { return $('.panel-box-format :is(input, select):not(:disabled, .form-button, [readonly], [type="hidden"])').filter(function() {return $(this).val()?.length === 0}).eq(0).attr('id') || "" }
     function firstEmptyId() {
@@ -746,10 +779,9 @@ if (!iFramed) { // More element_focus
         if (popupModal?.length) {
             const config = { attributes: true }
             popupModal.forEach(function(ele) {
-                let popupModalObserver = new MutationObserver(function(mutations) {
+                let popupModalObserver = new TrackedMutationObserver(function(mutations) {
                     const controllerModal = new AbortController()
-                    if (document.querySelectorAll('.modal.in').length === 1) {
-                        eleFocus(document.querySelector('.modal.in input') )
+                    if ( document.querySelector('.modal.in') ) {
                         window.addEventListener('keydown', function(event) {
                             switch (event.code) {
                                 case 'KeyO':
@@ -762,11 +794,13 @@ if (!iFramed) { // More element_focus
                                     break
                             }
                         }, { signal: controllerModal.signal })
+                        setTimeout(() => { eleFocus(document.querySelector('.modal.in input') ) }, 250)
                         return false
                     } else {
                         controllerModal.abort()
                     }
                 })
+                // console.log(popupModalObserver, ele, config)
                 popupModalObserver.observe(ele, config);
             });
         }
@@ -780,19 +814,19 @@ if (!iFramed) { // More element_focus
                 if (notEditMode) { focusEle = '#newDB' }
                 else if (document.getElementById('memberReferenceNumberNewMember')) { focusEle = '#memberReferenceNumberNewMember' }
                 else if (document.getElementById('ceiVerification').value === 'No Verification Provided') { focusEle = '#ceiVerification' }
-                else { $('#ceiPrjAmount').select() }
+                else { document.getElementById('ceiPrjAmount').select() }
             }
             if (("CaseUnearnedIncome.htm").includes(thisPageNameHtm)) {
                 if (notEditMode) { focusEle = '#newDB' }
                 else if (document.getElementById('memberReferenceNumberNewMember')) { focusEle = '#memberReferenceNumberNewMember' }
-                else if ($('#verification').val() === 'No Verification Provided') { focusEle = '#verification' }
-                else { $('#incomeProjectionAmount').select() }
+                else if (document.getElementById('verification').value === 'No Verification Provided') { focusEle = '#verification' }
+                else { document.getElementById('incomeProjectionAmount').select() }
             }
             if (("CaseExpense.htm").includes(thisPageNameHtm)) {
                 if (notEditMode) { focusEle = '#newDB' }
                 else if (document.getElementById('refPersonName')) { focusEle = '#refPersonName' }
                 else if (document.getElementById('verificationType').value === 'No Verification Provided') { focusEle = '#verificationType' }
-                else { $('#projectionExpenseAmount').select() }
+                else { document.getElementById('projectionExpenseAmount').select() }
             }
             if (("CaseLumpSum.htm").includes(thisPageNameHtm)) {
                 if (notEditMode) { focusEle = '#newDB' }
@@ -807,7 +841,7 @@ if (!iFramed) { // More element_focus
                 else { focusEle = document.querySelector('#activityEnd, #employmentActivityEnd, #activityPeriodEnd') }
             }
             if (("CaseJobSearchTracking.htm").includes(thisPageNameHtm)) {
-                if (!notEditMode) { focusEle = '#hoursUsed'; setTimeout($('#hoursUsed').select(), 1) }
+                if (!notEditMode) { focusEle = '#hoursUsed'; setTimeout(document.getElementById('hoursUsed').select(), 1) }
                 else if (notEditMode) { focusEle = '#editDB' }
             }
 
@@ -817,38 +851,35 @@ if (!iFramed) { // More element_focus
                     tbodyFocusNextEdit()
                     focusEle = '#newDB'
                 } else if (!notEditMode) {
-                    if (document.getElementById('next') && document.getElementById('next').getAttribute('disabled') !== "disabled") { focusEle = '#next' }
+                    if ( document.getElementById('next')?.hasAttribute('disabled') === false ) { focusEle = '#next' }
                     else if (document.getElementById('memberReferenceNumber')?.value === "") { focusEle = '#memberReferenceNumber' }
                     else { focusEle = '#' + firstEmptyId() }
                 }
             }
             if (("CaseMemberII.htm").includes(thisPageNameHtm)) {
                 setTimeout(function() {
-                    if (notEditMode) {
-                        tbodyFocusNextEdit()
-                        if (document.getElementById('new').getAttribute('disabled') !== "disabled") { focusEle = '#newDB' }
-                        else if (document.getElementById('edit').getAttribute('disabled') !== "disabled") { focusEle = '#editDB' }
-                    } else if (!notEditMode) {
-                        document.getElementById('memberReferenceNumberNewMember')?.addEventListener('change', function() { resetTabIndex() })
-                        // if (document.getElementById('next') && document.getElementById('next').getAttribute('disabled') !== "disabled") { focusEle = '#next' }
-                        if ( document.getElementById('next') ) {
-                            if (document.getElementById('next').getAttribute('disabled') !== "disabled") { focusEle = '#next' }
-                            else if (!document.getElementById('memberReferenceNumberNewMember') ) { focusEle = '#newDB' }
+                    tbodyFocusNextEdit()
+                    document.getElementById('memberReferenceNumberNewMember')?.addEventListener('change', function() { resetTabIndex() })
+                    if (document.getElementById('new')?.hasAttribute('disabled') === false) { focusEle = '#newDB' }
+                    else {
+                        if (document.getElementById('next')?.hasAttribute('disabled') === false) { focusEle = '#next' }
+                        else if (notEditMode) { focusEle = '#editDB' }
+                        else if (!notEditMode) {
+                            if (document.getElementById('memberReferenceNumberNewMember')?.value === '') { focusEle = '#memberReferenceNumberNewMember' }
+                            else if (document.getElementById('actualDate')?.value === '') { focusEle = '#actualDate' }
+                            else if (document.getElementById('memberCitizenshipVerification').value === 'No Verification Provided' || !document.getElementById('memberCitizenshipVerification').value ) { focusEle = '#memberCitizenshipVerification' }
+                            else { focusEle = '#' + firstEmptyId() }
                         }
-                        // else if (!document.getElementById('memberReferenceNumberNewMember') && document.getElementById('next') && document.getElementById('next').getAttribute('disabled') === "disabled") { focusEle = '#newDB' }
-                        else if (document.getElementById('memberReferenceNumberNewMember') && !document.getElementById('memberReferenceNumberNewMember').value) { focusEle = '#memberReferenceNumberNewMember' }
-                        else if (document.getElementById('actualDate').value && ( document.getElementById('memberCitizenshipVerification').value === 'No Verification Provided' || !document.getElementById('memberCitizenshipVerification').value )) { focusEle = '#memberCitizenshipVerification' }
-                        else if (!document.getElementById('actualDate').value) { focusEle = '#actualDate' }
-                        else { focusEle = '#' + firstEmptyId() }
                     }
-                }, 100)
+                    console.log(focusEle)
+                }, 75)
             }
             if (("CaseParent.htm").includes(thisPageNameHtm)) {
                 if (!notEditMode) {
                     // if (document.getElementById('parentVerification').value === 'No Verification Provided') { focusEle = '#parentVerification' }
                     if ( document.getElementById('parentReferenceNumberNewMember') ) { focusEle = '#parentReferenceNumberNewMember' }
-                    else if ( ['No Verification Provided', ''].includes(document.getElementById('parentVerification').value) ) { focusEle = '#parentVerification' }
                     else if ( !document.getElementById('parentReferenceNumberNewMember') && document.getElementById('childReferenceNumberNewMember') ) { focusEle = '#childReferenceNumberNewMember' }
+                    else if ( ['No Verification Provided', ''].includes(document.getElementById('parentVerification').value) ) { focusEle = '#parentVerification' }
                     else { focusEle = document.querySelector('#cancel, #revert') }
                 }
                 else if (notEditMode) {
@@ -881,7 +912,8 @@ if (!iFramed) { // More element_focus
             if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 if (notEditMode) { focusEle = '#newDB' }
                 else if (!notEditMode) {
-                    if ($('strong:contains("Warning")').length > 0) { focusEle = '#saveDB' }
+                    let errorText = document.querySelector('div.error_alertbox_new > strong')
+                    if (!notEditMode && errorText.parentElement.style.display !== "none" && "Warning".indexOf(errorText.innerText) > -1) { focusEle = '#saveDB' }
                     else if ( document.getElementById('memberReferenceNumberNewMember') && !document.getElementById('memberReferenceNumberNewMember')?.value ) { focusEle = '#memberReferenceNumberNewMember' }
                     else if ( document.getElementById('providerType').value === "Legal Non-licensed" ) { focusEle = '' }
                     else if ( (!document.getElementById('primaryBeginDate').value && !document.getElementById('secondaryBeginDate').value) && document.getElementById('providerType').value !== "Legal Non-licensed" ) { focusEle = '#primaryBeginDate' }
@@ -902,24 +934,13 @@ if (!iFramed) { // More element_focus
 
             //SUB-SECTION START Case Tab pages
             if (("CaseAddress.htm").includes(thisPageNameHtm)) {
-                if ($('strong:contains("Warning"), strong:contains("Effective")').length && !notEditMode) {
-                    let storedActualDate = sessionStorage.getItem('actualDateSS')
-                    if (document.querySelector('strong.rederrortext')) {
-                        if (document.querySelector('strong.rederrortext').innerText === 'Effective Date must be entered in the corresponding biweekly period.' && storedActualDate) {
-                            if (new Date(periodDates.start) < new Date(storedActualDate) && new Date(storedActualDate) < new Date(periodDates.end)) {
-                                document.getElementById('effectiveDate').value === storedActualDate
-                            }
-                        }
-                    }
-                    if (document.querySelector('div.error_alertbox_new > strong:not(.rederrortext)').innerText === " Warning: Effective date has changed - Review Living Situation") {
-                        // document.getElementById('save').click()
-                        doClick('#save')
-                    }
-                    focusEle = '#saveDB'
+                let errorText = document.querySelector('div.error_alertbox_new > strong')
+                if (!notEditMode && errorText?.innerText === " Warning: Effective date has changed - Review Living Situation") {
+                    doClick('#save')
                 }
                 else {
-                    let previousStatus = document.getElementById('previous')?.getAttribute('disabled')
-                    let editingMode = ( previousStatus === "disabled" ) ? "appEditing" : previousStatus === null ? "appNotEditing" : document.getElementById('edit')?.getAttribute('disabled') === "disabled" ? "editing" : "notEditing"
+                    let previousButton = document.querySelector('#previous')
+                    let editingMode = ( previousButton ) ? /*t*/ previousButton.hasAttribute('Disabled') ? "appEditing" : "appNotEditing" : /*f*/ document.getElementById('edit').hasAttribute('Disabled') ? "editing" : "notEditing"
                     if (editingMode === "appNotEditing") { focusEle = '#wrapUpDB' }
                     if (editingMode === "notEditing") { focusEle = '#editDB' }
                     if (editingMode === "appEditing" || editingMode === "editing") {
@@ -931,7 +952,7 @@ if (!iFramed) { // More element_focus
             if (("CaseAction.htm").includes(thisPageNameHtm)) {
                 if (notEditMode) {
                     if (document.referrer.match(thisPageNameHtm)) { focusEle = '#wrapUpDB' }
-                    else { document.getElementById('delete').getAttribute('disabled') ? focusEle = '#newDB' : focusEle = '#deleteDB' }
+                    else { document.getElementById('delete').hasAttribute('Disabled') ? focusEle = '#newDB' : focusEle = '#deleteDB' }
                 } else { focusEle = '#failHomeless' }
             }
 
@@ -940,7 +961,8 @@ if (!iFramed) { // More element_focus
                     if (document.getElementById('redeterminationStatus').value === 'Updates Required') { focusEle = '#wrapUpDB' }
                     else { focusEle = '#editDB' }
                 }
-                else if ($('strong:contains("Warning")').length > 0) { focusEle = '#saveDB' }
+                else if ( document.querySelector('div.error_alertbox_new > strong').innerText.indexOf("Warning") > -1 ) { focusEle = '#saveDB' }
+                // else if ($('strong:contains("Warning")').length > 0) { focusEle = '#saveDB' }
                 else { document.getElementById('redeterminationStatus').value = 'Updates Required'; focusEle = '#receiveDate' }
             }
 
@@ -948,7 +970,7 @@ if (!iFramed) { // More element_focus
                 let noAutoFunds = localStorage.getItem('MECH2.autoFunds')
 
                 let toggleFundsBtnText = noAutoFunds?.value.length ? "Default to Yes" : "Disable Auto-Yes" // value only exists if 'disabled'
-                $('div#caseInput').append('<button id="toggleFunding" class="cButton float-right" type="button">' + toggleFundsBtnText + '</button>')
+                document.getElementById('caseInput').insertAdjacentHTML('beforeend', '<button id="toggleFunding" class="cButton float-right" type="button">' + toggleFundsBtnText + '</button>')
                 document.getElementById('toggleFunding').addEventListener('click', function() {
                     if (this.textContent === "Disable Auto-Yes") {
                         localStorage.setItem('MECH2.autoFunds', 'No')
@@ -961,7 +983,7 @@ if (!iFramed) { // More element_focus
                     }
                 })
                 if (notEditMode) {
-                    if (document.getElementById('new').getAttribute('disabled')) { focusEle = '#wrapUpDB' }
+                    if (document.getElementById('new').hasAttribute('disabled')) { focusEle = '#wrapUpDB' }
                     else { focusEle = '#newDB' }
                 }
                 else if (!notEditMode) {
@@ -977,7 +999,7 @@ if (!iFramed) { // More element_focus
             }
 
             if (("CaseReinstate.htm").includes(thisPageNameHtm)) {
-                if (notEditMode) { document.getElementById('reinstateDate').value !== '' ? focusEle = '#wrapUpDB' : focusEle = '#editDB' }
+                if (notEditMode) { document.getElementById('reason').value.length ? focusEle = '#wrapUpDB' : focusEle = '#editDB' }
                 else { document.getElementById('reason')?.value.length > 0 ? focusEle = '#saveDB' : focusEle = '#reason' }
             }
 
@@ -990,7 +1012,7 @@ if (!iFramed) { // More element_focus
 
             //SUB-SECTION START Eligibility pages
             if (["CaseEligibilityResultSelection.htm", "CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm)) {
-                let backgroundTransaction = $('strong:contains("Background transaction in process.")').length
+                let backgroundTransaction = document.querySelector('strong.rederrortext')
                 let reloadButton = document.getElementById('submit') ? '#submit' : '#caseInputSubmit'
                 let proceedButton = document.getElementById('approve') ? '#approveDB' : '#selectDB'
                 function checkIfBackground() {
@@ -1008,16 +1030,13 @@ if (!iFramed) { // More element_focus
                     })
                 }, 200)
             }
-            const eligibilityPagesNextFocus = ["CaseEligibilityResultFamily.htm", "CaseEligibilityResultPerson.htm", "CaseEligibilityResultActivity.htm", "CaseEligibilityResultFinancial.htm", "CaseEligibilityResultApproval.htm"]
-            if (("CaseEligibilityResultOverview.htm").includes(thisPageNameHtm)) { notEditMode ? focusEle = '#nextDB' : focusEle = '#type' }
+            const eligibilityPagesNextFocus = [ "CaseEligibilityResultOverview.htm", "CaseEligibilityResultFamily.htm", "CaseEligibilityResultPerson.htm", "CaseEligibilityResultActivity.htm", "CaseEligibilityResultFinancial.htm", ]
+            // if (("CaseEligibilityResultOverview.htm").includes(thisPageNameHtm)) { notEditMode ? focusEle = '#nextDB' : focusEle = '#type' }
             if (eligibilityPagesNextFocus.includes(thisPageNameHtm)) { notEditMode ? focusEle = '#nextDB' : focusEle = '#overrideReason' }
             if (("CaseEligibilityResultApproval.htm").includes(thisPageNameHtm)) { notEditMode ? focusEle = '#approveDB' : focusEle = '#type' }
             if (("CaseEligibilityResultApprovalPackage.htm").includes(thisPageNameHtm)) {
-                if (notEditMode) {
-                    focusEle = '#approveDB'
-                    tbodiesFocus('#confirmDB')
-                }
-                else { focusEle = '#confirmDB' }
+                tbodiesFocus('#confirmDB')
+                focusEle = '#confirmDB'
             }
             if (("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) { focusEle = '#createDB' }
             //SUB-SECTION START Service Authorization pages
@@ -1048,10 +1067,9 @@ if (!iFramed) { // More element_focus
                 }
             };
             if (("CaseWrapUp.htm").includes(thisPageNameHtm)) {
-                // if (sessionStorage.getItem('processingApplication') !== null && document.referrer.indexOf("FundingAvailability.htm") < 0) {
                 if (sessionStorage.getItem('processingApplication') !== null && document.referrer.indexOf("CaseAddress.htm") > -1) {
-                    document.getElementById('memberMainButtons').click()
-                    focusEle = '#CaseParentSelf'
+                    document.getElementById('Member.btn').click()
+                    focusEle = document.getElementById('CaseParent.htm')
                 } else {
                     focusEle = '#doneDB'
                 }
@@ -1073,14 +1091,10 @@ if (!iFramed) { // More element_focus
 
             if (!notEditMode && document.querySelectorAll('strong.rederrortext').length) {
                 if ([...document.querySelectorAll('strong.rederrortext')].filter((el) => el.textContent.includes('Actual Date is missing')).length) {
-                // if ($('strong.rederrortext:contains("Actual Date is missing")').length) {
                     focusEle = '#actualDate'
                     if (inCurrentPeriod) { document.getElementById('actualDate').value = inCurrentPeriod }
                 } else if ([...document.querySelectorAll('strong.rederrortext')].filter((el) => el.textContent.includes('is missing')).length) {
-                // } else if ($('strong.rederrortext:contains("is missing")')) {
-                    // document.querySelector('errordiv').closest('div').previousElementSibling.querySelector('input, select')
                     let erroredEntry = document.querySelector('errordiv').closest('div').querySelector('input, select') ?? document.querySelector('errordiv').closest('div').previousElementSibling.querySelector('input, select')
-                    // eleFocus($('errordiv').prev('div').find('select, input'))
                     focusEle = erroredEntry
                 }
             }
@@ -1098,11 +1112,10 @@ if (!iFramed) { // More element_focus
 
         }
         //SUB-SECTION START Non-collection pages
-        if (("/AlertWorkerCreatedAlert.htm").includes(thisPageNameHtm)) { focusEle = '#delayNextMonth' }
-        if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm)) { if (notEditMode) { focusEle = '#new' } else { focusEle = $('#pmiNumber').attr('disabled') === 'disabled' ? '#next' : '#pmiNumber' } };
+        if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm)) { if (notEditMode) { focusEle = '#new' } else { focusEle = document.getElementById('pmiNumber').hasAttribute('disabled') ? '#next' : '#pmiNumber' } };
         if (("CaseReapplicationAddCcap.htm").includes(thisPageNameHtm)) {
-            if (document.getElementById('next').getAttribute('disabled') === 'disabled') {
-                let unchecked = [...document.querySelectorAll('#countiesTable td>input.form-check-input')].filter((e) => e.getAttribute('checked') !== "checked")
+            if ( document.getElementById('next').hasAttribute('disabled') ) {
+                let unchecked = [...document.querySelectorAll('#countiesTable td>input.form-check-input')].filter((e) => e.hasAttribute('checked') === false)
                 if (unchecked.length > 0) {
                     unchecked.forEach((e) => e.classList.add('required-field'))
                     focusEle = '#' + unchecked[0].id
@@ -1117,44 +1130,59 @@ if (!iFramed) { // More element_focus
 
     } catch (error) { console.trace("eleFocus section", error) }
 }
+function eleFocus(ele) {
+    let eleToFocus = typeof(ele) === "object" ? ele : document.querySelector(ele)
+    if (eleToFocus) {
+        function doEleFocus() {
+            if ( eleToFocus.nodeName === "INPUT" && eleToFocus.classList.contains('form-control') ) { eleToFocus.select() }
+            else { eleToFocus.focus() }
+        }
+        docReady(doEleFocus)
+    } else { console.log("eleFocus failed to find element based on query:", ele, ". Check for missing #.") }
+};
 // ////////////////////////////////////////////////////////////////////////// FOCUS_ELEMENT SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ==============================================================================================================================================================================================
 
 // SECTION_START Footer_links
 if (!iFramed) { // SECTION_START Footer_links
     try {
-        const additionalFooterLinks = [
-            ["https://www.mnworkforceone.com/", "_blank", "WF1"],
-            ["https://owa.dhssir.cty.dhs.state.mn.us/owa/", "_blank", "SIR Mail"],
-            ["https://policyquest.dhs.state.mn.us/", "_blank", "PolicyQuest"],
-            ["https://owa.dhssir.cty.dhs.state.mn.us/csedforms/ccforms/TSS_PMI_Merge_Request.aspx", "_blank", "PMI Merge"],
-            ["https://moms.mn.gov/", "_blank", "MOMS"],
-            ["https://smi.dhs.state.mn.us/", "_blank", "SMI"],
-            ["https://owa.dhssir.cty.dhs.state.mn.us/csedforms/MMR/TSS_General_Request.asp", "_blank", "Help Desk"],
-        ]
-        function getFooterLinks() {
-            let footerLinks = ""
-            let separatorSpan = '<span class="footer">ı</span>'
-            for (let link in additionalFooterLinks) {
-                let linkArray = additionalFooterLinks[link]
-                footerLinks += separatorSpan + '<a href="' + linkArray[0] + '" target="' + linkArray[1] + '">' + linkArray[2] + '</a>'
+        let foot = document.getElementById('footer_links');
+        if (foot) {
+            [...foot?.childNodes]?.filter(e => e.nodeType === 3 && e.length > 2).forEach((e) => e.remove());
+            let toes = document.getElementById('footer_links').children;
+            [...toes]?.toSpliced(-1, 1).forEach((e) => e.insertAdjacentHTML('afterend', '<span class="footer">ı</span>'));
+            const additionalFooterLinks = [
+                ["https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=ccap_updates_memos_bulletins", "_blank", "Memos"],
+                ["https://www.mnworkforceone.com/", "_blank", "WF1"],
+                ["https://owa.dhssir.cty.dhs.state.mn.us/owa/", "_blank", "SIR Mail"],
+                ["https://policyquest.dhs.state.mn.us/", "_blank", "PolicyQuest"],
+                ["https://owa.dhssir.cty.dhs.state.mn.us/csedforms/ccforms/TSS_PMI_Merge_Request.aspx", "_blank", "PMI Merge"],
+                ["https://moms.mn.gov/", "_blank", "MOMS"],
+                ["https://smi.dhs.state.mn.us/", "_blank", "SMI"],
+                ["https://owa.dhssir.cty.dhs.state.mn.us/csedforms/MMR/TSS_General_Request.asp", "_blank", "Help Desk"],
+            ]
+            function getFooterLinks() {
+                let footerLinks = ""
+                let separatorSpan = '<span class="footer">ı</span>'
+                for (let link in additionalFooterLinks) {
+                    let linkArray = additionalFooterLinks[link]
+                    footerLinks += separatorSpan + '<a href="' + linkArray[0] + '" target="' + linkArray[1] + '">' + linkArray[2] + '</a>'
+                }
+                return footerLinks
             }
-            return footerLinks
+            document.querySelector('#contactInformation').textContent = "Help Info"
+            document.querySelector('#footer_links>a[href="https://bi.dhs.state.mn.us/BOE/BI"]').textContent = 'BOBI'
+            let newUserManual = document.querySelector('#footer_links>a[href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=mecc-0002"]')
+            // newUserManual.insertAdjacentHTML('afterend', '<span class="footer">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_139409" target="_blank">User Manual</a>')
+            newUserManual.outerHTML = '<a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=MECC-0001" target="_blank" tabindex="-1">"New" User Manual</a><span class="footer">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_139409" target="_blank">User Manual</a>'
+            document.getElementById('contactInformation').insertAdjacentHTML('afterend', getFooterLinks())
         }
-        document.querySelector('#contactInformation').textContent = "Help Info"
-        document.querySelector('#footer_links>a[href="https://bi.dhs.state.mn.us/BOE/BI"]').textContent = 'BOBI'
-        $('#footer_links>a[href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=mecc-0002"]')
-            .text('Incomplete User Manual')
-            .after('<span class="footer">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_139409" target="_blank">Old User Manual</a>')
-            .attr('href', 'https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=MECC-0001')
-        document.getElementById('contactInformation').insertAdjacentHTML('afterend', getFooterLinks())
-        $('#footer_links').contents().filter(function() { return this.nodeType === 3 && this.length > 2 }).replaceWith('<span class="footer">ı</span>') // replace with treeWalker?
-    }
-    catch (error) { console.trace(error) }
+    } catch (error) { console.trace(error) }
 } // SECTION_END Footer_links
 
 // ======================================================================================================================================================================================================
 // ////////////////////////////////////////////////////////////////////////// PAGE_SPECIFIC_CHANGES SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+try {
 // SECTION_START Active_Case_List
 if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('#activeCaseTable > tbody > tr:nth-child(2)')) {
     // query idea: CaseEditSummary, inhibiting errors. Object.case#.0.editType ("Warning Error", "Inhibiting Error"), .currentPeriod/.selectPeriod/.selectPeriodSelected (all have the same BWP)
@@ -1174,7 +1202,7 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
         }
         document.querySelectorAll('tr').forEach((e) => {
             let caseStatus = e.querySelector('td:nth-child(3)').textContent
-            let childNode = e.childNodes[4]
+            let childNode = e.children[4]
             switch (caseStatus) {
                 case "Active":
                     e.classList.add('active')
@@ -1205,7 +1233,7 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
         let tempIneligCaseLength = document.querySelectorAll('tr.tempinelig').length
         document.querySelector('h5').insertAdjacentHTML('beforeend', " " + [activeCaseLength, "active,", suspendedCaseLength, "suspended,", tempIneligCaseLength, "temp inelig. "].join(" ") + reinstatedCases)
         document.querySelector('h5').addEventListener('click', function() {
-            let copyText = [activeCaseLength, suspendedCaseLength + tempIneligCaseLength].join('\n')
+            let copyText = [activeCaseLength, suspendedCaseLength, tempIneligCaseLength].join('\n')
             navigator.clipboard.writeText(copyText)
             snackBar(copyText)
         })
@@ -1220,20 +1248,20 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
                 for (let caseNum in result) {
                     let residenceCity = toTitleCase(result[caseNum][0][0].residenceCity)
                     let mailingCity = result[caseNum][0][0].mailingCity?.length ? " / " + toTitleCase(result[caseNum][0][0].mailingCity) : ''
-                    let tRowTd = document.getElementById(caseNum).childNodes[1]
+                    let tRowTd = document.getElementById(caseNum).children[1]
                     // let tRowTd = document.getElementById(caseNum).querySelector('td:nth-child(2)')
                     tRowTd.insertAdjacentHTML('beforeend', '<span class="ACLaddedSpan tableAmend">(' + residenceCity + mailingCity + ')</span>')
                 }
             })
         }
         async function checkReporterType() {
-            const caseListArrayActive = Array.from([...document.querySelectorAll('#activeCaseTable > tbody > tr')].filter((e) => e.childNodes[2].innerText === "Active"), caseNumber => caseNumber.id)
+            const caseListArrayActive = Array.from([...document.querySelectorAll('#activeCaseTable > tbody > tr')].filter((e) => e.children[2].innerText === "Active"), caseNumber => caseNumber.id)
             forAwaitMultiCaseEval(caseListArrayActive, "CaseChildProvider").then(function(result) {
                 for (let caseNum in result) {
                     reporterTypeLoop:
                     for (let row in result[caseNum][0]) {
                         if (result[caseNum][0][row].reporterType === "Schedule Reporter") {
-                            let targetTd = document.getElementById(caseNum).childNodes[2]
+                            let targetTd = document.getElementById(caseNum).children[2]
                             let addedText = "Sched"
                             if (result[caseNum][0][row].reporterTypeSelectionArray.includes('LNL Provider Used')) { addedText += ", LNL" }
                             else if (result[caseNum][0][row].reporterTypeSelectionArray.includes('Employee - DHS Licensed Child Care Cntr')) { addedText += ", Emp" }
@@ -1251,9 +1279,9 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
                     for (let row in result[caseNum][0]) {
                         let jobSearchHours = Number(result[caseNum][0][row].originalHoursPerWeek)
                         if (jobSearchHours > 0) {
-                            let targetTd = document.getElementById(caseNum).childNodes[3]
+                            let targetTd = document.getElementById(caseNum).children[3]
                             // let targetTd = document.getElementById(caseNum).querySelector('td:nth-child(4)')
-                            if (targetTd.childNodes?.length === 1) {
+                            if (targetTd.children?.length === 1) {
                                 targetTd.insertAdjacentHTML('beforeend', '<span class="tableAmend">JS:</span>')
                             }
                             let activeButOneHour = (document.getElementById(caseNum).querySelector('td:nth-child(3)').textContent.indexOf('Active') > -1 && jobSearchHours < 10) ? " font-weight: bold; color: var(--redErrorText);" : ""
@@ -1312,11 +1340,11 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
             document.getElementById('footer_links').insertAdjacentHTML('beforebegin', '<div id="iframeContainer" style="height: 400px;"><iframe id="redetiframe" name="redetiframe" style="width: 100%; height: 100%;"></iframe></div>')
             let redetiframe = document.getElementById('redetiframe')
             let iframeContainer = document.getElementById('iframeContainer')
-            // let eventSpanId = eventSpan.closest('tr').id
+            // let eventSpanId = eventSpan.parentElement.id
             // let eventDelayDate = eventSpan.dataset.delayDate
-            let delayDateObj = JSON.stringify({ id: eventSpan.closest('tr').id, delayDate: eventSpan.dataset.delayDate })
+            let delayDateObj = JSON.stringify({ id: eventSpan.parentElement.id, delayDate: eventSpan.dataset.delayDate })
             sessionStorage.setItem('MECH2.suspendPlus45', delayDateObj)
-            delayRedetDate(eventSpan, eventSpan.closest('tr').id, redetiframe).then((eventSpan) => {
+            delayRedetDate(eventSpan, eventSpan.parentElement.id, redetiframe).then((eventSpan) => {
                 window.onstorage = null
                 sessionStorage.removeItem('MECH2.suspendPlus45')
                 iframeContainer.remove()
@@ -1486,345 +1514,210 @@ if (("ActiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector('
 }; // SECTION_END Active_Case_List
 
 // =================================================================================================================================================================================================
-// /////////////////////////////////////////////////////////////////////// Alerts ("Alerts.htm") (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\alertTotal
+// /////////////////////////////////////////////////////////////////////// Alerts ("Alerts.htm") (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
-    // document.querySelectorAll('#caseOrProviderAlertsTable > tbody > tr').forEach((e) => { e.id = e.childNodes[2].textContent }) // This doesn't persist after deleting alerts. Table is replaced with non marked rows.
-    function checkIfMfip() {
-        let alertsTable = document.querySelector('table#caseOrProviderAlertsTable > tbody')
-        evalData().then(async function(tableTwoAlerts) {
-            tableTwoAlerts[1].forEach((checkAlert) => {
-                if (checkAlert.message.indexOf("Approve new") === 0) {
-                    let rowIndexPlusOne = Number(checkAlert.rowIndex)+1
-                    alertsTable.querySelector('tr:nth-child(' + rowIndexPlusOne + ')').id = checkAlert.caseNumber
-                    document.getElementById(checkAlert.caseNumber).classList.add('checkCash')
-                }
-            })
-            const checkCashArray = Array.from(document.querySelectorAll('.checkCash'), (caseNumber) => caseNumber.id)
-            forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(multiCaseResult) {
-                console.log(multiCaseResult)
-                for (let singleCase in multiCaseResult) {
-                    let programTable = multiCaseResult[singleCase][0]
-                    for (let i = 0; i < programTable.length; i++) {
-                        if (programTable[i].programNameHistory === "MFIP") {
-                            let mfipStatus = 'MFIP: ' + programTable[i].programStatusHistory
-                            let ccapStatus = ' - CCAP: ' + programTable[0].programNameHistory
-                            let inactiveDate = programTable[i].programStatusHistory === "Inactive" ? ' ' + programTable[i].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : ''
-                            document.getElementById(singleCase).querySelector('td:nth-child(2)').insertAdjacentHTML('beforeend', '<span style="margin: 0 10px 0 auto; float: right !important; font-size: small;">' + mfipStatus + inactiveDate + ccapStatus +'</span>')
-                        }
-                    }
-                }
-            })
-        })
-    }
-    // checkIfMfip()
     let deleteButton = document.getElementById('delete')
+    let createButton = document.getElementById('new')
     let inputEffectiveDate = document.getElementById('inputEffectiveDate')
-    doWrap(inputEffectiveDate)
-    addDateControls("#inputEffectiveDate")
-    let caseOrProviderAlertsTable = document.getElementById('caseOrProviderAlertsTable')
-    let $caseOrProviderAlertsTableTbody = $('#caseOrProviderAlertsTable > tbody')
     let caseOrProviderAlertsTableTbody = document.querySelector('#caseOrProviderAlertsTable > tbody')
-    let preWorkerAlertCaseSS = sessionStorage.getItem('MECH2.preWorkerAlertCase')
-    document.getElementById('new').addEventListener('click', function() { sessionStorage.setItem('MECH2.preWorkerAlertCase', document.getElementById("groupId").value) })
-    if (localStorage.getItem('MECH2.userName') === null || localStorage.getItem('MECH2.userName') === undefined && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
-        let userNameObserver = new MutationObserver(function(mutations) {
-            mutations.forEach((mutation) => {
-                let workerName = mutation.target.value
-                workerName = reorderCommaName(workerName)
-                let truncatedWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
-                localStorage.setItem('MECH2.userName', truncatedWorkerName)
-                userNameObserver.disconnect()
-            })
-        })
-        const workerName = document.querySelector('#workerName')
-        userNameObserver.observe(workerName, { attributeFilter: ["tabindex"] })
-    }
-    setTimeout(function() {
-        if (Number(document.getElementById('alertTotal').value) && caseOrProviderAlertsTableTbody.querySelector('td.dataTables_empty')) { doClick(document.getElementById('alertInputSubmit') ) }
-        // if (Number(document.getElementById('alertTotal').value) && caseOrProviderAlertsTable.querySelectorAll('td.dataTables_empty').length) { document.getElementById('alertInputSubmit').click() }
-        else if (preWorkerAlertCaseSS && caseOrProviderAlertsTableTbody.childNodes.length > 1) {
-            let preWorkerCase = [...caseOrProviderAlertsTableTbody.querySelectorAll('tr > td:nth-child(3)')].filter((ele) => ele.innerText.includes(preWorkerAlertCaseSS) )
-            if (preWorkerCase?.length) {
-                preWorkerCase = preWorkerCase[0].parentElement
-                doClick(preWorkerCase)
-                preWorkerCase.scrollIntoView({ behavior: "smooth", block: "center" })
-            }
-            // $('td:nth-child(3):contains(' + preWorkerAlertCase + ')', $caseOrProviderAlertsTableTbody).parent('tr').attr('id', 'preWorkerAlertCase')
-            // let activeCase = document.getElementById('preWorkerAlertCase')
-            // doClick(activeCase)
-            // activeCase.click()
-            // activeCase.scrollIntoView({ behavior: "smooth", block: "center" })
-            sessionStorage.removeItem('MECH2.preWorkerAlertCase')
-        }
-    }, 300)
-    deleteButton.insertAdjacentElement('afterend', document.getElementById('new'))
-    document.getElementById('alertTotal').insertAdjacentHTML('afterend', `
-        <button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>
-        <button type="button" class="form-button centered-text doNotDupe" id="deleteAll" title="Delete All" value="Delete All">Delete All</button>
-        <button type="button" class="form-button centered-text doNotDupe hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>
-    `)
-    document.getElementById('deleteTop').addEventListener('click', function() { $('#delete').click() }) // don't change from jQuery or it won't 'hide' undeleteable alerts.
+    let caseOrProviderType = document.getElementById('caseOrProviderType')
+    let alertTotal = document.getElementById('alertTotal')
+    let alertTable = document.getElementById('alertTable')
+    let alertGroupId = document.getElementById("groupId")
+    let alertMessage = document.getElementById("message")
+    let alertRowIndex = document.getElementById('rowIndex')
+    let selectedCaseOrProvider // set with click event
+    caseOrProviderAlertsTableTbody.addEventListener( 'click', function(event) {
+        fBaseCategoryButtons()
+        selectedCaseOrProvider = event.target.closest('tr').children[2]?.innerText
+    })
 
-    // SECTION_START Delete all alerts of current name onclick
-    let oCaseDetails = {}
-    let vNumberToDelete
-    let vCaseName
-    let vCaseOrProvider
-    let vCaseNumberOrProviderId
+    addDateControls("#inputEffectiveDate")
+    let preWorkerAlertCaseSS = sessionStorage.getItem('MECH2.preWorkerAlertCase')
+    createButton.addEventListener('click', function() { sessionStorage.setItem('MECH2.preWorkerAlertCase', alertGroupId.value) }) // could use document.getElementById('groupName').value instead, and then iterate the evalData info.
+    if ( !localStorage.getItem('MECH2.userName') && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
+        let workerNameInput = document.getElementById('workerName')
+        if (workerNameInput?.value) { setWorkerName(workerNameInput.value) }
+        else {
+            let userNameObserver = new MutationObserver(function(mutations) {
+                if (workerNameInput?.value) {
+                    setWorkerName(workerNameInput.value)
+                    userNameObserver.disconnect()
+                }
+            })
+            const workerNameInput = document.getElementById('workerName')
+            userNameObserver.observe(workerNameInput, { attributeFilter: ["tabindex"] })
+        }
+        function setWorkerName(workerName) {
+            workerName = commaNameReorder(workerName)
+            let truncatedWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
+            localStorage.setItem('MECH2.userName', truncatedWorkerName)
+        }
+    }
+
     function whatAlertType() {
-        switch ($('>tr.selected>td:eq(0)', $caseOrProviderAlertsTableTbody).html().toLowerCase()) {
-            case "case":
-                return { page: "CaseNotes.htm", type: "Case", number: document.getElementById('caseNumber').value, name: $(''), parameters: fGetCaseParameters() }
+        switch (caseOrProviderType.value) {
+            case "Case":
+                return { page: "CaseNotes.htm", type: "Case", number: document.getElementById('caseNumber').value, name: '', parameters: getCaseParameters() }
                 break
-            case "provider":
-                return { page: "ProviderNotes.htm", type: "Provider", number: document.getElementById('providerId').value, parameters: fGetProviderParameters() }
+            case "Provider":
+                return { page: "ProviderNotes.htm", type: "Provider", number: document.getElementById('providerId').value, parameters: getProviderParameters() }
                 break
             default:
                 break
         }
     }
-    // document.getElementById('deleteTop').insertAdjacentHTML('afterend', ``);
-    $('h4:contains("Case/Provider List")')
-        .wrap('<div>')
-        .after('<h4 style="float: right; display:inline-flex color: #003865; font-size: 1.2em; font-weight: bold;" id="alertMessage"></h4>');
-    let vDeleteAllButton = document.getElementById('deleteAll')
-    let vHaltDeleting
-    const observerDelete = new MutationObserver(e => { fDoDeleteAll() })
-    document.getElementById('deleteAll').addEventListener("click", function(button) {
-        oCaseDetails = whatAlertType()
-        vCaseOrProvider = oCaseDetails.type
-        if (!["case", "provider"].includes(vCaseOrProvider.toLowerCase())) { return }
-        vNumberToDelete = oCaseDetails.number
-        vCaseName = document.getElementById('groupName').value//name on page
-        observerDelete.observe(document.getElementById('delete'), { attributeFilter: ['value'] })
-        document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
+
+    setTimeout(function() { // reloads the page if it incorrectly shows 0 alerts
+        if (Number(alertTotal.value) && caseOrProviderAlertsTableTbody.querySelector('td.dataTables_empty')) { doClick(document.getElementById('alertInputSubmit') ) }
+        else if (preWorkerAlertCaseSS && caseOrProviderAlertsTableTbody.children.length > 1) {
+            let preWorkerCaseRow = [...caseOrProviderAlertsTableTbody.querySelectorAll('tr > td:nth-child(3)')].filter((ele) => ele.innerText.includes(preWorkerAlertCaseSS) )[0]?.parentElement
+            if (preWorkerCaseRow) {
+                setTimeout(() => {
+                    doClick(preWorkerCaseRow)
+                    preWorkerCaseRow.scrollIntoView({ behavior: "smooth", block: "center" })
+                }, 1500)
+            }
+            sessionStorage.removeItem('MECH2.preWorkerAlertCase')
+        }
+    }, 300)
+
+    deleteButton.insertAdjacentElement('afterend', createButton)
+    alertTotal.insertAdjacentHTML('afterend', `
+        <button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>
+        <button type="button" class="form-button centered-text doNotDupe" id="deleteAll" title="Delete All" value="Delete All">Delete All</button>
+        <button type="button" class="form-button centered-text doNotDupe hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>
+    `)
+    let deleteAllButton = document.getElementById('deleteAll')
+    let stopDeleteAllButton = document.getElementById('stopDeleteAll')
+    let deleteButtonArray = [deleteAllButton, stopDeleteAllButton]
+    let deleteTopButton = document.getElementById('deleteTop')
+    deleteTopButton.addEventListener('click', function() { $('#delete').click() }) // don't change from jQuery or undeletable alerts can't be deleted; probably have to change document.getElementById('deleteable').value to 'true' to make it work without
+
+// SECTION_START Delete_all_alerts
+    let caseProviderListH4 = document.getElementsByTagName('h4')[0]
+    doWrap(caseProviderListH4)
+    caseProviderListH4.insertAdjacentHTML('afterend', '<h4 style="float: right; display:inline-flex;" id="alertMessageh4"></h4>')
+    let alertMessageh4 = document.getElementById('alertMessageh4')
+
+    let oCaseDetails = {}
+    let deleteAllVariables = {}
+    const observerDelete = new MutationObserver( function() { fDoDeleteAll() })
+    deleteAllButton.addEventListener("click", function(button) {
+        observerDelete.observe(deleteButton, { attributeFilter: ['value'] })
+        oCaseDetails = structuredClone(whatAlertType())
+        deleteAllVariables.vCaseOrProvider = oCaseDetails.type
+        if ( !["Case", "Provider"].includes(deleteAllVariables.vCaseOrProvider) ) { return }
+        deleteAllVariables.vNumberToDelete = oCaseDetails.number
+        deleteAllVariables.vCaseName = document.getElementById('groupName').value//name on page
+        deleteButtonArray.forEach( (e) => e.classList.toggle('hidden') )
+        deleteAllVariables.vAlertRowIndexValue = alertRowIndex.value
+        deleteAllVariables.vManualHaltDeleting = 0
         fDoDeleteAll()
     })
-    $('#stopDeleteAll').on("click", function (button) {
-        vHaltDeleting = 1
+    stopDeleteAllButton.addEventListener("click", function (button) {
+        deleteAllVariables.vManualHaltDeleting = 1
     })
-    function fDoDeleteAll(e) {//Test worker ID PWSCSP9
-        let deleteButton = document.getElementById('delete')
+    let deleteButtons = [deleteButton, deleteTopButton, deleteAllButton]
+    function deleteAllErrorLogging() {
+        console.log("deleteAllVariables.alertCount: ", caseOrProviderAlertsTableTbody.children[deleteAllVariables.vAlertRowIndexValue]?.children[3].innerText)
+        console.log("deleteAllVariables.vNumberToDelete: ", deleteAllVariables.vNumberToDelete)
+        console.log("selectedCaseOrProvider: ", selectedCaseOrProvider)
+        console.log("oCaseDetails: ", oCaseDetails)
+        console.log("whatAlertType: ", whatAlertType())
+    }
+    function fDoDeleteAll() {//Test worker ID PWSCSP9
+        if (selectedCaseOrProvider === undefined) {
+            alertMessageh4.innerText = "Delete All halted for " + deleteAllVariables.vNumberToDelete + " - no row was 'clicked' in Case/Provider"
+            console.log("selectedCaseOrProvider is undefined. It should be ", caseOrProviderAlertsTableTbody.querySelector('.selected').children[3].innerText)
+            console.log( caseOrProviderAlertsTableTbody.querySelector('.selected') )
+            deleteAllErrorLogging()
+            // caseOrProviderAlertsTableTbody.querySelector('.selected').click()
+        }
+        deleteAllVariables.alertCount = caseOrProviderAlertsTableTbody.children[deleteAllVariables.vAlertRowIndexValue]?.children[3].innerText
+        if (selectedCaseOrProvider && deleteAllVariables.alertCount > 0 && selectedCaseOrProvider !== deleteAllVariables.vNumberToDelete) {
+            deleteAllErrorLogging()
+            alertMessageh4.innerText = "Delete All halted for " + deleteAllVariables.vNumberToDelete + " - reload page (MEC2 database mismatch)"
+            deleteButtons.map(function(e) { e.setAttribute('disabled', "disabled") })
+            endDeleteAll()
+            return
+        }
         if (deleteButton.value !== "Please wait") {
-            if (!vHaltDeleting) {
-                let thisCasesAlertNumber = [...document.querySelectorAll('#caseOrProviderAlertsTable > tbody > tr > td:nth-child(2)')].filter( (e) => e.innerText === vCaseName )[0]?.nextElementSibling?.nextElementSibling?.innerText
-                if (deleteButton.value === "Delete Alert" && document.querySelector('#caseNumber, #providerId').value === oCaseDetails.number && vNumberToDelete === document.getElementById('groupId').value && thisCasesAlertNumber > 0) {
-                // if (deleteButton.value === "Delete Alert" && document.querySelector('#caseNumber, #providerId').value === oCaseDetails.number && vNumberToDelete === document.getElementById('groupId').value && $('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() > 0) {
-                    //if (deleteButton.getAttribute('disabled') === disabled) { deleteButton.removeAttribute('disabled') }
-                    //doClick(deleteButton)
-                    $('#delete').click(); // don't change from jQuery or undeletable alerts can't be deleted
+            if (deleteAllVariables.vManualHaltDeleting) {
+                endDeleteAll()
+                alertMessageh4.innerText = "Halting Delete All"
+            } else if (!deleteAllVariables.vManualHaltDeleting) {
+                if (deleteAllVariables.alertCount > 0 && selectedCaseOrProvider === deleteAllVariables.vNumberToDelete && deleteButton.value === "Delete Alert") {
+                    $('#delete').click(); // don't change from jQuery or undeletable alerts can't be deleted; probably have to change document.getElementById('deleteable').value to 'true' to make it work without
                 } else {
                     fDoDeleteAllCheck()
                 }
-            } else if (vHaltDeleting) {
-                document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
-                observerDelete.disconnect()
-                vHaltDeleting = 0
             }
         }
     }
     function fDoDeleteAllCheck() {
-        if (document.getElementById('delete').value === "Please wait") { return }
-        let caseProviderRow = [...document.querySelectorAll('#caseOrProviderAlertsTable > tbody > tr > td:nth-child(2)')].filter((ele) => ele.innerText.includes(vCaseName) )[0]
+        if (deleteButton.value === "Please wait") { return }
+        let caseProviderRow = caseOrProviderAlertsTableTbody.children[deleteAllVariables.vAlertRowIndexValue]
         if (!caseProviderRow) {
-            switch (vCaseOrProvider) {
-                case "case":
-                    $('#alertMessage').text('Case number not present.')
+            switch (deleteAllVariables.vCaseOrProvider) {
+                case "Case":
+                    alertMessageh4.innerText = 'Case number not present.'
                     break
-                case "provider":
-                    $('#alertMessage').text('Provider ID not present.')
+                case "Provider":
+                    alertMessageh4.innerText = 'Provider ID not present.'
                     break
                 default:
                     break
             }
             return
         }
-        caseProviderRow = caseProviderRow.parentElement
-        if ( vNumberToDelete !== document.querySelector('#caseNumber, #providerId').value ) {
-            if (!$('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')')) {
-                switch (vCaseOrProvider) {
-                    case "case":
-                        $('#alertMessage').text('Case number not present.')
-                        break
-                    case "provider":
-                        $('#alertMessage').text('Provider ID not present.')
-                        break
-                    default:
-                        break
-                }
-            };
+        if ( deleteAllVariables.vNumberToDelete !== selectedCaseOrProvider ) {
+            switch (deleteAllVariables.vCaseOrProvider) {
+                case "Case":
+                    alertMessageh4.innerText = "Case number doesn't match."
+                    break
+                case "Provider":
+                    alertMessageh4.innerText = "Provider ID doesn't match."
+                    break
+                default:
+                    break
+            }
         };
-        if (caseProviderRow.childNodes[3].innerText > 0) {
+        if (caseProviderRow.children[3]?.innerText > 0) {
             doClick(caseProviderRow)
             setTimeout(function() { return fDoDeleteAll() }, 100)
+        } else {
+            alertMessageh4.innerText = 'Delete All ended. All alerts deleted from ' + deleteAllVariables.vCaseOrProvider + ' ' + deleteAllVariables.vNumberToDelete + '.'
         }
-        // if ($('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').nextAll().eq(1).html() > 0) {
-        //     $('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').parent('tr').click()
-        //     setTimeout(function() { return fDoDeleteAll() }, 100)
-        // }
-        else { $('#alertMessage').text('Delete All ended. All alerts deleted from ' + vCaseOrProvider + ' ' + vNumberToDelete + '.') }
-        document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
-        observerDelete.disconnect()
+        endDeleteAll()
     };
-    // SECTION_END Delete all alerts of current name onclick
+    function endDeleteAll() {
+        deleteButtonArray.forEach((e) => e.classList.toggle('hidden') )
+        observerDelete.disconnect()
+        deleteAllVariables = {}
+    }
+    localStorage.setItem( 'MECH2.alertsPageReload', Math.random() )
+    addEventListener('storage', function(key, newValue) {
+        if (event.key === 'MECH2.alertsPageReload') {
+            deleteButtons.map(function(e) { e.setAttribute('disabled', "disabled") })
+            alertMessageh4.innerText = "Alert page loaded in new tab. Reload or close this tab."
+        }
+    })
+    // SECTION_END Delete_all_alerts
 
-
-
-//     let deleteButton = document.getElementById('delete')
-//     addDateControls("#inputEffectiveDate")
-//     let caseOrProviderAlertsTable = document.getElementById('caseOrProviderAlertsTable')
-//     let $caseOrProviderAlertsTableTbody = $('#caseOrProviderAlertsTable > tbody')
-//     let preWorkerAlertCase = sessionStorage.getItem('MECH2.preWorkerAlertCase')
-//     document.getElementById('new').addEventListener('click', function() { sessionStorage.setItem('MECH2.preWorkerAlertCase', document.getElementById("groupId").value) })
-//     if (localStorage.getItem('MECH2.userName') === null || localStorage.getItem('MECH2.userName') === undefined && document.referrer === "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") {
-//         let userNameObserver = new TrackedMutationObserver(function(mutations) {
-//             mutations.forEach((mutation) => {
-//                 let workerName = mutation.target.value
-//                 workerName = reorderCommaName(workerName)
-//                 let truncatedWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
-//                 localStorage.setItem('MECH2.userName', truncatedWorkerName)
-//                 userNameObserver.disconnect()
-//             })
-//         })
-//         const workerName = document.getElementById('workerName')
-//         userNameObserver.observe(workerName, { attributeFilter: ["tabindex"] })
-//     }
-//     setTimeout(function() {
-//         if (Number(document.getElementById('alertTotal').value) && caseOrProviderAlertsTable.querySelectorAll('td.dataTables_empty').length) { document.getElementById('alertInputSubmit').click() }
-//         else if (preWorkerAlertCase?.length && caseOrProviderAlertsTable.querySelectorAll('tr')?.length > 1) {
-//             $('td:nth-child(3):contains(' + preWorkerAlertCase + ')', $caseOrProviderAlertsTableTbody).parent('tr').attr('id', 'preWorkerAlertCase')
-//             let activeCase = document.getElementById('preWorkerAlertCase')
-//             activeCase.click()
-//             activeCase.scrollIntoView({ behavior: "smooth", block: "center" })
-//             sessionStorage.removeItem('MECH2.preWorkerAlertCase')
-//         }
-//     }, 300)
-//     function checkIfMfip() {
-//         let alertsTable = document.querySelector('table#caseOrProviderAlertsTable > tbody')
-//         evalData().then(async function(tableTwoAlerts) {
-//             tableTwoAlerts[1].forEach((checkAlert) => {
-//                 if (checkAlert.message.indexOf("Approve new") === 0) {
-//                     let rowIndexPlusOne = Number(checkAlert.rowIndex)+1
-//                     alertsTable.querySelector('tr:nth-child(' + rowIndexPlusOne + ')').id = checkAlert.caseNumber
-//                     document.getElementById(checkAlert.caseNumber).classList.add('checkCash')
-//                 }
-//             })
-//             const checkCashArray = Array.from(document.querySelectorAll('.checkCash'), (caseNumber) => caseNumber.id)
-//             forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(multiCaseResult) {
-//                 console.log(multiCaseResult)
-//                 for (let singleCase in multiCaseResult) {
-//                     let programTable = multiCaseResult[singleCase][0]
-//                     for (let i = 0; i < programTable.length; i++) {
-//                         if (programTable[i].programNameHistory === "MFIP") {
-//                             let mfipStatus = 'MFIP: ' + programTable[i].programStatusHistory
-//                             let ccapStatus = ' - CCAP: ' + programTable[0].programNameHistory
-//                             let inactiveDate = programTable[i].programStatusHistory === "Inactive" ? ' ' + programTable[i].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : ''
-//                             document.getElementById(singleCase).querySelector('td:nth-child(2)').insertAdjacentHTML('beforeend', '<span style="margin: 0 10px 0 auto; float: right !important; font-size: small;">' + mfipStatus + inactiveDate + ccapStatus +'</span>')
-//                         }
-//                     }
-//                 }
-//             })
-//         })
-//     }
-//     // checkIfMfip()
-//     deleteButton.insertAdjacentElement('afterend', document.getElementById('new'))
-//     document.getElementById('alertTotal').insertAdjacentHTML('afterend', '<button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>')
-//     document.getElementById('deleteTop').addEventListener('click', function() { $('#delete').click() })
-
-//     // SECTION_START Delete all alerts of current name onclick
-//     let oCaseDetails = {}
-//     let vNumberToDelete
-//     let vCaseName
-//     let vCaseOrProvider
-//     let vCaseNumberOrProviderId
-//     function whatAlertType() {
-//         switch ($('>tr.selected>td:eq(0)', $caseOrProviderAlertsTableTbody).html().toLowerCase()) {
-//             case "case":
-//                 return { page: "CaseNotes.htm", type: "Case", number: document.getElementById('caseNumber').value, name: $(''), parameters: fGetCaseParameters() }
-//                 break
-//             case "provider":
-//                 return { page: "ProviderNotes.htm", type: "Provider", number: document.getElementById('providerId').value, parameters: fGetProviderParameters() }
-//                 break
-//             default:
-//                 break
-//         }
-//     }
-//     document.getElementById('deleteTop').insertAdjacentHTML('afterend', '<button type="button" class="form-button centered-text doNotDupe" id="deleteAll" title="Delete All" value="Delete All">Delete All</button><button type="button" class="form-button centered-text doNotDupe hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>');
-//     $('h4:contains("Case/Provider List")')
-//         .wrap('<div>')
-//         .after('<h4 style="float: right; display:inline-flex color: #003865; font-size: 1.2em; font-weight: bold;" id="alertMessage"></h4>');
-//     // $('#alertsPanelData>div.panel-default').addClass('flex-vertical')
-//     let vDeleteAllButton = document.getElementById('deleteAll')
-//     let vHaltDeleting
-//     const observerDelete = new TrackedMutationObserver(e => { fDoDeleteAll() })
-//     document.getElementById('deleteAll').addEventListener("click", function(button) {
-//         oCaseDetails = whatAlertType()
-//         vCaseOrProvider = oCaseDetails.type
-//         if (!["case", "provider"].includes(vCaseOrProvider.toLowerCase())) { return }
-//         vNumberToDelete = oCaseDetails.number
-//         vCaseName = document.getElementById('groupName').value//name on page
-//         observerDelete.observe(document.getElementById('delete'), { attributeFilter: ['value'] })
-//         document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
-//         fDoDeleteAll()
-//     })
-//     document.getElementById('stopDeleteAll').addEventListener("click", function(button) {
-//         vHaltDeleting = 1
-//     })
-//     function fDoDeleteAll(e) {//Test worker ID PWSCSP9
-//         if (document.getElementById('delete').value !== "Please wait") {
-//             if (!vHaltDeleting) {
-//                 if (document.getElementById('delete').value === "Delete Alert" && document.querySelector('#caseNumber, #providerId').value === oCaseDetails.number && vNumberToDelete === document.getElementById('groupId').value && $('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() > 0) {
-//                     document.getElementById('delete').click();
-//                 } else {
-//                     fDoDeleteAllCheck()
-//                 }
-//             } else if (vHaltDeleting) {
-//                 document.querySelectorAll('#deleteAll, #stopDeleteAll').forEach((e) => e.classList.toggle('hidden') )
-//                 observerDelete.disconnect()
-//                 vHaltDeleting = 0
-//             }
-//         }
-//     }
-//     function fDoDeleteAllCheck() {
-//         if ($('#delete').val() === "Please wait") { return }
-//         if ($('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').nextAll().eq(1).html() > 0) {
-//             $('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')').parent('tr').click()
-//             setTimeout(function() { return fDoDeleteAll() }, 100)
-//         }
-//         if ($('#caseOrProviderAlertsTable td:contains("' + vCaseName + '")').nextAll().eq(1).html() < 1) {//Any alerts to delete?
-//             $('#alertMessage').text('Delete All ended. All alerts deleted from ' + vCaseOrProvider + ' ' + vNumberToDelete + '.');
-//         } else if (vNumberToDelete !== $('#caseNumber, #providerId').val()) {
-//             if (!$('#caseOrProviderAlertsTable td:contains(' + vCaseName + ')')) {
-//                 switch (vCaseOrProvider) {
-//                     case "case":
-//                         $('#alertMessage').text('Case number not present.')
-//                         break
-//                     case "provider":
-//                         $('#alertMessage').text('Provider ID not present.')
-//                         break
-//                     default:
-//                         break
-//                 }
-//             };
-//         };
-//         $('#deleteAll, #stopDeleteAll').toggleClass('hidden')
-//         observerDelete.disconnect()
-//     };
-//     // SECTION_END Delete all alerts of current name onclick
-
-    // SECTION_START Do action based on Alert Type
+    // SECTION_START Alert_Type_Based_Action
     const aCaseCategoryButtons = [
         ["Elig.", "CaseEligibilityResultSelection"],
         ["SA:O", "CaseServiceAuthorizationOverview"],
-        ["SA:A", "CaseServiceAuthorizationApproval"],
-        ["Address", "CaseAddress"],
-        ["Members", "CaseMember"],
+        ["SA:A", "CaseServiceAuthorizationApproval"], // to be removed
+        ["Address", "CaseAddress"], // to be removed
+        ["Members", "CaseMember"], // to be removed
         ["Provider", "CaseChildProvider"],
         ["Notes", "CaseNotes"],
         ["Overview", "CaseOverview"],
-        ["Edits", "CaseEditSummary"],
-        ["Pages", "CasePageSummary"],
-        ["CSI", "CaseCSIA"],
+        ["Edits", "CaseEditSummary"], // to be removed
+        ["Summary", "CasePageSummary"],
+        ["CSI", "CaseCSIA"], // to be removed
         // ["", ""],
     ]
     const aProviderCategoryButtons = [
@@ -1837,26 +1730,26 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
         ["Registration", "ProviderRegistrationAndRenewal"],
         // ["", ""],
     ]
-    deleteButton.parentNode.insertAdjacentHTML('beforeend', '<div id="baseCategoryButtonsDiv" class="form-group-no-margins"><div id="caseCategoriesButtonsDiv" class="hidden form-group-button-children"></div><div id="providerCategoriesButtonsDiv" class="hidden form-group-button-children"></div></div>')
+    deleteButton.parentElement.insertAdjacentHTML('beforeend', '<div id="baseCategoryButtonsDiv" class="form-group-no-margins"><div id="caseCategoriesButtonsDiv" class="hidden form-group-button-children"></div><div id="providerCategoriesButtonsDiv" class="hidden form-group-button-children"></div></div>')
+    let caseCategoriesButtonsDiv = document.getElementById('caseCategoriesButtonsDiv')
+    let providerCategoriesButtonsDiv = document.getElementById('providerCategoriesButtonsDiv')
     function createCategoryButtons() {
         let caseCategoryButtons = ""
         aCaseCategoryButtons.forEach(function(i) {
             let vButtonHtml = '<button type="button" class="narrow-form-button form-button" id="' + [i[1]] + '">' + [i[0]] + '</button>'
             caseCategoryButtons += vButtonHtml
         })
-        document.getElementById('caseCategoriesButtonsDiv').insertAdjacentHTML("beforeend", caseCategoryButtons)
+        caseCategoriesButtonsDiv.insertAdjacentHTML("beforeend", caseCategoryButtons)
         let providerCategoryButtons = ""
         aProviderCategoryButtons.forEach(function(i) {
             let vButtonHtml = '<button type="button" class="narrow-form-button form-button" id="' + [i[1]] + '">' + [i[0]] + '</button>'
             providerCategoryButtons += vButtonHtml
         })
-        document.getElementById('providerCategoriesButtonsDiv').insertAdjacentHTML("beforeend", providerCategoryButtons)
+        providerCategoriesButtonsDiv.insertAdjacentHTML("beforeend", providerCategoryButtons)
     }
     createCategoryButtons()
     function fBaseCategoryButtons() {
-        let caseCategoriesButtonsDiv = document.getElementById('caseCategoriesButtonsDiv')
-        let providerCategoriesButtonsDiv = document.getElementById('providerCategoriesButtonsDiv')
-        switch (document.querySelector('#caseOrProviderAlertsTable>tbody>tr.selected>td:nth-child(1)')?.textContent) {
+        switch (caseOrProviderType.value) {
             case "Case":
                 if (caseCategoriesButtonsDiv.classList.contains('hidden')) {
                     providerCategoriesButtonsDiv.classList.add('hidden')
@@ -1875,40 +1768,43 @@ if ("/Alerts.htm".includes(slashThisPageNameHtm)) {
     }
     fBaseCategoryButtons()
     //highlighting Category buttons, creating category buttons.
-    document.getElementById('alertTable').addEventListener( 'click', ((e) => {
+    function identifyAlertTable(selectedAlertTableRow) {
         //empty omniButtons
-        let selectedAlertTableRow = e.target.closest('tr')
-        let alertCategory = selectedAlertTableRow.childNodes[0]?.textContent.toLowerCase().replace(" ", "")
-        let messageText = selectedAlertTableRow.childNodes[3]?.textContent
-        for (let message in oAlertCategoriesLowerCase[alertCategory]?.messages) {
-            if (oAlertCategoriesLowerCase[alertCategory]?.messages[message]?.textIncludes.test(messageText) === true) {
-                if ( Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "baseCategoryButton") ) {
-                    foundAlert = Object.assign({}, oAlertCategoriesLowerCase[alertCategory].messages[message])
+        let selectedAlertTableRowData = selectedAlertTableRow.children
+        let alertCategory = selectedAlertTableRowData[0]?.textContent.toLowerCase().replace(" ", "")
+        let messageText = selectedAlertTableRowData[3]?.textContent
+        for (let thisMessage in oAlertCategoriesLowerCase[alertCategory]?.messages) {
+            if (oAlertCategoriesLowerCase[alertCategory]?.messages[thisMessage]?.textIncludes.test(messageText) === true) {
+                if ( Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[thisMessage], "baseCategoryButton") ) {
+                    foundAlert = Object.assign({}, oAlertCategoriesLowerCase[alertCategory].messages[thisMessage])
                     eleFocus('#' + foundAlert.baseCategoryButton)
                 }
-                if ( Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "omniPageButtons") ) {
-                    foundAlert = Object.assign({}, oAlertCategoriesLowerCase[alertCategory].messages[message])
+                if ( Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[thisMessage], "omniPageButtons") ) {
+                    foundAlert = Object.assign({}, oAlertCategoriesLowerCase[alertCategory].messages[thisMessage])
                     //createOmniButtons( foundAlert.omniPageButtons )
                 }
                 break
             }
         }
-    }) )
+    }
+    setTimeout(() => {
+        alertTable.addEventListener( 'click', function(event) { identifyAlertTable( getTableRow(event.target) ) })
+        identifyAlertTable(alertTable.querySelector('tr.selected')) // select deleteAll if just clicked the "delay MFIP" button on the create page?
+    }, 1000)
     function createOmniButtons( omniArray ) {
         let omniButtonHTML
         omniArray.forEach((buttonInArray) => {
             omniButtonHTML += '<button type="button" class="narrow-form-button" id=' + buttonInArray +'>' + omniPages.get(buttonInArray) + '</button>'
         })
     }
-    document.getElementById('caseOrProviderAlertsTable').addEventListener( 'click', (() => fBaseCategoryButtons()) )
-    document.getElementById('baseCategoryButtonsDiv').addEventListener( 'click', function(e) {
+    document.getElementById('baseCategoryButtonsDiv').addEventListener('click', function(e) {
         if (e.target.tagName === "BUTTON") {
             window.open('/ChildCare/' + e.target.id + '.htm' + whatAlertType().parameters, '_blank')
         }
-    } )
-    // SECTION_END Do action based on Alert Type
+    })
+    // SECTION_END Alert_Type_Based_Action
 
-    //AutoCaseNoting; Alert page section
+//AutoCaseNoting; Alert page section
     let summaryFetchedData = []
     let textFetchedData = []
     let foundAlert = {}
@@ -2073,6 +1969,14 @@ omniPageButtons: ["", "", ""],
         },
         maxis: {
             messages: {
+                gcReviewDate: {
+                    textIncludes: /Next Good Cause Review date for Absent/,
+                    noteCategory: "Child Support Note",
+                    intendedPerson: true,
+                    noteSummary: "doReplace",
+                    page: "",
+omniPageButtons: ["", "", ""],
+                },
                 csCoop: {
                     textIncludes: /from Not Cooperating to Cooperating/,
                     noteCategory: "Child Support Note",
@@ -2300,81 +2204,84 @@ omniPageButtons: ["", "", ""],
     }
     async function fGetNoteSummary(obj, msgText, personName) {
         switch (obj) {
-            case "eligibility.messages.unpaidCopay.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4}) - (\d{2}\/\d{2}\/\d{2,4})/, "Unpaid copay for period $1 - $2")
-                break
-
-            case "information.messages.mailed.noteSummary":
-                return "Redetermination mailed, due " + formatDate(addDays(document.querySelectorAll('#alertTable .selected>td')[1].textContent, 45), "mdyy")
-                break
-            case "information.messages.closeSusp.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1")
-                break
-            case "information.messages.closeTI.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: TI period expires on $1")
-                break
-            case "information.messages.servicingEnd.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Servicing Ends date changed to $1")
-                break
-
-            case "maxis.messages.memberLeft.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})./, "REMO: " + personName + " left $1")
-                break
-            case "maxis.messages.memberJoined.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Joined: $1: " + document.querySelector('#alertTable tr.selected > td:nth-child(3)').textContent)
-                break
-
             case "childsupport.messages.nameChange.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(\#\d{2})/, "PRI$1")
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+)(\#\d{2})/, "PRI$1")
                 break
             case "childsupport.messages.ncpAddress.noteSummary":
                 return msgText.replace(/(?:[A-Za-z- ]+)(\#\d{2})(?:[a-z- +]+)/, "ABPS of $1 address: ").replace(/(\d{5})(?:\d{4})/, "$1")
                 break
             case "childsupport.messages.cpAddress.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[A-Za-z- +]+)/, "HH address per PRISM: ").replace(/(\d{5})(?:\d{4})/, "$1")
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[A-Za-z- +]+)/, "HH address per PRISM: ").replace(/(\d{5})(?:\d{4})/, "$1")
                 break
             case "childsupport.messages.nonCoopCS.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(\#\d{2})/, "PRI$1")
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+)(\#\d{2})/, "PRI$1")
                 break
             case "childsupport.messages.coopCS.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(\#\d{2})/, "PRI$1")
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+)(\#\d{2})/, "PRI$1")
+                break
+
+            case "eligibility.messages.unpaidCopay.noteSummary":
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4}) - (\d{2}\/\d{2}\/\d{2,4})/, "Unpaid copay for period $1 - $2")
+                break
+
+            case "information.messages.mailed.noteSummary":
+                return "Redetermination mailed, due " + formatDate(addDays(document.querySelectorAll('#alertTable .selected > td')[1].textContent, 45), "mdyy")
+                break
+            case "information.messages.closeSusp.noteSummary":
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1")
+                break
+            case "information.messages.closeTI.noteSummary":
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: TI period expires on $1")
+                break
+            case "information.messages.servicingEnd.noteSummary":
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Servicing Ends date changed to $1")
+                break
+
+            case "maxis.messages.gcReviewDate.noteSummary":
+                return alertMessage.value.replace(/[A-Za-z0-9 ]+ (\d{2}\/\d{2}\/\d{2,4}) to (\d{2}\/\d{2}\/\d{2,4}) [A-Za-z0-9 ]+./, "Good Cause review date: $1 to $2")
+                break
+            case "maxis.messages.memberLeft.noteSummary":
+                return alertMessage.value.replace(/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})./, "REMO: " + personName + " left $1")
+                break
+            case "maxis.messages.memberJoined.noteSummary":
+                return alertMessage.value.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Joined: $1: " + document.querySelector('#alertTable tr.selected > td:nth-child(3)').textContent)
                 break
 
             case "periodicprocessing.messages.extendedEligExpiring.noteSummary":
-                return document.getElementById("message").value.replace(/The (\w+)(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig")
+                return alertMessage.value.replace(/The (\w+)(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig")
                 break
             case "periodicprocessing.messages.jsHours.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Job search hours end $1")
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Job search hours end $1")
                 break
             case "periodicprocessing.messages.tyExpires.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z- ]+)(\d{2}\/\d{2}\/\d{2,4})/, "Approved TY to BSF elig results eff $1")
+                return alertMessage.value.replace(/(?:[A-Za-z- ]+)(\d{2}\/\d{2}\/\d{2,4})/, "Approved TY to BSF elig results eff $1")
                 break
             case "periodicprocessing.messages.homelessExpiring.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z0-9 ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI")
+                return alertMessage.value.replace(/(?:[A-Za-z0-9 ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI")
                 break
             case "periodicprocessing.messages.disabilityExpires.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1")
+                return alertMessage.value.replace(/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1")
                 break
             case "periodicprocessing.messages.ageCategory.noteSummary":
-                return document.getElementById("message").value.replace(/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1")
+                return alertMessage.value.replace(/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1")
                 break
         }
     }
-    window.addEventListener("beforeunload", () => localStorage.removeItem("MECH2.note"))
-    function findAlertCategory() { }
+    window.addEventListener( "beforeunload", () => localStorage.removeItem("MECH2.note") )
+    // function findAlertCategory() { }
     async function fAutoCaseNote() {
         summaryFetchedData = []
         textFetchedData = []
         foundAlert = {}
         let oWhatAlertType = await whatAlertType() // Case or Provider
-        let messageText = document.getElementById("message").value
+        let messageText = alertMessage.value
         let alertCategory = document.querySelector('#alertTable .selected>td').textContent.toLowerCase().replace(" ", "")
         for (let message in oAlertCategoriesLowerCase[alertCategory]?.messages) {
             let dateRange = undefined
             if (Object.hasOwn(oAlertCategoriesLowerCase[alertCategory]?.messages[message], "noteSummary") && oAlertCategoriesLowerCase[alertCategory]?.messages[message]?.textIncludes.test(messageText) === true) {
                 foundAlert = Object.assign({}, oAlertCategoriesLowerCase[alertCategory].messages[message])
                 if (Object.hasOwn(foundAlert, "intendedPerson")) {
-                    foundAlert.personName = reorderCommaName(document.querySelector('#alertTable_wrapper #alertTable > tbody > tr.selected > td:nth-of-type(3)').textContent)
+                    foundAlert.personName = commaNameReorder(document.querySelector('#alertTable_wrapper #alertTable > tbody > tr.selected > td:nth-of-type(3)').textContent)
                     foundAlert.intendedPerson = foundAlert.personName.replace(/(\b\w+\b)(?:.+)/, "$1").toUpperCase()
                 }
                 foundAlert.noteMessage = messageText
@@ -2414,38 +2321,101 @@ omniPageButtons: ["", "", ""],
         if (foundAlert === 'undefined' || !Object.keys(foundAlert)?.length) { foundAlert = { noteSummary: messageText.slice(0, 50), noteCategory: "Other", noteMessage: messageText } } // Generic case note
         let longWorkerName = document.getElementById('workerName').value
         let workerName = longWorkerName.replace(/\w\./,)
-        workerName = await reorderCommaName(document.getElementById('workerName').value)
+        workerName = await commaNameReorder(document.getElementById('workerName').value)
         let shortWorkerName = workerName.replace(/(\s\w)\w+/, '$1')
         foundAlert.worker = shortWorkerName
         foundAlert.xNumber = document.getElementById("inputWorkerId").value.toLowerCase()
         foundAlert.page = oWhatAlertType.page
         foundAlert.parameters = oWhatAlertType.parameters
         foundAlert.number = oWhatAlertType.number
+        foundAlert.alertCategory = alertCategory
         return foundAlert
     }
-    $('h4:contains(Alert Detail)')
-        .attr('style', 'display: inline-block;')
-        .wrap('<div>')
-        .after('<button type="button" class="cButton" style="display: inline-block; margin-left: 10px;" tabindex="-1" id="autoCaseNote">Automated Note</button>');
-    $('#autoCaseNote').click(function() {
+    let h4s = document.getElementsByTagName('h4')
+    let alertDetailH4 = h4s[h4s.length-1]
+    doWrap(alertDetailH4)
+    alertDetailH4.parentElement.style.display = "inline-block"
+    alertDetailH4.parentElement.insertAdjacentHTML('afterend', '<div style="display: inline-block;" id="alertDetailRow"><button type="button" class="cButton" style="display: inline-block; margin-left: 10px;" tabindex="-1" id="autoCaseNote">Automated Note</button></div>')
+    let alertDetailRow = document.getElementById('alertDetailRow')
+    document.getElementById('autoCaseNote').addEventListener('click', function() {
         fAutoCaseNote().then(function(returnedAlert) {
             let readiedAlert = {}
             readiedAlert[returnedAlert.number] = Object.assign({}, returnedAlert)
             localStorage.setItem("MECH2.note", JSON.stringify(readiedAlert))
+            eleFocus('#delete')
             window.open('/ChildCare/' + returnedAlert.page + returnedAlert.parameters, '_blank')
         })
+    })
+
+    function checkIfMfip() {
+        const checkCashArray = []
+        evalData().then(async function(tableTwoAlerts) {
+            if (!tableTwoAlerts[1]) { return }
+            tableTwoAlerts[1].forEach((checkAlert) => {
+                if (checkAlert.message.indexOf("Approve new") === 0) {
+                    // // let rowIndexPlusOne = Number(checkAlert.rowIndex)+1
+                    // caseOrProviderAlertsTableTbody.children[checkAlert.rowIndex].id = checkAlert.caseNumber
+                    // // caseOrProviderAlertsTableTbody.querySelector('tr:nth-child(' + rowIndexPlusOne + ')').id = checkAlert.caseNumber
+                    // document.getElementById(checkAlert.caseNumber).classList.add('checkCash')
+                    let thisRow = caseOrProviderAlertsTableTbody.children[checkAlert.rowIndex]
+                    thisRow.classList.add('checkCash')
+                    thisRow.id = thisRow.children[2].innerText
+                    checkCashArray.push(thisRow.id)
+                }
+            })
+        })
+        if (checkCashArray.length) {
+            alertDetailRow.insertAdjacentHTML('beforeend', '<button type="button" id="doMfipCheck" class="cButton" style="display: inline-block; margin-left: 10px;" tabindex="-1">Check MFIP Alerts</button>')
+            document.getElementById('doMfipCheck').addEventListener( 'click', checkMfipResults )
+        }
+        // const checkCashArray = Array.from(document.querySelectorAll('.checkCash'), (caseNumber) => caseNumber.children[2].innerText)
+        function checkMfipResults() {
+            forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(multiCaseResult) {
+                console.log(multiCaseResult)
+                for (let thisCase in multiCaseResult) {
+                    let programTable = multiCaseResult[thisCase][0]
+                    let programTableLength = programTable.length
+                    for (let i = 0; i < programTableLength; i++) {
+                        if (programTable[i].programNameHistory === "MFIP") {
+                            let mfipStatus = 'MFIP: ' + programTable[i].programStatusHistory
+                            let ccapStatus = ' - CCAP: ' + programTable[0].programNameHistory
+                            let inactiveDate = programTable[i].programStatusHistory === "Inactive" ? ' ' + programTable[i].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : ''
+                            document.getElementById(thisCase).children[1].insertAdjacentHTML('beforeend', '<span style="margin: 0 10px 0 auto; float: right !important; font-size: small;">' + mfipStatus + inactiveDate + ccapStatus +'</span>')
+                            // document.getElementById(thisCase).querySelector('td:nth-child(2)').insertAdjacentHTML('beforeend', '<span style="margin: 0 10px 0 auto; float: right !important; font-size: small;">' + mfipStatus + inactiveDate + ccapStatus +'</span>')
+                        }
+                    }
+                }
+            })
+        }
+    }
+    checkIfMfip()
+
+    // alertDetailRow.insertAdjacentHTML('beforeend', '<button type="button" id="snoozeAlert" class="cButton" style="display: inline-block; margin-left: 10px;" tabindex="-1">Snooze Alert</button>')
+    // let snoozeAlert = document.getElementById('snoozeAlert')
+    // function doSnooze() {
+    //     if (document.getElementById('delete').hasAttribute('disabled') ) { return }
+    //     let workerCreatedObject = JSON.stringify({ type: 'snooze', caseProId: document.getElementById('groupId').value, message: document.getElementById('message').value })
+    //     localStorage.setItem( 'MECH2.workerCreated', workerCreatedObject )
+    //     doClick('#new')
+    // }
+    // snoozeAlert.addEventListener( 'click', doSnooze )
+    document.getElementById('new').addEventListener('click', function() {
+        if (document.getElementById('delete').hasAttribute('disabled') ) { return }
+        let alertType = alertTable.querySelector('.selected').children[0].innerText
+        let workerCreatedObject = JSON.stringify({ type: alertType, caseProId: document.getElementById('groupId').value, message: document.getElementById('message').value })
+        localStorage.setItem( 'MECH2.workerCreated', workerCreatedObject )
     })
     //function in Object
     //let testObj = { groupId: function() { return document.getElementById('groupId') }}
     //testObj.groupId()//.value, etc
-    // SECTION_END Copy Alert text, navigate to Notes
+// SECTION_END Copy Alert text, navigate to Notes
 
     // // SECTION_START Copy alert text to Case Notes via iframe
     // $('div.panel:has(>div#alertButtonHouse)').after('<div class="panel panel-default panel-box-format hidden"><iframe id="notesIframe" name="notesIframe" height="300px" width="100%"></iframe></div>')
     // let notesIframe = document.getElementById('notesIframe')
     // // // notesIframe.contentWindow //To operate on iframe window...
     // function fAutoNote() {//whatAlertType().number
-    //     let copyText = document.getElementById("message").value.replaceAll('/n', ' ');
+    //     let copyText = alertMessage.value.replaceAll('/n', ' ');
     //     localStorage.setItem("MECH2.caseNote." +$('#groupId').val(), copyText)
     //     addEventListener('storage', function(key, newValue) {
     //         switch (event.key) {
@@ -2465,24 +2435,63 @@ omniPageButtons: ["", "", ""],
 // ////////////////////////////////////////////////////////////////////////// Alerts end (major sub-section) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // =================================================================================================================================================================================================
 
-// SECTION_START Delay_MFIP_switch
+// SECTION_START Alert_Worker_Created_Alert
 if (["/AlertWorkerCreatedAlert.htm"].includes(slashThisPageNameHtm)) {
-    if (document.getElementById('recordType').value === "Case Alert") {
-        let delayNextMonth = new Date(new Date().setMonth(new Date().getMonth() + 1, 1)).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit", });
-        let delayMonthAfter = new Date(new Date().setMonth(new Date().getMonth() + 2, 1)).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit", });
-        document.getElementById('message').closest('div.form-group').insertAdjacentHTML('afterend','<button type="button" class="cButton__nodisable delay" id="delayNextMonth">MFIP Close Delay Alert: ' + delayNextMonth + '</button><button type="button" class="cButton__nodisable delay" id="delayMonthAfter">MFIP Close Delay Alert: ' + delayMonthAfter + '</button>')
-        $('#delayNextMonth').click(function(e) {
-            $('#message').val("Approve new results (BSF/TY/extended eligibility) if MFIP not reopened.");
-            $('#effectiveDate').val(delayNextMonth);
-            $('#save').click();
-        });
-        $('#delayMonthAfter').click(function(e) {
-            $('#message').val("Approve new results (BSF/TY/extended eligibility) if MFIP not reopened.");
-            $('#effectiveDate').val(delayMonthAfter);
-            $('#save').click();
-        });
+    let workerCreatedAlert = JSON.parse(localStorage.getItem('MECH2.workerCreated'))
+    if (workerCreatedAlert) {
+        localStorage.removeItem('MECH2.workerCreated')
+        document.querySelector('label[for=message]').parentElement.insertAdjacentHTML('afterend', '<div class="form-group" id="workerAlertButtons"></div>')
+        let workerAlertButtons = document.getElementById('workerAlertButtons')
+        console.log(workerCreatedAlert.type)
+        switch (workerCreatedAlert.type) {
+            // case "snooze":
+            //     snoozeButtons()
+            //     break
+            // case "delayMfip":
+            //     delayMfipButtons()
+            //     break
+            case "Eligibility":
+                delayMfipButtons()
+                break
+            case "Worker Created":
+                snoozeButtons()
+                break
+            default:
+                snoozeButtons()
+                break
+        }
+        function snoozeButtons() {
+            workerAlertButtons.insertAdjacentHTML('beforeend','<button type="button" class="cButton__nodisable delay" id="snooze1">Snooze One Day</button><button type="button" class="cButton__nodisable delay" id="snooze7">Snooze One Week</button>')
+            workerAlertButtons.addEventListener('click', doSnooze )
+            focusEle = '#snooze1'
+            function doSnooze(event) {
+                let snoozeDays = Number(event.target.id.slice(6))
+                console.log(event.target)
+                if (snoozeDays === NaN) { return }
+                let todayDate = new Date()
+                let snoozeDate = new Date( todayDate.setDate(todayDate.getDate() + snoozeDays) ).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit", });
+                enterAlertInfo(workerCreatedAlert.message, snoozeDate)
+            }
+        }
+        function delayMfipButtons() {
+            let todayDate = new Date()
+            let nextMonth = new Date( todayDate.setMonth(todayDate.getMonth() + 1, 1) ).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit", });
+            let monthAfter = new Date( todayDate.setMonth(todayDate.getMonth() + 1, 1) ).toLocaleDateString('en-US', { year: "numeric", month: "2-digit", day: "2-digit", });
+            workerAlertButtons.insertAdjacentHTML('beforeend','<button type="button" class="cButton__nodisable delay" id="delayNextMonth">MFIP Close Delay Alert: ' + nextMonth + '</button><button type="button" class="cButton__nodisable delay" id="delayMonthAfter">MFIP Close Delay Alert: ' + monthAfter + '</button>')
+            workerAlertButtons.addEventListener('click', doMfipDelay )
+            focusEle = '#delayNextMonth'
+            function doMfipDelay(event) {
+                let delayDate = event.target.innerText.slice(24)
+                enterAlertInfo("Approve new results (BSF/TY/extended eligibility) if MFIP not reopened.", delayDate)
+            }
+        }
+        function enterAlertInfo(message, effectiveDate) {
+            document.getElementById('message').value = message
+            document.getElementById('effectiveDate').value = effectiveDate
+            document.getElementById('save').click();
+        }
     }
-}; // SECTION_END Delay_MFIP_switch
+}; // SECTION_END Alert_Worker_Created_Alert
 // SECTION_START Application_Information
 if (("ApplicationInformation.htm").includes(thisPageNameHtm)) {
     let appReceivedField = document.getElementById('receivedDate')
@@ -2505,7 +2514,7 @@ if (("ApplicationInformation.htm").includes(thisPageNameHtm)) {
 if (("CaseAction.htm").includes(thisPageNameHtm)) {
     if (notEditMode) {
         if ( document.referrer.indexOf("https://mec2.childcare.dhs.state.mn.us/ChildCare/CaseAction.htm") > -1 ) {
-            focusEle = document.getElementById('failHomeless').checked ? "#FundingAvailabilitySelf" : "#wrapUpDB"
+            focusEle = document.getElementById('failHomeless').checked ? document.getElementById('FundingAvailability.htm') : "#wrapUpDB"
         }
     } else {
         document.getElementById('failHomeless').addEventListener('click', function() { eleFocus('#saveDB') })
@@ -2513,11 +2522,12 @@ if (("CaseAction.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_Action
 // SECTION_START Case_Address
 if (("CaseAddress.htm").includes(thisPageNameHtm)) {
-    let $mailingFields = $('h4:contains("Mailing Address")').siblings().find('input, select').add($('#residenceStreet2')).not($('#mailingZipCodePlus4'))
+    let mailFields = [...document.querySelectorAll('#mailingAddressPanelData > div > div')]
     document.getElementById('effectiveDate').closest('.form-group').insertAdjacentHTML('beforeend', '<button type="button" class="cButton centered-text float-right" tabindex="-1" id="copyMailing">Copy Mail Address</button>');
-    $('#copyMailing').click(function() {
-        let oCaseName = commaNameToObject($('#caseHeaderData div.col-lg-4').contents().eq(2).text())
-        if ($('#mailingStreet1').val() !== "") {
+    document.getElementById('copyMailing').addEventListener('click', function() {
+        let oCaseName = commaNameObject(document.querySelector('title').innerText)
+        // let oCaseName = commaNameObject($('#caseHeaderData div.col-lg-4').contents().eq(2).text())
+        if (document.getElementById('mailingStreet1').value !== "") {
             let state = swapStateNameAndAcronym(document.getElementById('mailingStateProvince').value)
             let copyText = oCaseName.first + " " + oCaseName.last + "\n" + document.getElementById('mailingStreet1').value + " " + document.getElementById('mailingStreet2').value + "\n" + document.getElementById('mailingCity').value + ", " + state + " " + document.getElementById('mailingZipCode').value
             navigator.clipboard.writeText(copyText)
@@ -2529,57 +2539,66 @@ if (("CaseAddress.htm").includes(thisPageNameHtm)) {
             snackBar(copyText);
         };
     });
-    $('#mailingStreet1').val()?.length === 0 && !$('#edit').prop('disabled') && (checkMailingAddress())//Shrinks mailing address if blank
-    $('#providerData :is(input, select)').filter(function() { return this.value === '' }).closest('.form-group').addClass('hidden')
+    !document.getElementById('mailingStreet1')?.value?.length && !document.getElementById('edit').hasAttribute('disabled') && (checkMailingAddress())//Shrinks mailing address if blank
+    let provInpSel = [...document.querySelectorAll('#providerData :is(input, select)')].filter((e) => e.value === '')
+    for (let i = provInpSel.length-1; i >= 0; i--) { provInpSel[i].closest('.form-group').classList.add('hidden') }
     if (notEditMode) {
-        $('#phone2, #phone3, #contactNotes, #email').filter(function() { return this.value === '' }).closest('.form-group').addClass('hidden')
+        let blankFields = [...document.querySelectorAll('#phone2, #phone3, #contactNotes, #email')].filter((e) => e.value === '')
+        for (let i = blankFields.length-1; i >= 0; i--) { blankFields[i].closest('.form-group').classList.add('hidden') }
         checkMailingAddress()
     };
     function checkMailingAddress() {
-        $mailingFields.filter(function() { return this.value === '' }).closest('.form-group').addClass('hidden')
-        $mailingFields.filter(function() { return this.value !== '' }).closest('.form-group').removeClass('hidden')
+        let mailingCountry = document.getElementById('mailingCountry')
+        if ( !mailingCountry.value && !mailingCountry.classList.contains('hidden') ) { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].classList.add('hidden') } }
+        else { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].classList.remove('hidden') } }
     };
-    $('#caseAddressTable').click(function() { checkMailingAddress() });
+    document.getElementById('caseAddressTable').addEventListener('click', function() { checkMailingAddress() });
 }; // SECTION_END Case_Address
 // SECTION_START Case_Application_Initiation
 if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm) && !notEditMode) {
     selectPeriodReversal('#selectPeriod')
+    let applicationReceivedDate = document.getElementById('applicationReceivedDate')
     document.getElementById('save').addEventListener('click', () => {
         sessionStorage.setItem('actualDateSS', document.getElementById('applicationReceivedDate').value)
         sessionStorage.setItem('processingApplication', "yes")
     })
-    $('#applicationReceivedDate').on("blur change", function() {
-        if (this.value.length < 10) { return false }
-        let appDate = new Date(this.value)
-        if (appDate < new Date('1/1/2020')) { return false }
-        else {
-            let benPeriodDate = { start: new Date($('#selectPeriod').val().slice(0, 10)), end: new Date(document.getElementById('selectPeriod').value.slice(13)) }
+    function appDateChanged(event) {
+        let appDateChange = event.target.value
+        if (appDateChange.length < 10) { return false }
+        let selectPeriod = document.getElementById('selectPeriod')
+        let appDate = new Date(appDateChange).valueOf()
+            let benPeriodDate = { start: new Date(selectPeriod.value.slice(0, 10)).valueOf(), end: new Date(selectPeriod.value.slice(13)).valueOf() }
             if (benPeriodDate.end > appDate && appDate > benPeriodDate.start) { return false }
-            let periodValue = $('#selectPeriod option').slice(0, 26).filter(function() {
-                return new Date(this.value.slice(13)) >= appDate && appDate >= new Date(this.value.slice(0, 10))
-            })
-            document.getElementById('selectPeriod').value = periodValue[0].value
-            eleFocus('#save')
-            $('.hasDatepicker').datepicker("hide")
-            //$('#applicationReceivedDate').off("blur change")
-        }
-    })
+            let periodDatesArray = [...document.querySelectorAll('#selectPeriod option')].slice(0, 18)
+            for (let i = 0; i < periodDatesArray.length; i++) {
+                let periodDatesEnd = new Date(periodDatesArray[i].value.slice(13)).valueOf()
+                if ((periodDatesEnd - appDate) <= 1123200000) {
+                    selectPeriod.value = periodDatesArray[i].value
+                    eleFocus('#save')
+                    $('.hasDatepicker').datepicker("hide")
+                    break
+                }
+            }
+    }
+    $('#applicationReceivedDate').on("change", appDateChanged ) // jQuery event doesn't allow for additional 'click' events on its datepicker, so can't replace jQuery.
 }; // SECTION_END Case_Application_Initiation
 
 // =================================================================================================================================================================================================
 // /////////////////////////////////////////////////////////////////////// CaseChildProvider (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
+    let providerType = document.getElementById('providerType')
     //custom CSS to rearrange the page
     // $('label[for="providerLivesWithChild"]').text('Lives with Child: ').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
     // $('label[for="providerLivesWithChild"]').add($('label[for="providerLivesWithChild"]').siblings()).appendTo($('label[for="childCareMatchesEmployer"]').parent())
     // $('label[for="relatedToChild"]').attr('class', 'control-label textInherit textR col-md-2 col-lg-2')
     // $('label[for="relatedToChild"]').add($('label[for="relatedToChild"]').siblings()).appendTo($('label[for="careInHome"]').parent());
     // $('div.form-group:has(div.col-lg-12:not(:has(*)))').remove()
-    let $lnlGroup = $('#careInHome, #providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate, #formSent, #signedFormReceived').parents('.form-group')
-    let $lnlTrainingDivs = $('#emptyDiv')
-    let $licensedGroup = $('#primaryBeginDate, #secondaryBeginDate').parents('.form-group')
-    let $careInHomeGroup = $('#exemptionReason, #exemptionPeriodBeginDate').parents('.form-group')
-    let $livesWithChildGroup = $('label[for=providerLivesWithChild], label[for=providerLivesWithChild]+div.col-lg-2')//.removeAttr('style')
+    // let $lnlGroup = $('#careInHome, #providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate, #formSent, #signedFormReceived').parents('.form-group')
+    // let lnlGroup = document.querySelectorAll('.div.textInherit:has(#careInHome, #providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate, #formSent, #signedFormReceived)')
+    // let $lnlTrainingDivs = $('#emptyDiv')
+    // let $licensedGroup = $('#primaryBeginDate, #secondaryBeginDate').parents('.form-group')
+    // let $careInHomeGroup = $('#exemptionReason, #exemptionPeriodBeginDate').parents('.form-group')
+    // let $livesWithChildGroup = $('label[for=providerLivesWithChild], label[for=providerLivesWithChild]+div.col-lg-2')//.removeAttr('style')
     document.getElementById('reporterType').setAttribute('disabled', 'disabled')
     // Buttons for added functionality
     if (notEditMode) {
@@ -2588,30 +2607,29 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
         <button type="button" class="cButton float-right" tabindex="-1" id="providerAddressButton">Provider Address</button>
         <button type="button" class="cButton float-right" tabindex="-1" id="providerInfoButton">Provider Contact</button>
         `)
-        $('#providerAddressButton').click(function(e) {
+        document.getElementById('providerAddressButton').addEventListener('click', function(e) {
             e.preventDefault()
             window.open("/ChildCare/ProviderAddress.htm?providerId=" + document.getElementById('providerId').value, "_blank");
         })
-        $('#providerInfoButton').click(function(e) {
+        document.getElementById('providerInfoButton').addEventListener('click', function(e) {
             e.preventDefault()
             window.open("/ChildCare/ProviderInformation.htm?providerId=" + document.getElementById('providerId').value, "_blank");
         })
     } else if (!notEditMode) {
-        document.getElementById('providerType').closest('div.row').insertAdjacentHTML('beforeend',`
+        providerType.closest('div.row').insertAdjacentHTML('beforeend',`
         <button type="button" class="cButton float-right cButton__nodisable" tabindex="-1" style="margin-left: 5px;" id="resetCCPForm">Clear Dates & Hours</button>
         <button type="button" class="cButton float-right cButton__nodisable" tabindex="-1" style="margin-left: 5px;" id="unendSACCPForm">Clear End Dates & Reason</button>
         `)
         document.getElementById('resetCCPForm').addEventListener('click', function(e) {
             e.preventDefault()
-            $('#careEndReason').val($('#careEndReason').val(''))
-            $('#primaryBeginDate, #secondaryBeginDate, #carePeriodBeginDate, #carePeriodEndDate, #primaryEndDate, #secondaryEndDate, #hoursOfCareAuthorized').val('')
+            let resetFields = [...document.querySelectorAll('#primaryBeginDate, #secondaryBeginDate, #carePeriodBeginDate, #carePeriodEndDate, #primaryEndDate, #secondaryEndDate, #hoursOfCareAuthorized, #careEndReason')].forEach(function(e) { e.value = '' })
+            doEvent('#careEndReason')
             eleFocus('#primaryBeginDate')
         })
         document.getElementById('unendSACCPForm').addEventListener('click', function(e) {
             e.preventDefault()
-            $('#careEndReason').val($('#careEndReason').val(''))
+            let resetFields = [...document.querySelectorAll('#carePeriodEndDate, #primaryEndDate, #secondaryEndDate, #careEndReason')].forEach((e) => { e.value = '' })
             doEvent('#careEndReason')
-            $('#carePeriodEndDate, #primaryEndDate, #secondaryEndDate').val('')
             eleFocus('#hoursOfCareAuthorized')
         })
         tabIndxNegOne('#providerLivesWithChild')
@@ -2702,43 +2720,61 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                     }
                 }
             }
-            let checkBoxes = document.querySelectorAll('input[type=checkbox]')
-            let boxesChecked = [...checkBoxes].filter((e) => e.checked)
-            if (!boxesChecked.length) { checkBoxes.forEach((e) => e.removeAttribute('tabindex') )}
         })
     }
     // SECTION_END Open provider information page from Child's Provider page
     function childProviderPage() {
-        if (document.getElementById('providerType').value !== "Legal Non-licensed" && document.getElementById('providerType').value) {//not LNL
-            // $lnlGroup.addClass('hidden')
-            // document.querySelectorAll('.lnlData, .lnlInfo').forEach(function(e) { e.classList.add('hidden') })
-            // $livesWithChildGroup.addClass('hidden')
-            // $careInHomeGroup.addClass('hidden')
-            // $licensedGroup.removeClass('hidden')
-            // $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'visible')
-            if (!notEditMode) {
-                $('#providerLivesWithChild, #careInHome, #relatedToChild').val("N")
-            }//not LNL, edit mode
-            else { $lnlGroup.addClass('hidden') }//not LNL, view mode
-        } else if ($('#providerType').val() === "Legal Non-licensed") {//is LNL
-            lnlTraining()
-            // document.querySelectorAll('.lnlInfo').forEach(function(e) { e.classList.remove('hidden') })
-            // $licensedGroup.addClass('hidden')
-            // $lnlGroup.removeClass('hidden')
-            // document.getElementById('')
-            // $careInHomeGroup.removeClass('hidden')
-            // $livesWithChildGroup.removeClass('hidden')
-            // $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'hidden')
-            // document.querySelectorAll('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').forEach((e) => {
-            //     if (!e.value) { e.closest('.form-group').classList.add('hidden') }
-            //     else { e.closest('.form-group').classList.remove('hidden') }
-            // })
+        if (providerType.value) {
+            const beginEndFields = {
+                primary: { start: '#primaryBeginDate', end: '#primaryEndDate' },
+                secondary: { start: '#secondaryBeginDate', end: '#secondaryEndDate' },
+                carePeriod: { start: '#carePeriodBeginDate', end: '#carePeriodEndDate' },
+            }
+            for (let fields in beginEndFields) { document.querySelector(beginEndFields[fields].start).value === '' && document.querySelector(beginEndFields[fields].end).setAttribute('tabindex', '-1') }
+            if (providerType.value !== "Legal Non-licensed" && !notEditMode) {//not LNL
+                let setLnlItemsToNo = [...document.querySelectorAll('#providerLivesWithChild, #careInHome, #relatedToChild')]
+                let setLnlItemsTabIndx = [...setLnlItemsToNo, ...document.querySelectorAll('#providerLivesWithChildBeginDate, #providerLivesWithChildEndDate, #careInHomeOfChildBeginDate, #careInHomeOfChildEndDate')]
+                setLnlItemsToNo.forEach(function(ele) {
+                    ele.value = "N"
+                })
+                setLnlItemsTabIndx.forEach(function(ele) {
+                    ele.setAttribute('tabindex', '-1')
+                })
+                let checkBoxes = [...document.getElementById('reporterTypeCheckboxes').children]
+                let boxesChecked = [...checkBoxes].filter((e) => e.checked)
+                if (boxesChecked.length) { checkBoxes.forEach((e) => e.setAttribute('tabindex', '-1') )}
+                //not LNL, edit mode
+                // $lnlGroup.addClass('hidden')
+                // document.querySelectorAll('.lnlData, .lnlInfo').forEach(function(e) { e.classList.add('hidden') })
+                // $livesWithChildGroup.addClass('hidden')
+                // $careInHomeGroup.addClass('hidden')
+                // $licensedGroup.removeClass('hidden')
+                // $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'visible')
+                // else { $lnlGroup.addClass('hidden') }//not LNL, view mode
+            } else if (providerType.value === "Legal Non-licensed") {//is LNL
+                let lnlReporterTypeBox = document.querySelector('#reporterTypeCheckboxes > input[value="LNL Provider Used"]')
+                !lnlReporterTypeBox.checked && lnlReporterTypeBox.click()
+                let naBox = document.querySelector('#reporterTypeCheckboxes > input[value="Not Applicable"]')
+                naBox.checked && naBox.click()
+                lnlTraining()
+                // document.querySelectorAll('.lnlInfo').forEach(function(e) { e.classList.remove('hidden') })
+                // $licensedGroup.addClass('hidden')
+                // $lnlGroup.removeClass('hidden')
+                // document.getElementById('')
+                // $careInHomeGroup.removeClass('hidden')
+                // $livesWithChildGroup.removeClass('hidden')
+                // $('label[for=childCareMatchesEmployer], label[for=childCareMatchesEmployer]+div').css('visibility', 'hidden')
+                // document.querySelectorAll('#providerLivesWithChildBeginDate, #careInHomeOfChildBeginDate').forEach((e) => {
+                //     if (!e.value) { e.closest('.form-group').classList.add('hidden') }
+                //     else { e.closest('.form-group').classList.remove('hidden') }
+                // })
+            }
         }
     };
     function lnlTraining() {
         let providerId = document.getElementById('providerId').value
         let lnlDataProviderId = "lnlData" + providerId
-        let providerTypeFormGroup = document.getElementById('providerType').closest('.form-group')
+        let providerTypeFormGroup = providerType.closest('.form-group')
         if (document.getElementById(lnlDataProviderId)) {
             // document.getElementById(lnlDataProviderId).classList.remove('hidden')
             checkIfRelated()
@@ -2812,7 +2848,7 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
                 `)
                 let registrationArray = evalData(providerId, "ProviderRegistrationAndRenewal", undefined, "0", "provider").then(function(resultObject) {
                     for (let results in resultObject) {
-                        if (resultObject[results].financiallyResponsibleAgency === userCountyObject?.county + ' County') {
+                        if (resultObject[results].financiallyResponsibleAgency === userCountyObj?.county + ' County') {
                             let resultsArray = [resultObject[results].registrationStatus, resultObject[results].statusEffective] // status, date
 
                             ptd.querySelector('#registration').textContent = resultsArray[0] + ' ' + resultsArray[1]
@@ -2866,47 +2902,40 @@ if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
         let relatedToChild = document.getElementById('relatedToChild')
         if (relatedToChild.value !== "Y") { document.querySelectorAll('.related').forEach(function(elem) { elem.style.textDecoration = "line-through" }) } else { document.querySelectorAll('.related').forEach(function(elem) { elem.style.textDecoration = "unset" }) }
     }
-    if (!notEditMode) {
-        const beginEndFields = {
-            primary: { start: '#primaryBeginDate', end: '#primaryEndDate' },
-            secondary: { start: '#secondaryBeginDate', end: '#secondaryEndDate' },
-            carePeriod: { start: '#carePeriodBeginDate', end: '#carePeriodEndDate' },
-        }
-        function caseChildProviderTabindex() { for (let fields in beginEndFields) { document.querySelector(beginEndFields[fields].start).value === '' && document.querySelector(beginEndFields[fields].end).setAttribute('tabindex', '-1') } }
-    };
     childProviderPage()
-    document.getElementById('relatedToChild').addEventListener('change', function() { checkIfRelated() })
+    document.getElementById('relatedToChild').addEventListener('change', checkIfRelated )
     $('#providerId').change(function() {
         setTimeout(function() {
-            if ($('#providerId').val()?.length > 0) {
+            if (document.getElementById('providerId').value?.length > 0) {
                 childProviderPage()
-                if ($('#providerType').val() !== "Legal Non-licensed") { eleFocus('#primaryBeginDate') }
-                else if ($('#providerType').val() === "Legal Non-licensed") { eleFocus('#providerLivesWithChild') }
-                else if ($('#providerType').val()?.length === 0) { console.trace('CaseChildProvider.htm section') }
+                if (providerType.value?.length === 0) { console.trace('CaseChildProvider.htm section') }
+                else if (providerType.value !== "Legal Non-licensed") { eleFocus('#primaryBeginDate') }
+                else if (providerType.value === "Legal Non-licensed") { eleFocus('#providerLivesWithChild') }
             }
         }, 200)
     });
     $('#primaryBeginDate, #secondaryBeginDate')
         .keydown(function(e) {
-            if (e.key === "Tab" && $('#carePeriodBeginDate').val()?.length === 0 && $(this).val()?.length > 0) {
-                e.preventDefault()
-                if ($('#carePeriodBeginDate').val()?.length === 0 && $(this).val()?.length > 0) {
-                    $(this, '#carePeriodBeginDate').datepicker("isDisabled")
-                    $('#carePeriodBeginDate').val($(this).val())
-                    eleFocus('#hoursOfCareAuthorized')
-                    queueMicrotask(() => { $('.hasDatepicker').datepicker("hide") })
-                }
-            }
-        })
+        if (e.key === "Tab" && document.getElementById('carePeriodBeginDate').value?.length === 0 && event.target.value?.length > 0) {
+            e.preventDefault()
+            // if ($('#carePeriodBeginDate').val()?.length === 0 && $(this).val()?.length > 0) {
+            $(this, '#carePeriodBeginDate').datepicker("isDisabled")
+            $('#carePeriodBeginDate').val($(this).val())
+            eleFocus('#hoursOfCareAuthorized')
+            queueMicrotask(() => { $('.hasDatepicker').datepicker("hide") })
+            // }
+        }
+    })
         .blur(function() {
-            if ($('#carePeriodBeginDate').val()?.length === 0 && $(this).val()?.length > 0) {
-                $(this, '#carePeriodBeginDate').datepicker("isDisabled")
-                $('#carePeriodBeginDate').val($(this).val())
-                eleFocus('#hoursOfCareAuthorized')
-                queueMicrotask(() => { $('.hasDatepicker').datepicker("hide") })
-            }
-        })
-} ////////////////////////////////////////////////////////////////////// CaseChildProvider end (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+        if ($('#carePeriodBeginDate').val()?.length === 0 && $(this).val()?.length > 0) {
+            $(this, '#carePeriodBeginDate').datepicker("isDisabled")
+            $('#carePeriodBeginDate').val($(this).val())
+            eleFocus('#hoursOfCareAuthorized')
+            queueMicrotask(() => { $('.hasDatepicker').datepicker("hide") })
+        }
+    })
+}
+///////////////////////////////////////////////////////////////////////// CaseChildProvider end (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // =================================================================================================================================================================================================
 
 // SECTION_START Case_Copay_Distribution
@@ -2945,12 +2974,12 @@ if (("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_Create_Eligibility_Results
 // SECTION_START Case_CSE Fill_Child_Support_PDF_Forms
 if (("CaseCSE.htm").includes(thisPageNameHtm)) {
-    if (typeof userCountyObject !== undefined && userCountyObject.code === "169") {
+    if (typeof userCountyObj !== undefined && userCountyObj.code === "169") {
         $('#cseDetailsFormsCompleted').parent().after('<button type="button" class="cButton centered-text float-right" tabindex="-1" id="csForms">Generate CS Forms</button>');
         $('#csForms').click(function() {
             let caseNumber = caseId
-            let cpInfo = commaNameToObject(document.querySelector('#csePriTable .selected td:nth-child(2)').textContent)
-            let ncpInfo = commaNameToObject(document.querySelector('#csePriTable .selected td:nth-child(3)').textContent)
+            let cpInfo = commaNameObject(document.querySelector('#csePriTable .selected td:nth-child(2)').textContent)
+            let ncpInfo = commaNameObject(document.querySelector('#csePriTable .selected td:nth-child(3)').textContent)
             let childList = {};
             $('#childrenTable tbody tr').each(function(index) {
                 if ($(this).children('td').eq(1).text().length > 0) {
@@ -2988,7 +3017,7 @@ if (("CaseCSE.htm").includes(thisPageNameHtm)) {
 // SECTION_START Case_CSIA
 if (("CaseCSIA.htm").includes(thisPageNameHtm)) {
     let $csiahidden = $('#middleInitial, #birthDate, #ssn, #gender').parents('.form-group')
-    let countyName = userCountyObject?.county ?? ''
+    let countyName = userCountyObj?.county ?? ''
     let birthplaceStateOrProvince = document.getElementById('birthplaceStateOrProvince')
     let birthplaceCountry = document.getElementById('birthplaceCountry')
     let birthplaceCounty = document.getElementById('birthplaceCounty')
@@ -3039,7 +3068,6 @@ if (("CaseCSIA.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_CSIA
 // SECTION_START Case_Earned_Income
 if (("CaseEarnedIncome.htm").includes(thisPageNameHtm)) {
-    if (!notEditMode) { tempIncomes('ceiTemporaryIncome', 'ceiPaymentEnd') }
     tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome')
     let ceiEmployment = [...document.querySelectorAll('#ceiPrjAmount, #ceiAmountFrequency, #ceiHrsPerWeek, #ceiEmployer, #ceiCPUnitType, #ceiNbrUnits')].map((e) => e.closest('.form-group'))
     let ceiSelfEmployment = [...document.querySelectorAll('#ceiGrossIncome, #ceiGrossAllowExps, #ceiTotalIncome')].map((e) => e.closest('.form-group'))
@@ -3058,18 +3086,19 @@ if (("CaseEarnedIncome.htm").includes(thisPageNameHtm)) {
     checkSelfEmploy()
     let hiddenCEI1 = [...document.querySelectorAll('#ceiEmpStreet, #ceiEmpStreet2, #ceiEmpCity, #ceiEmpStateOrProvince, #ceiPhone, #ceiEmpCountry')].map((e) => e.closest('.form-group'))
     hiddenCEI1.forEach((e) => e.classList.add('hidden'))
-    document.getElementById('ceiIncomeType').parentNode.insertAdjacentHTML('afterend', '<button type="button" class="cButton__floating cButton__nodisable centered-text float-right" tabindex="-1" id="ceiShowHide1">Toggle extra info</button>');
+    document.getElementById('ceiIncomeType').parentElement.insertAdjacentHTML('afterend', '<button type="button" class="cButton__floating cButton__nodisable centered-text float-right" tabindex="-1" id="ceiShowHide1">Toggle extra info</button>');
     document.getElementById('ceiShowHide1').addEventListener('click', function() { hiddenCEI1.forEach((e) => e.classList.toggle('hidden') ) })
     //
     if (!document.getElementById('providerName')?.value) {
         let hiddenCEI3 = [...document.querySelectorAll('#providerName, #addressStreet')].map((e) => e.closest('.form-group'))
         hiddenCEI3.forEach( (e) => e.classList.add('hidden') )
-        document.getElementById('providerSearch').parentNode.insertAdjacentHTML('afterend', '<button type="button" class="cButton__floating cButton__nodisable centered-text float-right" tabindex="-1" id="ceiShowHide3">Toggle extra info</button>');
+        document.getElementById('providerSearch').parentElement.insertAdjacentHTML('afterend', '<button type="button" class="cButton__floating cButton__nodisable centered-text float-right" tabindex="-1" id="ceiShowHide3">Toggle extra info</button>');
         document.getElementById('providerSearch').closest('.col-lg-12').classList.add('form-group')
         document.getElementById('ceiShowHide3').addEventListener('click', function() { hiddenCEI3.forEach( (e) => e.classList.toggle('hidden') ) });
     };
     if (!notEditMode) {
-        document.getElementById('ceiGrossIncome').parentNode.insertAdjacentHTML('afterend', '<div class="height28" style="align-content: center; display: inline-flex; flex-wrap: wrap; margin-right: 10px;" id="fiftyPercent"></div>');
+        tempIncomes('ceiTemporaryIncome', 'ceiPaymentEnd')
+        document.getElementById('ceiGrossIncome').parentElement.insertAdjacentHTML('afterend', '<div class="height28" style="align-content: center; display: inline-flex; flex-wrap: wrap; margin-right: 10px;" id="fiftyPercent"></div>');
         document.getElementById('fiftyPercent').innerText = '50%: ' + (document.getElementById('ceiGrossIncome').value * .5).toFixed(2)
         document.getElementById('ceiGrossIncome').addEventListener('input', function() { document.getElementById('fiftyPercent').innerText = '50%: ' + (document.getElementById('ceiGrossIncome').value * .5).toFixed(2) })
         document.getElementById('fiftyPercent').insertAdjacentHTML('afterend', '<button type="button" id="grossButton" class="cButton__nodisable">Use 50%</button>')
@@ -3149,7 +3178,7 @@ if (slashThisPageNameHtm.indexOf("/CaseEligibilityResult") > -1) {
         CaseEligibilityResultActivity: [ ["Ineligible", 7], ["Fail", 8] ],
     }
     let eligTableArrayMatch = eligTableArray[thisPageName]
-    document.querySelectorAll('tbody > tr > td:nth-child(1)')?.forEach(function(e) { e.parentNode.id = "ref" + (e.innerText) })
+    document.querySelectorAll('tbody > tr > td:nth-child(1)')?.forEach(function(e) { e.parentElement.id = "ref" + (e.innerText) })
     function eligHighlight() {
         document.querySelectorAll('select, input:is(.eligibility-highlight)').forEach( (e) => { e.classList.remove('eligibility-highlight', 'ineligible') })
         let selectInputFail = [...document.querySelectorAll('.panel-box-format :is(select, input')].filter(function(e) {
@@ -3188,7 +3217,7 @@ if (slashThisPageNameHtm.indexOf("/CaseEligibilityResult") > -1) {
                 })
             }
         }
-        let notInUnit = [...document.querySelectorAll('tbody > tr > td')].filter((e) => e.textContent === "Not in Unit").forEach((e) => e.parentNode.classList.add('notInUnit') )
+        let notInUnit = [...document.querySelectorAll('tbody > tr > td')].filter((e) => e.textContent === "Not in Unit").forEach((e) => e.parentElement.classList.add('notInUnit') )
         document.querySelector('div[title="Family Result"]')?.innerText === "Ineligible" && document.querySelector('div[title="Family Result"]').classList.add('eligibility-highlight', 'ineligible')
     }
     queueMicrotask(() => { eligHighlightPageLoad(); eligHighlight() })
@@ -3244,19 +3273,24 @@ if (("CaseEligibilityResultFinancial.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_Eligibility_Result_Financial
 // SECTION_START Case_Eligibility_Result_Selection
 if (("CaseEligibilityResultSelection.htm").includes(thisPageNameHtm)) {
-    let eligibilityTableRows = document.querySelectorAll('#caseEligibilitySelectionTable > tbody > tr')
+    let eligibilityTableRows = [...document.querySelector('#caseEligibilitySelectionTable > tbody').children]
     eligibilityTableRows.forEach((e) => {
-        let versionNumber = e.childNodes[0]?.textContent.split(" ")
+        let versionNumber = e.children[0]?.textContent.split(" ")
         if (versionNumber[0] === versionNumber[2]) {
-            if (e.childNodes[5].textContent === "Unapproved") { e.classList.add("unapproved") }
-            if (["Ineligible", "Temporarily Ineligible"].includes(e.childNodes[4].textContent)) { e.classList.add("ineligible") }
-            else if (e.childNodes[4].textContent === "Eligible") { e.classList.add("eligible") }
+            e.classList.add("current")
+            if (e.children[5].textContent === "Unapproved") { e.classList.add("unapproved") }
+            if (["Ineligible", "Temporarily Ineligible"].includes(e.children[4].textContent)) { e.classList.add("ineligible") }
+            else if (e.children[4].textContent === "Eligible") { e.classList.add("eligible") }
         }
     })
-    if (document.querySelector('.unapproved')) {
+    if (document.getElementsByClassName('unapproved').length) {
         if (document.querySelector('.unapproved.eligible')) { document.querySelector('.unapproved.eligible').click() }
         else if (document.querySelector('.unapproved.ineligible')) { document.querySelector('.unapproved.ineligible').click() }
     } else {
+        if (document.querySelector('.current.eligible')) { document.querySelector('.current.eligible').click() }
+        else if (document.querySelector('.current.ineligible')) { document.querySelector('.current.ineligible').click() }
+    }
+    if (!document.getElementsByClassName('unapproved').length) {
         document.getElementById('delete').insertAdjacentHTML('afterend', `
             <button type="button" id="goSAOverview" class="form-button">SA Overview</button>
             <button type="button" id="goSAApproval" class="form-button">SA Approval</button>
@@ -3282,58 +3316,55 @@ if (reviewingEligibility) {
     let alreadyRedirecting = 0
     setIntervalLimited(function() {
         if ($('[id$="TableAndPanelData"]').css('display') === "none" && !alreadyRedirecting) {
-            window.open(document.getElementById("Eligibility Results Selection").firstElementChild.href, "_self")
+            window.open(document.getElementById("Eligibility Results Selection").firstElementChild.href, '_self')
             alreadyRedirecting = 1
         }
     }, 200, 5)
 }; // SECTION_END reviewing_Eligibility_Redirect
 // SECTION_START Case_Expense
 if (("CaseExpense.htm").includes(thisPageNameHtm)) {
-    document.getElementById('paymentEndDate').addEventListener('keydown', function(e) {
-        if (e.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
-    })
-    // let hiddenExp = $('#projectionExpenseUnitType, #projectionExpenseNumberOfUnits').parents('.form-group');
-    // hiddenExp.addClass('hidden');
-    // $('label[for="projectionExpenseAmount"]').parent().append('<button type="button" class="cButton__floating cButton__nodisable float-right" tabindex="-1" id="ceiShowHide2">Toggle extra info</button>');
-    // $('#ceiShowHide2').click(function() { $(hiddenExp).toggleClass('hidden') });
-    document.getElementById('expenseTypeDisplay').addEventListener('blur', function() {
-        if (this.value === "Lump Sum Exemption") {
-            document.getElementById('temporaryExpense').value = "Yes"
-            document.getElementById('verificationType').value = "Other"
-            document.getElementById('paymentFrequency').value = "Annually"
-            document.getElementById('projectionExpenseFrequency').value = "Annually"
-            document.getElementById('projectionExpenseAmount').value = "60"
-            doEvent('projectionExpenseAmount')
-            eleFocus('#paymentBeginDate')
-            document.getElementById('paymentBeginDate').addEventListener('keydown', function() {
-                if (this.value?.length === 10) {
-                    let startDate = document.getElementById('paymentBeginDate').value
-                    let endDate = addDays(startDate, 365)
-                    document.getElementById('paymentEndDate').value = endDate.toLocaleDateString()
-                    eleFocus('#saveDB')
-                }
-            })
-        }
-    })
-    if (!notEditMode) { tempIncomes('temporaryExpense', 'paymentEndDate') }
+    if (!notEditMode) {
+        document.getElementById('paymentEndDate').addEventListener('keydown', function(e) {
+            if (e.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
+        })
+        document.getElementById('expenseTypeDisplay').addEventListener('blur', function() {
+            if (this.value === "Lump Sum Exemption") {
+                document.getElementById('temporaryExpense').value = "Yes"
+                document.getElementById('verificationType').value = "Other"
+                document.getElementById('paymentFrequency').value = "Annually"
+                document.getElementById('projectionExpenseFrequency').value = "Annually"
+                document.getElementById('projectionExpenseAmount').value = "60"
+                doEvent('projectionExpenseAmount')
+                eleFocus('#paymentBeginDate')
+                document.getElementById('paymentBeginDate').addEventListener('keydown', function() {
+                    if (this.value?.length === 10) {
+                        let startDate = document.getElementById('paymentBeginDate').value
+                        let endDate = addDays(startDate, 365)
+                        document.getElementById('paymentEndDate').value = endDate.toLocaleDateString("en-US", longDateFormat)
+                        eleFocus('#saveDB')
+                    }
+                })
+            }
+        })
+        tempIncomes('temporaryExpense', 'paymentEndDate')
+    }
 }; // SECTION_END Case_Expense
 // SECTION_START Case_Job_Search_Tracking
 if (("CaseJobSearchTracking.htm").includes(thisPageNameHtm)) {
     document.getElementById('hoursUsed').addEventListener('keydown', function(e) {
-        if (['Enter', 'Tab'].includes(e.code) ) {
+        if (['Enter', 'Tab'].includes(e.key) ) {
+            e.stopPropagation()
+            e.stopImmediatePropagation()
             document.getElementById('save').click()
         }
     })
 } // SECTION_END Case_Job_Search_Tracking
 // SECTION_START Case_Member
 if (("CaseMember.htm").includes(thisPageNameHtm)) {
-    // $('label[for="memberReferenceNumber"]').attr('id','openHistory') // Open CaseMemberHistory page from CaseMember with 'button'
-    // $('#openHistory').click(function() {
-    //     window.open('/ChildCare/CaseMemberHistory.htm?parm2=' + caseId, '_blank');
-    // });
     document.querySelector('label[for="memberReferenceNumber"]').onclick = () => void window.open('/ChildCare/CaseMemberHistory.htm?parm2=' + caseId, '_blank')
-    $("label:contains('American Indian or Alaskan Native')").text('American Indian or AK Native');
-    $("label:contains('Pacific Islander or  Native Hawaiian')").text('Pacific Islander or HI Native');
+    let raceLabels = [...document.querySelectorAll('#raceCheckBoxes label')]
+    raceLabels.filter((ele) => ele.innerText.includes('Alaskan Native'))[0].innerText = 'American Indian or AK Native';
+    raceLabels.filter((ele) => ele.innerText.includes('Pacific Islander'))[0].innerText = 'Pacific Islander or HI Native';
     if ( document.getElementById('next') ) { document.querySelector('tbody').addEventListener('click', function() { eleFocus('#next') }) }
     if (notEditMode) {
         function fMonthDifference(today, birthdate) {
@@ -3345,10 +3376,9 @@ if (("CaseMember.htm").includes(thisPageNameHtm)) {
             months -= datePassed
             return months <= 0 ? 0 : months;
         }
-        $('#memberBirthDate')
-            .attr('style', 'width: var(--dateInput)')
-            .after('<div style="display: inline-flex; margin-left: 5px;" id="birthMonths">')
-        $('#raceCheckBoxes').parent().addClass('hidden')
+        document.getElementById('memberBirthDate').insertAdjacentHTML('afterend', '<div style="display: inline-block; margin-left: 15px;" id="birthMonths">')
+        // document.getElementById('memberBirthDate').parentElement.insertAdjacentHTML('afterend', '<div style="display: inline-block; margin-left: 15px;" id="birthMonths">')
+        document.getElementById('raceCheckBoxes').parentElement.classList.add('hidden')
         document.getElementById('caseMemberTable').addEventListener('click', function() {
             let ageFromMemberTable = document.querySelector('#caseMemberTable .selected>td:nth-child(3)').textContent
             if (parseInt(ageFromMemberTable) < 7 || ageFromMemberTable === "") {
@@ -3365,7 +3395,7 @@ if (("CaseMember.htm").includes(thisPageNameHtm)) {
         // $('#memberPanelsData :is(input, select):not([type="checkbox"], .wiz-form-button, .form-button, [type="hidden"], [disabled="disabled"])').filter(function() { filledValueFields.push( "#" + $(this).attr('id') ) })
         // tabIndxNegOne(filledValueFields)
         let membRefNum = document.getElementById('memberReferenceNumber')
-        $('#memberReferenceNumber').blur(function(event) {
+        membRefNum.addEventListener('blur', function(event) {
             if (event.target.value.length > 1 && Number(event.target.value) > 2 && Number(event.target.value) < 10) { fillMemberDataChild(event.target) }
         })
         function fillMemberDataChild() { //autofilling
@@ -3379,15 +3409,15 @@ if (("CaseMember.htm").includes(thisPageNameHtm)) {
             $('#memberNeedsInterpreter').val()?.length === 0 && $('#memberNeedsInterpreter').val("No").addClass('red-outline')
             $('#arrivalDate:not([read-only])').val()?.length === 0 && $('#arrivalDate').addClass('required-field')
         }
-        if (Number($('#memberReferenceNumber').val()) > 2 && Number($('#memberReferenceNumber').val()) < 10) { fillMemberDataChild() }
+        if (Number(membRefNum.value) > 2 && Number(membRefNum.value) < 10) { fillMemberDataChild() }
     }
 }; // SECTION_END Case_Member
 // SECTION_START Case_Member_II
 if (("CaseMemberII.htm").includes(thisPageNameHtm)) {
     if (document.getElementById('next')) { document.querySelector('tbody').addEventListener('click', function() { eleFocus('#next') }) }
     if (!notEditMode) {
-        function autoFillForChildren() {
             let membRefNum = document.getElementById('memberReferenceNumberNewMember')
+            function autoFillForChildren() {
             if (Number(membRefNum?.value) > 2 && Number(membRefNum?.value) < 11) {
                 document.querySelectorAll('#memberMaritalStatus, #memberLastGradeCompleted, #memberUSCitizen, #memberCitizenshipVerification').forEach((e) => {
                     e.value === '' && e.classList.add('red-outline')
@@ -3403,7 +3433,7 @@ if (("CaseMemberII.htm").includes(thisPageNameHtm)) {
                 $('.hasDatepicker').datepicker("hide")
             }
         }
-        document.getElementById('memberReferenceNumberNewMember')?.addEventListener('blur', function(event) { autoFillForChildren() })
+        membRefNum?.addEventListener('blur', function(event) { autoFillForChildren() })
         queueMicrotask(() => {
             autoFillForChildren()
             document.getElementById('memberMaritalStatus').value === "Never Married" && document.getElementById('memberSpouseReferenceNumber').setAttribute('tabindex', '-1')
@@ -3413,61 +3443,72 @@ if (("CaseMemberII.htm").includes(thisPageNameHtm)) {
 
 // ==================================================================================================================================================================================================
 // ////////////////////////////////////////////////////////////////////////// Notes_htm start (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// SECTION_START Case_Notes custom styles
-if (("CaseNotes.htm").includes(thisPageNameHtm)) {
-    if (!notEditMode) {
-        let noteStringText = document.getElementById('noteStringText')
-        document.querySelector('option[value="Application"]').insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
-        $('h4:contains("Note")').after('<button type="button" class="cButton float-right" id="disAutoFormat" tabindex="-1">Disable Auto-Format</button>')
-        document.querySelector('#disAutoFormat').addEventListener('click', (e) => { e.preventDefault(); $(this).text($(this).text() === "Disable Auto-Format" ? "Enable Auto-Format" : "Disable Auto-Format") })
-        document.getElementById('save').addEventListener('click', () => {
-            if (document.querySelector('#disAutoFormat').textContent === "Disable Auto-Format") {
-                noteStringText.value = (noteStringText.value.replace(/\n\ *`\ */g, "\n             ").replace(/^(?! *RSDI| *SSI)([ A-Z]{2,8}:) */gm, (text, a) => `${' '.repeat(9 - a.length)}${a}    `))//Using ` to auto-insert/correct spacing, and fix spacing around titles
-            }
-        })
-        noteStringText.addEventListener('paste', function(event) {
-            let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-            if (document.querySelector('#disAutoFormat').textContent === "Disable Auto-Format" && (/\u0009|\w\(|\)\w|\n\ {16}/).test(pastedText) ) {
-                event.preventDefault()
-                pastedText = pastedText
-                    .replace(/(\w)\(/g, "$1 (").replace(/\)(\w)/g, ") $1")//Spaces around parentheses
-                    .replace(/\n\u0009/g, "\n             ").replace(/\n\ {9}\u0009/g, "\n             ").replace(/\n\ {16}/g, "\n             ").replace(/\u0009/g, "    ")//Spacing from pasting Excel cells
-                    .replace(/\n+/g, "\n")//Multiple new lines to single new line
-                insertTextAndMoveCursor(pastedText)
-            }
-        })
-        noteStringText.addEventListener('keydown', (e) => {
-            if (e.key === "`") {
-                e.preventDefault()
-                insertTextAndMoveCursor("             ")
-            }
-        })
-    }
-    //Hiding PMI/SMI Merge and Disbursed Child Care Support Payment rows
-    let hiddenTr = [...document.querySelectorAll('table#caseNotesTable>tbody>tr>td:nth-child(5)')].slice(0, 120).filter( e => e.innerText.indexOf("Disbursed child care") > -1 || e.innerText.indexOf("PMI/SMI") > -1 ).map((e) => e.parentNode)
-    if (hiddenTr.length) {
-        document.getElementById('caseNotesTable').classList.add('toggleTable')
-        document.getElementById('reset').insertAdjacentHTML('afterend', '<button type="button" id="toggleCaseNotesRows" class="cButton__float cButton__nodisable float-right" data-hiding="true" title="Shows or hides PMI Merge and CS disbursion auto-notes">Show ' + hiddenTr.length + ' Hidden Rows</button>')
-        document.getElementById('toggleCaseNotesRows').addEventListener('click', function(e) {
-            switch (e.target.dataset.hiding) {
-                case "true":
-                    e.target.dataset.hiding = "false"
-                    e.target.textContent = "Hide " + hiddenTr.length + " Extra Rows"
-                    toggle(hiddenTr)
-                    break
-                case "false":
-                    e.target.dataset.hiding = "true"
-                    e.target.textContent = "Show " + hiddenTr.length + " Hidden Rows"
-                    toggle(hiddenTr)
-                    break
-            }
-        })
-        toggle(hiddenTr)
-        queueMicrotask(() => { document.querySelector('tbody > tr:not([style="display: none;"]').click() })
-    }
-}; // SECTION_END CaseNotes
 // SECTION_START Case_Notes and Provider_Notes
-if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
+if (["CaseNotes.htm", "ProviderNotes.htm"].includes(thisPageNameHtm)) {
+    function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
+        document.getElementById('noteCreateDate').closest('div.panel-box-format').classList.add('hidden')
+        let noteCreator = [...document.querySelector('label[for=noteCreator]').parentElement.children]
+        let noteSummaryRow = document.getElementById('noteSummary').closest('.row')
+        noteCreator.forEach((e) => noteSummaryRow.insertAdjacentElement('beforeend', e))
+        tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
+    }
+    function doAutoNote(noteInfo) {
+        if (notEditMode) {
+            let continueToMakeNote = 1
+            if (["information", "childsupport", "maxis", "periodicprocessing", "parisinterstate"].includes(noteInfo.alertCategory)) {
+                evalData().then(function(results) {
+                    let firstTenAlerts = results[0].slice(0, 10)
+                    let todayValue = new Date().valueOf()
+                    let twoMonthsValue = 5270400000
+                    let arrLen = firstTenAlerts.length
+                    for (let i = 0; i < arrLen; i++) {
+                        let alertDateValue = new Date(firstTenAlerts[i].noteCreateDate).valueOf()
+                        if (alertDateValue + twoMonthsValue < todayValue) { break }
+                        if (noteInfo.noteSummary.slice(0, 40) === firstTenAlerts[i].noteSummary.replace(/\\/g, '').slice(0, 40)) {
+                            document.getElementById("noteStringText").value = "\n\n\n\t\tNote already exists, duplicate note not entered.\n\t\tClick 'Override Duplicate Check' to enter duplicate note."
+                            document.querySelector('#caseNotesTable > tbody').children[firstTenAlerts[i].rowIndex].setAttribute('style', "color: var(--textColorPositive) !important;")
+                            localStorage.removeItem("MECH2.note")
+                            continueToMakeNote = 0
+                            let h4s = document.getElementsByTagName('h4')
+                            h4s[h4s.length-1].insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right" id="overrideDupe">Override Duplicate Check</button>')
+                            document.getElementById('overrideDupe').addEventListener('click', function() {
+                                let noteInfoCaseId = {}
+                                noteInfoCaseId[caseIdORproviderId] = noteInfo
+                                localStorage.setItem( "MECH2.note", JSON.stringify(noteInfoCaseId) )
+                                doClick(document.getElementById('new'))
+                            })
+                            restyleCreated()
+                            break
+                        }
+                    }
+                    continueToMakeNote && doClick('#new')
+                })
+            } else { document.getElementById("new").click() }
+        }
+        if (!notEditMode) {
+            if (noteInfo.noteCategory === "Child Support Note") {
+                document.querySelector('option[value="Application"]').insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
+            }
+            let signatureName
+            let workerName = localStorage.getItem('MECH2.userName')
+            if (["CaseNotes.htm"].includes(thisPageNameHtm)) {
+                if (noteInfo.xNumber) {
+                    signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? workerName : workerName + " for " + noteInfo.worker
+                } else { signatureName = workerName }
+            }
+            setTimeout(function() {
+                if (noteInfo.intendedPerson) {
+                    let intendedPerson = [...document.querySelectorAll('#noteMemberReferenceNumber > option')].filter((ele) => ele.innerText.includes(noteInfo.intendedPerson) )[0].value
+                    document.getElementById('noteMemberReferenceNumber').value = intendedPerson
+                }
+                document.getElementById("noteCategory").value = noteInfo.noteCategory
+                document.getElementById("noteSummary").value = noteInfo.noteSummary
+                document.getElementById("noteStringText").value = noteInfo.noteMessage + "\n=====\n" + signatureName
+                localStorage.removeItem("MECH2.note")
+                document.getElementById("save").click()
+            }, 50)
+        }
+    }
     //pasted from AHK
     let noteStringText = document.getElementById('noteStringText')
     window.addEventListener('paste', function(event) {
@@ -3482,54 +3523,27 @@ if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
                 document.getElementById('new').animate(redBorder, redBorderTiming)
             } else {
                 let aCaseNoteData = pastedText.split('SPLIT')
-                if (["Application", "Redetermination"].includes(aCaseNoteData[1])) { document.getElementById('noteCategory').value = aCaseNoteData[1] }
+                document.getElementById('noteCategory').value = aCaseNoteData[1]
+                // if (["Application", "Redetermination"].includes(aCaseNoteData[1])) { document.getElementById('noteCategory').value = aCaseNoteData[1] }
                 document.getElementById('noteSummary').value = aCaseNoteData[2]
                 noteStringText.value = aCaseNoteData[3]
                 eleFocus('#save')
             }
         }
     })
-    //AutoCaseNoting; Notes pages section
-    if (localStorage.getItem("MECH2.note") !== null) {
-        try {
-            let noteInfo = JSON.parse(localStorage.getItem("MECH2.note"))[document.querySelectorAll('#providerInput>#providerId, #caseId')[0].value]
-            if (noteInfo !== null && noteInfo !== undefined) {
-                if (notEditMode) { document.getElementById("new").click() }
-                else if (!notEditMode) {
-                    let signatureName
-                    let workerName = localStorage.getItem('MECH2.userName')
-                    if (["CaseNotes.htm"].includes(thisPageNameHtm)) {
-                        if (noteInfo.xNumber?.length) {
-                            signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? workerName : workerName + " for " + noteInfo.worker
-                        } else { signatureName = workerName }
-                    }
-                    setTimeout(function() {
-                        noteInfo.intendedPerson?.length && $('#noteMemberReferenceNumber').val($('#noteMemberReferenceNumber>option:contains(' + noteInfo.intendedPerson + ')').val())
-                        document.getElementById("noteCategory").value = noteInfo.noteCategory
-                        document.getElementById("noteSummary").value = noteInfo.noteSummary
-                        document.getElementById("noteStringText").value = noteInfo.noteMessage + "\n=====\n" + signatureName
-                        localStorage.removeItem("MECH2.note")
-                        document.getElementById("save").click()
-                    }, 50)
-                }
-            }
-        }
-        catch (error) { console.error(error) }
-        //End AutoCaseNoting
-
-    } else {
-        tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
-
-        $('label[for="noteCreator"]').siblings().addBack().appendTo($('label[for="noteSummary"]').closest('.row'));
-        document.getElementById('noteCreateDate').closest('div.panel-box-format').classList.add('hidden')
-
-        //Duplicate Note
+    // Auto_Case_Noting
+    let noteInfo = localStorage.getItem("MECH2.note") !== null ? JSON.parse(localStorage.getItem("MECH2.note"))[document.querySelector('#providerInput > #providerId, #caseId').value] : undefined
+    if (noteInfo) {
+        doAutoNote(noteInfo)
+    } else { // Auto_Case_Noting
+        restyleCreated()
+        // Start Duplicate_Existing_Note
         if (notEditMode) {
             setTimeout(function() {
                 document.getElementById('deleteDB').insertAdjacentHTML("afterend", "<button type='button' id='duplicate' class='form-button'>Duplicate</button>")
                 document.getElementById('duplicate').addEventListener('click', copyNoteToLS)
                 function copyNoteToLS() {
-                    if (document.getElementById('noteCategory')?.value?.length && document.querySelectorAll('.selected').length) {
+                    if (document.getElementById('noteCategory')?.value?.length && document.getElementsByClassName('selected').length) {
                         let oCaseNote = {
                             noteSummary: document.getElementById("noteSummary").value,
                             noteCategory: document.getElementById("noteCategory").value,
@@ -3537,7 +3551,8 @@ if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
                         }
                         localStorage.setItem("MECH2.copiedNote", JSON.stringify(oCaseNote))
                         snackBar('Copied note!', 'blank')
-                    } else if (!document.querySelectorAll('.selected').length) { snackBar('No note selected') }
+                    } else if (!document.getElementsByClassName('selected').length) { snackBar('No note selected') }
+                    eleFocus("#newDB")
                 }
             }, 100)
         } else if (!notEditMode) {
@@ -3557,16 +3572,74 @@ if (thisPageNameHtm.indexOf("Notes.htm") > -1) {//CaseNotes, ProviderNotes
                 }
             }, 100)
         }
-    }
-}; // SECTION_END Case_Notes and Provider_Notes layout fix
+    } // End Duplicate_Existing_Note
+    // SECTION_START Case_Notes_Only
+    if (("CaseNotes.htm").includes(thisPageNameHtm)) {
+        if (!notEditMode) {
+            let noteStringText = document.getElementById('noteStringText')
+            document.querySelector('option[value="Application"]').insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
+            let h4s = [...document.querySelectorAll('h4')].filter((ele) => ele.innerText.includes('Note') )
+            h4s[0].insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right" id="disAutoFormat" tabindex="-1">Disable Auto-Format</button>')
+            document.querySelector('#disAutoFormat').addEventListener('click', (e) => { e.preventDefault(); $(this).text($(this).text() === "Disable Auto-Format" ? "Enable Auto-Format" : "Disable Auto-Format") })
+            document.getElementById('save').addEventListener('click', () => {
+                if (document.querySelector('#disAutoFormat').textContent === "Disable Auto-Format") {
+                    noteStringText.value = (noteStringText.value.replace(/\n\ *`\ */g, "\n             ").replace(/^(?! *RSDI| *SSI)([ A-Z]{2,8}:) */gm, (text, a) => `${' '.repeat(9 - a.length)}${a}    `))//Using ` to auto-insert/correct spacing, and fix spacing around titles
+                }
+            })
+            noteStringText.addEventListener('paste', function(event) {
+                let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+                if (document.querySelector('#disAutoFormat').textContent === "Disable Auto-Format" && (/\u0009|\w\(|\)\w|\n\ {16}/).test(pastedText) ) {
+                    event.preventDefault()
+                    pastedText = pastedText
+                        .replace(/(\w)\(/g, "$1 (").replace(/\)(\w)/g, ") $1")//Spaces around parentheses
+                        .replace(/\n\u0009/g, "\n             ").replace(/\n\ {9}\u0009/g, "\n             ").replace(/\n\ {16}/g, "\n             ").replace(/\u0009/g, "    ")//Spacing from pasting Excel cells
+                        .replace(/\n+/g, "\n")//Multiple new lines to single new line
+                    insertTextAndMoveCursor(pastedText)
+                }
+            })
+            noteStringText.addEventListener('keydown', (e) => {
+                if (e.key === "`") {
+                    e.preventDefault()
+                    insertTextAndMoveCursor("             ")
+                }
+            })
+        }
+        //Hiding PMI/SMI Merge and Disbursed Child Care Support Payment rows
+        let hiddenTr = [...document.querySelector('table#caseNotesTable > tbody').children].slice(0, 75).filter((e) => {
+            let nodeText = e.children[4].innerText
+            if (nodeText.indexOf("Disbursed child care") > -1 || nodeText.indexOf("PMI/SMI") > -1) {
+                return e
+            }
+        })
+        if (hiddenTr.length) {
+            document.getElementById('caseNotesTable').classList.add('toggleTable')
+            document.getElementById('reset').insertAdjacentHTML('afterend', '<button type="button" id="toggleCaseNotesRows" class="cButton__float cButton__nodisable float-right" data-hiding="true" title="Shows or hides PMI Merge and CS disbursion auto-notes">Show ' + hiddenTr.length + ' Hidden Rows</button>')
+            document.getElementById('toggleCaseNotesRows').addEventListener('click', function(e) {
+                switch (e.target.dataset.hiding) {
+                    case "true":
+                        e.target.dataset.hiding = "false"
+                        e.target.textContent = "Hide " + hiddenTr.length + " Extra Rows"
+                        toggle(hiddenTr)
+                        break
+                    case "false":
+                        e.target.dataset.hiding = "true"
+                        e.target.textContent = "Show " + hiddenTr.length + " Hidden Rows"
+                        toggle(hiddenTr)
+                        break
+                }
+            })
+            toggle(hiddenTr)
+            queueMicrotask(() => { document.querySelector('tbody > tr:not([style="display: none;"]').click() })
+        }
+    }; // SECTION_END Case_Notes_Only
+};
 // ////////////////////////////////////////////////////////////////////////// Notes_htm end (major_subsection) \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ================================================================================================================================================================================================
 
 // SECTION_START Case_Overview
 if (("CaseOverview.htm").includes(thisPageNameHtm)) {
     $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order
-    // let redetDate = $('label[for="redeterminationDueDate"].col-lg-3').parent().siblings('div.col-lg-3.col-md-3').eq(0).text().trim()
-    let redetDate = document.querySelector('label[for="redeterminationDueDate"]').parentNode.nextElementSibling?.nextElementSibling?.innerText
+    let redetDate = document.querySelector('label[for="redeterminationDueDate"]').parentElement.nextElementSibling?.nextElementSibling?.innerText
     if (redetDate) {
         document.getElementById('caseInputSubmit').insertAdjacentHTML('afterend', '<button type="button" id="copyFollowUpButton" class="cButton float-right" tabindex="-1">Follow Up Date</button>');
         document.getElementById('copyFollowUpButton').addEventListener('click', function() {
@@ -3577,29 +3650,38 @@ if (("CaseOverview.htm").includes(thisPageNameHtm)) {
         });
     }
 
-    // $('#programInformationData td:contains("HC"), #programInformationData td:contains("FS"), #programInformationData td:contains("DWP"), #programInformationData td:contains("MFIP"), #programInformationData td:contains("WB")').parent().addClass('stickyRow stillNeedsBottom')
-    [...document.querySelectorAll('#programInformationData > tbody> tr > td:nth-child(1)')].filter( (e) => ["MFIP", "DWP", "FS"].includes(e.innerText) ).map((e) => { e.parentNode.classList = "stickyRow stillNeedsBottom" })
-    // document.querySelectorAll('#programInformationData > tbody> tr > td:nth-child(1)').forEach((e) => { if (["MFIP", "DWP", "FS"].includes(e.textContent)) { e.parentNode.classList = 'stickyRow stillNeedsBottom' } })
+    let stickyTrs = [...document.querySelector('#programInformationData > tbody').children].filter( (e) => ["MFIP", "DWP", "FS"].includes(e.firstElementChild.innerText) ).forEach((e) => { e.classList = "stickyRow stillNeedsBottom" })
+    // [...document.querySelectorAll('#programInformationData > tbody> tr > td:nth-child(1)')].filter( (e) => ["MFIP", "DWP", "FS"].includes(e.innerText) ).forEach((e) => { e.parentElement.classList = "stickyRow stillNeedsBottom" })
     waitForElmHeight('#programInformationData > tbody > tr > td').then(() => {
+        let programInfoTableHeightDivByTrCount = document.getElementById('programInformationData').getBoundingClientRect().height / document.querySelector('#programInformationData > tbody').children.length
         document.getElementById('programInformationData').classList.add('toggleTable')
-        document.querySelectorAll('.stickyRow').forEach(function(element, index) {
-            element.style.bottom = ( (document.querySelectorAll('.stillNeedsBottom').length - 1) * (document.querySelector('#programInformationData').getBoundingClientRect().height / document.querySelectorAll('#programInformationData tbody tr').length) ) + "px"
+        let stuckRow = [...document.getElementsByClassName('stickyRow')].forEach(function(element, index) {
+            element.style.bottom = ( (document.getElementsByClassName('stillNeedsBottom').length - 1) * programInfoTableHeightDivByTrCount ) + "px"
             element.classList.remove('stillNeedsBottom')
         })
     })
     document.getElementById('personInformationData').addEventListener('click', function() {
-        let providerTableFirstChildren = document.querySelectorAll('#providerInformationData>tbody>tr>td:first-child')
-        providerTableFirstChildren.forEach((e) => { if (e.textContent > 0) { e.outerHTML = '<td><a href="ProviderOverview.htm?providerId=' + e.textContent + '" target="_blank">' + e.textContent + '</a></td>' } })
+        // let providerTableFirstChildren = document.querySelectorAll('#providerInformationData > tbody > tr > td:first-child')
+        // providerTableFirstChildren.forEach((e) => { if (e.textContent > 0) { e.outerHTML = '<td><a href="ProviderOverview.htm?providerId=' + e.textContent + '" target="_blank">' + e.textContent + '</a></td>' } })
+        let providerTableTr = document.querySelector('#providerInformationData > tbody').children
+        providerTableTr.forEach((e) => {
+            let childTd = e.firstElementChild
+            if (childTd.textContent > 0) { childTd.outerHTML = '<td><a href="ProviderOverview.htm?providerId=' + childTd.textContent + '" target="_blank">' + childTd.textContent + '</a></td>' }
+        })
     })
 }; // SECTION_END Case_Overview
 // SECTION_START Case_Page_Summary
 if (("CasePageSummary.htm").includes(thisPageNameHtm)) {
     if (!document.querySelector('[id="Wrap Up"] >a').classList.value.includes('disabled_lightgray')) {
-        $('#caseInputSubmit').after('<a href="/ChildCare/CaseWrapUp.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3 + '"> <input class="form-button doNotDupe" type="button" name="wrapUp" id="wrapUp" value="Wrap-Up" title="Wrap-Up"></a>')
+        document.getElementById('caseInputSubmit').insertAdjacentHTML('afterend', '<a href="/ChildCare/CaseWrapUp.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3 + '"> <input class="form-button doNotDupe" type="button" name="wrapUp" id="wrapUp" value="Wrap-Up" title="Wrap-Up"></a>')
     }
 } // SECTION_END Case_Page_Summary
 // SECTION_START Case_Payment_History
 if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
+    let tempTables = document.createElement('iframe')
+    tempTables.setAttribute('style', 'height: 0; width: 600px; border: none;')
+    document.querySelector('body').insertAdjacentElement('beforeend', tempTables)
+    tempTables.contentDocument.body.style = "color: unset !important; background: unset !important;"
     document.querySelectorAll('#paymentHistoryTable>tbody>tr>td:nth-of-type(3)').forEach((e) => {
         let linkText = e.innerText
         e.innerHTML = '<td><a href="FinancialBilling.htm?parm2=' + caseId + '&parm3=' + linkText.replace(" - ", "").replaceAll("/", "") + '", target="_blank">' + linkText + '</a></td>'
@@ -3628,7 +3710,7 @@ if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
         })
         let getPaymentHTML1 = '<div style="display: flex;"><div style="margin: 10px 0 0 auto; display: flex; gap: 10px;" id="paymentFilterDiv"><select style="width: fit-content;" class="form-control" id="filterProvider"><option value>Provider Filter...</option>'
         let getPaymentHTML2 = '</select><select style="width: fit-content;" class="form-control" id="filterChild"><option value>Child Filter...</option>'
-        let getPaymentHTML3 = '</select><button class="form-button" type="button" id="sendPaymentInfoToCB">Copy Payments</button></div></div>'
+        let getPaymentHTML3 = '</select><button class="cButton" type="button" id="sendPaymentInfoToCB">Copy Payments</button></div></div>'
         document.getElementById('secondaryActionArea').insertAdjacentHTML('afterend', getPaymentHTML1 + providerSelectList + getPaymentHTML2 + childSelectList + getPaymentHTML3)
         document.getElementById('sendPaymentInfoToCB').addEventListener('click', function() {
             let selectedProvider = document.querySelector('#filterProvider').value
@@ -3637,45 +3719,108 @@ if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
         })
     })
     function getProviderAndChildPaymentInfo(providerName, childName) {
+        tempTables.contentDocument.body.replaceChildren()
         let providerPaymentListString
         let childPaymentListString
         evalData().then(function(result) {
             let childPaymentListArray = []
+            let childPaymentTableArray = []
             let providerPaymentListArray = []
+            let providerPaymentTableArray = []
             let providerNameList = providerName.length > 0 ? [providerName] : providerTableList
+            let tableDiv = document.createElement('div')
+            tableDiv.insertAdjacentHTML('beforeend', '<style>table { border: 1px solid green; font-size: 24px; white-space: nowrap; table-layout:fixed; & td { padding: 2px 4px; border: none; } & thead tr { font-weight: 700; background: #07416f; color: white; } & tbody tr { color: black; background: white; } }</style>')
+            let providerTable = document.createElement('table')
+            let providerTbody = document.createElement('tbody')
             providerNameList.forEach(function(provider) {
                 for (let row in result[0]) {
                     let thisRow = result[0][row]
                     if (thisRow.providerName === provider) {
+                        providerPaymentTableArray.push([ thisRow.billingPeriod, thisRow.providerName, thisRow.issuanceAmount, thisRow.copayAmount, thisRow.recoupAmount ])
                         providerPaymentListArray.push([ thisRow.billingPeriod, thisRow.providerName, thisRow.issuanceAmount, thisRow.copayAmount, thisRow.recoupAmount ].join("\t") )
                     }
                 }
             })
-            providerPaymentListString = providerPaymentListArray.sort(((a, b) => a.slice(10) > b.slice(10))).join("\r\n")
-            let childNameList = childName.length > 0 ? [childName] : childTableList
-            childNameList.forEach(function(child) {
-                for (let row in result[1]) {
-                    let thisRow = result[1][row]
-                    let correspondingTableOneRow = result[0][ thisRow.rowIndex2 ]
-                    let providerCheck = (providerName.length < 1 || correspondingTableOneRow.providerName === providerName) ? 1 : 0
-                    if (thisRow.childName === child && providerCheck) {
-                        childPaymentListArray.push([ correspondingTableOneRow.billingPeriod, correspondingTableOneRow.providerName, thisRow.amount, thisRow.childName, ].join("\t") )
-                    }
-                }
+            providerPaymentTableArray = providerPaymentTableArray.sort((a, b) => new Date(b[0].slice(0, 10)) - new Date(a[0].slice(0, 10)))
+            providerPaymentTableArray.forEach((trow) => {
+                let tr = document.createElement('tr');
+                trow.forEach((cellText) => {
+                    let cell = document.createElement('td');
+                    cell.appendChild(document.createTextNode(cellText));
+                    tr.appendChild(cell);
+                })
+                providerTbody.appendChild(tr)
             })
-            childPaymentListString = childPaymentListArray.sort(((a, b) => a.slice(10) > b.slice(10))).join("\r\n")
-            let providerPaymentHeaders = providerPaymentListString.length > 0 ? "Care Period\tProvider\tPayment\tCopay\tRecoup\r\n" : ""
-            let childPaymentHeaders = childPaymentListString.length > 0 ? "Care Period\tProvider\tPre-Copay Amount\tChild\r\n" : ""
-            navigator.clipboard.writeText(providerPaymentHeaders + providerPaymentListString + "\r\n\r\n" + childPaymentHeaders + childPaymentListString)
-            snackBar('Child and Provider Payments')
+            let providerTableHeader = document.createElement('thead')
+            providerTableHeader.innerHTML = '<tr><td>Care Period</td><td>Provider</td><td>Payment</td><td>Copay</td><td>Recoup</td></tr>'
+            // providerTableHeader.innerHTML = providerTbody.length > 0 ? "<tr><td>Care Period</td><td>Provider</td><td>Payment</td><td>Copay</td><td>Recoup</td></tr>" : ""
+            providerTable.appendChild(providerTableHeader)
+            providerTable.appendChild(providerTbody)
+            providerPaymentListString = providerPaymentListArray.sort((a, b) => new Date(b.slice(0, 10)) - new Date(a.slice(0, 10))).join("\r\n")
+            // let providerPaymentHeaders = providerPaymentListString.length > 0 ? "Care Period\tProvider\tPayment\tCopay\tRecoup\r\n" : ""
+            tableDiv.appendChild(providerTable)
+
+            if (document.querySelector('#filterChild').value) {
+                let spacingDiv = document.createElement('div')
+                spacingDiv.textContent = '-------------------------------------------------'
+                spacingDiv.setAttribute('style', 'display: block; height: 24px;')
+                let childTable = document.createElement('table')
+                let childTbody = document.createElement('tbody')
+                let childNameList = childName.length > 0 ? [childName] : childTableList
+                childNameList.forEach(function(child) {
+                    for (let row in result[1]) {
+                        let thisRow = result[1][row]
+                        let correspondingTableOneRow = result[0][ thisRow.rowIndex2 ]
+                        let providerCheck = (providerName.length < 1 || correspondingTableOneRow.providerName === providerName) ? 1 : 0
+                        if (thisRow.childName === child && providerCheck) {
+                            let tr = document.createElement('tr');
+                            childPaymentListArray.push([ correspondingTableOneRow.billingPeriod, correspondingTableOneRow.providerName, thisRow.amount, thisRow.childName, ].join("\t") );
+                            childPaymentTableArray.push([ correspondingTableOneRow.billingPeriod, correspondingTableOneRow.providerName, thisRow.amount, thisRow.childName, ])
+                        }
+                    }
+                })
+                childPaymentTableArray = childPaymentTableArray.sort((a, b) => new Date(b[0].slice(0, 10)) - new Date(a[0].slice(0, 10)))
+                childPaymentTableArray.forEach((trow) => {
+                    let tr = document.createElement('tr');
+                    trow.forEach((cellText) => {
+                        let cell = document.createElement('td');
+                        cell.appendChild(document.createTextNode(cellText));
+                        tr.appendChild(cell);
+                    })
+                    childTbody.appendChild(tr)
+                })
+                let childTableHeader = document.createElement('thead')
+                childTableHeader.innerHTML = "<tr><td>Care Period</td><td>Provider</td><td>Pre-Copay $</td><td>Child</td></tr>"
+                childTable.appendChild(childTableHeader)
+                childTable.appendChild(childTbody)
+                childPaymentListString = childPaymentListArray.sort((a, b) => new Date(b.slice(0, 10)) - new Date(a.slice(0, 10))).join("\r\n")
+                let childPaymentHeaders = childPaymentListString.length > 0 ? "Care Period\tProvider\tPre-Copay Amount\tChild\r\n" : ""
+                tableDiv.appendChild(spacingDiv)
+                tableDiv.appendChild(childTable)
+                tableDiv.insertAdjacentHTML('beforeend', "<div>* Pre-Copay $ means the total calculated for that child before the household's copay is deducted.</div>")
+            }
+            tempTables.contentDocument.body.appendChild(tableDiv)
+            selectText(tableDiv, tempTables)
+            snackBar('Copied Payments', 'blank')
         })
+        function selectText(node, iframeEle) {
+            if (window.getSelection) {
+                const selection = iframeEle.contentDocument.getSelection();
+                const range = iframeEle.contentDocument.createRange();
+                range.selectNodeContents(node);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                iframeEle.contentDocument.execCommand("copy")
+            }
+        }
     }
 }; // SECTION_END Case_Payment_History
 // SECTION_START Case_Reapplication_Add_Ccap
 if (("CaseReapplicationAddCcap.htm").includes(thisPageNameHtm)) {
-    $('input[type=checkbox]').each(function() {
-        if (!$(this).prop('checked')) {
-            $(this).parents('tr').css('background-color', 'yellow');
+    let unchecked = [...document.querySelectorAll('input[type=checkbox]')].forEach(function(box) {
+        if (!box.checked) {
+            let boxTr = box.closest('tr')
+            boxTr && ( boxTr.style.backgroundColor = 'yellow' )
         };
     });
 }; // SECTION_END Case_Reapplication_Add_Ccap
@@ -3696,17 +3841,17 @@ if (("CaseRedetermination.htm").includes(thisPageNameHtm)) {
             }
         }
     }
+    function recDate(thisDate) {}
     $('#receiveDate').on('input change', function() {
         if ($(this).val().length === 10 && Math.abs(new Date().getFullYear() - $(this).val().slice(6)) < 2) {
+            preventKeys(["Tab"])
             eleFocus('#save')
             $('.hasDatepicker').datepicker("hide")
         }
     })
 } // SECTION_END Case_Redetermination
-// SECTION_START Case_Reinstate
-// SECTION_END Case_Reinstate
 // SECTION_START Case_School
-if (["CaseSchool.htm"].includes(thisPageNameHtm)) {
+if (("CaseSchool.htm").includes(thisPageNameHtm)) {
     if (!notEditMode) {
         async function kindergartenStartDate(memberArray, memberNumber) {
             let memberMatch = memberArray.filter((obj) => obj.memberReferenceNumber === memberNumber)
@@ -3743,7 +3888,7 @@ if (["CaseSchool.htm"].includes(thisPageNameHtm)) {
         if (document.getElementById('memberReferenceNumberNewMember')) {
             let memberArray = await evalData(undefined, "CaseMember", undefined, "0")
             document.getElementById('memberReferenceNumberNewMember').addEventListener('blur', function(e) {
-            let memberNumber = document.getElementById('memberReferenceNumberNewMember').value
+                let memberNumber = document.getElementById('memberReferenceNumberNewMember').value
                 if (Number(e.target.value) > 2) { kindergartenStartDate(memberArray, memberNumber) }
             })
         }
@@ -3769,11 +3914,11 @@ if (("CaseServiceAuthorizationApprovalPackage.htm").includes(thisPageNameHtm)) {
         }
     })
     let providerInfoTable = document.querySelector('#providerInfoTable')
-    let providerInfoTableRow = providerInfoTable.querySelector('tbody > tr')
+    // let providerInfoTableRow = providerInfoTable.querySelector('tbody > tr')
     let providerInfoTableRowIndex = 1
     providerInfoTable.addEventListener('click', function(e) {
         if (e.screenX !== 0) {
-            providerInfoTableRow = e.target.parentNode
+            // providerInfoTableRow = e.target.parentElement
             providerInfoTableRowIndex = providerInfoTable.querySelector('tbody > tr.selected').rowIndex
         }
     })
@@ -3784,7 +3929,7 @@ if (("CaseServiceAuthorizationApprovalPackage.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_SA_Approval_Package
 // SECTION_START SA_Overview Fill_manual_Billing_Forms
 if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
-    if (typeof userCountyObject !== undefined && userCountyObject.code === "169") {
+    if (typeof userCountyObj !== undefined && userCountyObj.code === "169") {
         document.getElementById('csicTableData1')?.insertAdjacentHTML('beforebegin', `
             <div style="overflow: hidden" id="billingFormDiv">
                 <div class="form-group" style="display: flex; gap: 15px; margin-left: 10px; align-items: center;">
@@ -3867,9 +4012,9 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
         let childList = {};
         for (let child in childMatches) {
             let thisChild = childMatches[child]
-            childList[child] = { name: reorderCommaName(toTitleCase(thisChild.childName)), authHours: thisChild.authorizedHours, ageCat0: thisChild.ageRateCategory, ageCat1: thisChild.ageRateCategory2 }
+            childList[child] = { name: commaNameReorder(toTitleCase(thisChild.childName)), authHours: thisChild.authorizedHours, ageCat0: thisChild.ageRateCategory, ageCat1: thisChild.ageRateCategory2 }
         }
-        let oCaseName = commaNameToObject($('#caseHeaderData div.col-lg-4').contents().eq(2).text())
+        let oCaseName = commaNameObject($('#caseHeaderData div.col-lg-4').contents().eq(2).text())
         const formInfo = { // blarg convert to evalData
             pdfType: "BillingForm",
             xNumber: userXnumber,
@@ -3894,7 +4039,7 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
                 let array1 = [[["Child:", formInfo.children[child].name], ["Authorized Hours:", formInfo.children[child].authHours], ["Age Category:", formInfo.children[child].ageCat0 ?? formInfo.children[child].ageCat1], ["Authorization Starts:", childMatches[child].saBegin]]
                     .map((e) => e.join(" "))].join()
                 childInfoArray.push(array1)
-                let array2 = [[["Hourly: $", childMatches[child].hourly ?? childMatches[child].hourly2], ["Daily: $", childMatches[child].daily ?? childMatches[child].daily2], ["Weekly: $", childMatches[child].weekly ?? childMatches[child].weekly2], ["Provider Primary/Secondary:", childMatches[child].providerDesignation ?? childMatches[child].providerDesignation2], ["\n"]]
+                let array2 = [[["Max Rates:", "Hourly: $", childMatches[child].hourly ?? childMatches[child].hourly2], ["Daily: $", childMatches[child].daily ?? childMatches[child].daily2], ["Weekly: $", childMatches[child].weekly ?? childMatches[child].weekly2], ["Provider Primary/Secondary Designation:", childMatches[child].providerDesignation ?? childMatches[child].providerDesignation2], ["\n"]]
                     .map((e) => e.join(" "))].join()
                 childInfoArray.push(array2)
             }
@@ -3912,26 +4057,21 @@ if (["CaseSpecialLetter.htm", "CaseMemo.htm", "ProviderMemo.htm", "ProviderSpeci
         doEvent("#status")
         document.getElementById('status').value = ""
     }
-    //click checkbox if clicking label
-    if (document.querySelector('.panel-box-format')) {
-        document.querySelector('.panel-default.panel-box-format').addEventListener('click', function(e) {
-            if (e.target.tagName === "STRONG") {
-                let checkboxParent = e.target.closest('div.col-lg-4')
-                checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
-            }
-        })
-    }
-    $('#caseData input#other').click(function() {
-        if ($(this).prop('checked')) {
-            $('#otherTextbox')
-                .val('See Worker Comments below')
-                .select()
+    document.querySelector('.panel-default.panel-box-format')?.addEventListener('click', function(e) { //click checkbox if clicking label
+        if (e.target.nodeName === "STRONG") {
+            let checkboxParent = e.target.closest('div.col-lg-4')
+            checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
+        }
+    })
+    document.querySelector('#caseData input#other')?.addEventListener('click', function(event) {
+        if ( document.getElementById('otherCommentsDiv').getAttribute('style') !== "display: none;" ) {
+            document.getElementById('otherTextbox').value = 'See Worker Comments below'
         }
     })
     document.querySelectorAll('div.col-lg-offset-3').forEach(function(e) {
         e.firstElementChild.setAttribute("for", e.querySelector('input.checkbox').id)
     })
-    document.querySelector('#status, #activity').addEventListener('input', function() { setTimeout(function() { resetTabIndex() }, 300) })
+    document.querySelector('#status, #activity')?.addEventListener('input', function() { setTimeout(function() { resetTabIndex() }, 300) })
 
     let commentsText = document.querySelector('#comments, #memberComments, #textbox1')
     // [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ]
@@ -3962,16 +4102,17 @@ if (["CaseSpecialNeeds.htm"].includes(thisPageNameHtm)) {
 // SECTION_START Case_Support_Activity
 if (("CaseSupportActivity.htm").includes(thisPageNameHtm)) {
     let doNoReset = [ "#tempLeavePeriodBegin", "#tempLeavePeriodEnd", "#activityEnd" ]
-    $('#activityBegin').blur(function() {
-        if ($('#memberDescription').val() === "PE" || $('#memberDescription').val() === "NP") {//extended elig
-            $('#activityEnd').val($('#activityBegin').val())
+    document.getElementById('activityBegin').addEventListener('blur', function() {
+        if (document.getElementById('memberDescription').value === "PE" || document.getElementById('memberDescription').value === "NP") {//extended elig
+            document.getElementById('activityEnd').value = document.getElementById('activityBegin').value
             doEvent("#activityEnd")
-            $('#verification').val("Other")
-            $('#planRequired').val("No")
+            document.getElementById('verification').value = "Other"
+            document.getElementById('planRequired').value = "No"
             eleFocus('#save')
         }
     })
-    $('strong:contains("before the first day")').length > 0 && $('#save').focus();
+    let beforeFirst = [...document.querySelectorAll('strong')].filter((ele) => ele.innerText.includes('before the first day') )
+    beforeFirst.length && eleFocus('#save')
     document.getElementById('memberDescription').addEventListener('change', function(e) {
         switch (e.target.value) {
             case "JS":
@@ -4058,14 +4199,13 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
         document.getElementById('footer_links').insertAdjacentHTML('beforeend', '<span class="footer" tabindex="-1">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
     }
     if (notEditMode && !iFramed) {
-        document.getElementById('secondaryActionArea').insertAdjacentHTML('afterend', `
-<div style="display: inline-flex; padding: 10px 20px 0 20px; float: right !important;">
-    <button type="button" class="cButton" tabindex="-1" style="float: left; margin-right: 10px; padding: 3px 6px;" id="sendMemo">Memo</button>
-    <button type="button" class="cButton" tabindex="-1" style="float: left; margin-right: 30px; padding: 3px 6px;" id="sendMemo">Reset</button>
-    <button type="button" class="cButton" tabindex="-1" style="float: left;" id="closedTransfer">Transfer to:</button>
-    <input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${transferWorkerId}></input>
-</div>
-        `)
+        let caseTransferButtons = '<div style="display: inline-flex; padding: 10px 20px 0 20px; float: right !important;">'
+    // + '<button type="button" class="cButton" tabindex="-1" style="float: left; margin-right: 10px; padding: 3px 6px;" id="sendMemo">Memo</button>'
+    // + '<button type="button" class="cButton" tabindex="-1" style="float: left; margin-right: 30px; padding: 3px 6px;" id="sendMemo">Reset</button>'
+    + '<button type="button" class="cButton" tabindex="-1" style="float: left;" id="closedTransfer">Transfer to:</button>'
+    + '<input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${transferWorkerId}></input>'
++ '</div>'
+        document.getElementById('secondaryActionArea').insertAdjacentHTML('afterend', caseTransferButtons)
         document.getElementById('transferWorker')?.addEventListener('blur', function() { validateTransferWorkerId(this.value) })
         document.getElementById('closedTransfer')?.addEventListener('click', function() {
             if (checkTransferWorkerId()) {
@@ -4114,7 +4254,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
     function startWorkerTransfer(transferCase) {
         if (transferCase) {
             sessionStorage.setItem('MECH2.caseTransfer.' + transferCase, 'transferStart')
-            window.open("/ChildCare/CaseTransfer.htm?parm2=" + transferCase, "_self")
+            window.open("/ChildCare/CaseTransfer.htm?parm2=" + transferCase, '_self')
         }
     }
     function doCaseTransfer() {
@@ -4151,33 +4291,37 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_Transfer
 // SECTION_START Unearned_Income
 if (("CaseUnearnedIncome.htm").includes(thisPageNameHtm)) {
-    document.getElementById('paymentEndDate').addEventListener('keydown', function(e) {
-        if (e.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
-    })
-    document.getElementById('incomeType').addEventListener('blur', function() {
-        if (this.value === "Unemployment Insurance") {
-            document.getElementById('tempIncome').value = "Yes"
-            document.getElementById('paymentEndDate').tabIndex = 0
-        }
-    })
-    if (!notEditMode) { tempIncomes('tempIncome', 'paymentEndDate') }
+    if (!notEditMode) {
+        let paymentEndDate = document.getElementById('paymentEndDate')
+        document.getElementById('paymentEndDate').addEventListener('keydown', function(e) {
+            if (e.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
+        }, { once: true } )
+        document.getElementById('incomeType').addEventListener('blur', function(event) {
+            if (event.target.value === "Unemployment Insurance") {
+                document.getElementById('tempIncome').value = "Yes"
+                document.getElementById('paymentEndDate').tabIndex = 0
+            }
+        })
+        tempIncomes('tempIncome', 'paymentEndDate')
+    }
 } // SECTION_END Unearned_Income
 // SECTION_START Case_Wrap_Up
-if (("CaseWrapUp.htm").includes(thisPageNameHtm) && $('#done').attr('Disabled')) {
-    $('#caseHeaderData').after(`<div id="postWrapUpButtons" class="flex-horizontal">
-    <button class="form-button" type="button" id="goEligibility">Eligibility</button>
-    <button class="form-button" type="button" id="goSAOverview">SA Overview</button>
-    <button class="form-button" type="button" id="goSAApproval">SA Approval</button>
-    <button class="form-button" type="button" id="goEditSummary">Edit Summary</button>
-    <button class="form-button" type="button" id="goSpecialLetter">Special Letter</button>
-    <button class="form-button" type="button" id="goCaseTransfer">Case Transfer</button>
+if (("CaseWrapUp.htm").includes(thisPageNameHtm) && document.getElementById('done')?.hasAttribute('Disabled')) {
+    document.getElementById('caseHeaderData').insertAdjacentHTML('afterend',
+                                                                 `<div id="postWrapUpButtons" class="flex-horizontal">
+        <button class="form-button" type="button" id="goEligibility">Eligibility</button>
+        <button class="form-button" type="button" id="goSAOverview">SA Overview</button>
+        <button class="form-button" type="button" id="goSAApproval">SA Approval</button>
+        <button class="form-button" type="button" id="goEditSummary">Edit Summary</button>
+        <button class="form-button" type="button" id="goSpecialLetter">Special Letter</button>
+        <button class="form-button" type="button" id="goCaseTransfer">Case Transfer</button>
     </div>`)
-    $('#goEligibility').click(function() { window.open('/ChildCare/CaseEligibilityResultSelection.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
-    $('#goSAOverview').click(function() { window.open('/ChildCare/CaseServiceAuthorizationOverview.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
-    $('#goSAApproval').click(function() { window.open('/ChildCare/CaseServiceAuthorizationApproval.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
-    $('#goEditSummary').click(function() { window.open('/ChildCare/CaseEditSummary.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
-    $('#goSpecialLetter').click(function() { window.open('/ChildCare/CaseSpecialLetter.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
-    $('#goCaseTransfer').click(function() { window.open('/ChildCare/CaseTransfer.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
+    document.getElementById('goEligibility').addEventListener('click', function() { window.open('/ChildCare/CaseEligibilityResultSelection.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
+    document.getElementById('goSAOverview').addEventListener('click', function() { window.open('/ChildCare/CaseServiceAuthorizationOverview.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
+    document.getElementById('goSAApproval').addEventListener('click', function() { window.open('/ChildCare/CaseServiceAuthorizationApproval.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
+    document.getElementById('goEditSummary').addEventListener('click', function() { window.open('/ChildCare/CaseEditSummary.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
+    document.getElementById('goSpecialLetter').addEventListener('click', function() { window.open('/ChildCare/CaseSpecialLetter.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
+    document.getElementById('goCaseTransfer').addEventListener('click', function() { window.open('/ChildCare/CaseTransfer.htm?parm2=' + caseId + '&parm3=' + periodDates.parm3, '_self') });
     eleFocus('#goEligibility')
 
     sessionStorage.removeItem('actualDateSS')
@@ -4286,8 +4430,8 @@ if (("FinancialBilling.htm").includes(thisPageNameHtm)) {
         })
     }
     if (notEditMode) {
-        document.getElementById('FinancialBillingApprovalSelf').addEventListener('click', function() {
-            if (caseId.length && document.querySelectorAll('#billingProviderTable>tbody>tr.selected')?.length) {
+        document.getElementById('FinancialBillingApproval.htm').addEventListener('click', function() {
+            if (caseId && document.querySelector('#billingProviderTable>tbody>tr.selected')) {
                 sessionStorage.setItem('MECH2.billingApproval.' + caseId, document.querySelector('#billingProviderTable>tbody>tr.selected>td:nth-child(5)')?.textContent)
             }
         })
@@ -4311,8 +4455,8 @@ if (("FinancialBillingApproval.htm").includes(thisPageNameHtm)) {
         $('#paymentPlanNote').click(function() { $('#userComments').val('Provider indicated there is a payment plan for the unpaid copay.') })
     }
     else if (notEditMode) {
-        document.getElementById('FinancialBillingSelf').addEventListener('click', function() {
-            if (caseId.length && document.querySelectorAll('#financialBillingApprovalTable>tbody>tr.selected')?.length) {
+        document.getElementById('FinancialBilling.htm').addEventListener('click', function() {
+            if (caseId && document.querySelector('#financialBillingApprovalTable>tbody>tr.selected')) {
                 sessionStorage.setItem('MECH2.billingApproval.' + caseId, document.querySelector('#financialBillingApprovalTable>tbody>tr.selected>td:nth-child(1)')?.textContent)
             }
         })
@@ -4341,18 +4485,17 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector
     let iframeContainer
     let transferiframe
     let lsError = "MECH2.transferError"
-    document.querySelectorAll('#inActiveCaseTable > tbody > tr > td:nth-of-type(4)').forEach(function(e) {
-        let thisTd = e
+    document.querySelectorAll('#inActiveCaseTable > tbody > tr > td:nth-of-type(4)').forEach(function(thisTd) {
         let closedDatePlus46 = addDays(thisTd.textContent, 46).getTime();
         if (closedDatePlus46 < todayDate) {
             let closedDate = thisTd.textContent
             thisTd.textContent = ''
-            thisTd.insertAdjacentHTML('beforeend', '<a href="CaseTransfer.htm?parm2=' + thisTd.parentNode.firstChild.textContent + '", target="_blank">' + closedDate + '</a>')
-            thisTd.closest('tr').classList.add('oldClosed')
+            thisTd.insertAdjacentHTML('beforeend', '<a href="CaseTransfer.htm?parm2=' + thisTd.parentElement.firstChild.textContent + '", target="_blank">' + closedDate + '</a>')
+            thisTd.parentElement.classList.add('oldClosed')
             if (closedCaseBank) { thisTd.insertAdjacentHTML('beforeend', '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>') }
         };
     })
-    $('#workerSearch').closest('.col-lg-12').append(
+    document.getElementById('workerSearch').parentElement.parentElement.insertAdjacentHTML('beforeend',
         `<div style="vertical-align: middle; float: right !important;">
         <button type="button" class="cButton" tabindex="-1" id="closedTransferAll">Transfer old closed to:</button>
         <input type="text" class="form-control" style="display: inline-block; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
@@ -4365,7 +4508,7 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector
         }
     }
     function removeTableButtons() {
-        $('.cSpan').remove()
+        document.querySelectorAll('.cSpan').forEach( e => e.remove() )
     }
     document.getElementById('transferWorker')?.addEventListener('blur', (event) => checkClosedCaseBank(event.target.value))
     function checkClosedCaseBank(eventValue) {
@@ -4389,7 +4532,7 @@ if (("InactiveCaseList.htm").includes(thisPageNameHtm) && document.querySelector
         if (event.target.tagName === "SPAN") {
             let closestSpanASibling = event.target.previousElementSibling
             if (checkForClosedCaseBank() && closestSpanASibling?.tagName === 'A') {
-                transferSingleClosed(event.target.closest('tr').id)
+                transferSingleClosed(event.target.parentElement.id)
             }
         }
     })
@@ -4534,7 +4677,7 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
     let ratesProviderType = document.getElementById('ratesProviderType')
     let maximumRatesPeriod = document.getElementById('maximumRatesPeriod')
     let firstNonBlankPeriod = maximumRatesPeriod.querySelector('option:nth-child(2)')
-    if (maxRatesCounty.value === "" && typeof userCountyObject !== undefined) { maxRatesCounty.value = userCountyObject.county; doEvent('#maximumRatesCounty') }
+    if (maxRatesCounty.value === "" && typeof userCountyObj !== undefined) { maxRatesCounty.value = userCountyObj.county; doEvent('#maximumRatesCounty') }
     if (ratesProviderType.value === '') { ratesProviderType.value = "Child Care Center"; doEvent('#ratesProviderType') }
     if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent('#maximumRatesPeriod') }
     ratesProviderType.addEventListener('change', function() { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent('#maximumRatesPeriod') })
@@ -4565,7 +4708,7 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
         document.querySelector('h4').innerText = "Rates for " + document.getElementById('ratesProviderType').value
         let tableParentElement = document.querySelector('table').parentElement
         let regFeeDivs = tableParentElement.querySelectorAll('.form-group > div')
-        regFeeDivs[0]?.replaceWith(...regFeeDivs[0].childNodes);
+        regFeeDivs[0]?.replaceWith(...regFeeDivs[0].children);
         regFeeDivs[1] ? regFeeDivs[1].outerHTML = '<span>' + regFeeDivs[1].innerText + '</span>' : undefined
         copyElement(tableParentElement)
         snackBar('Copied table!', 'blank')
@@ -4643,7 +4786,7 @@ if (("ProviderAddress.htm").includes(thisPageNameHtm)) {
         if (!document.getElementById('#mailingSiteHomeCountry').value) {
             $('#mailingSiteHomeCountry').val('USA').addClass('red-outline')
             $('#mailingSiteHomeState').val('Minnesota').addClass('red-outline')
-            typeof userCountyObject !== undefined && $('#mailingSiteHomeCounty').val(userCountyObject.county).addClass('red-outline')
+            typeof userCountyObj !== undefined && $('#mailingSiteHomeCounty').val(userCountyObj.county).addClass('red-outline')
         }
         $('#mailingCountry').change(function() {
             if (!document.getElementById('mailingState').value) {
@@ -4687,9 +4830,9 @@ if (("ProviderSearch.htm").includes(thisPageNameHtm)) {
     let searchByNumbers = $('#ssn, #providerIdNumber, #itin, #fein, #licenseNumber').filter(function() { return this.value > 0 }).length
     let justOneResult = $('h5:contains("Search Results: 1 matches found.")').length
     if (!searchByNumbers && !justOneResult) {
-        if (typeof userCountyObject !== undefined) {
-            const localCounties = userCountyObject.neighbors
-            localCounties.push(userCountyObject.county)
+        if (typeof userCountyObj !== undefined) {
+            const localCounties = userCountyObj.neighbors
+            localCounties.push(userCountyObj.county)
             waitForTableText('#providerSearchTable > tbody > tr > td').then(() => {
                 $('tbody tr:contains("Inactive")').addClass('inactive inactive-hidden')
                 $('tbody tr td:last-of-type').each(function() {
@@ -4715,16 +4858,16 @@ if (("ProviderSearch.htm").includes(thisPageNameHtm)) {
     if (!['CaseChildProvider.htm?', 'ProviderSearch.htm?'].includes(document.referrer.substring(document.referrer.indexOf("/ChildCare/") + 11, document.referrer.indexOf(".htm") + 5))) { $('#back, #select, #backDB, #selectDB').hide() }
 }; // SECTION_END Provider_Search
 // SECTION_START Provider_Payment_History
-if ("ProviderPaymentHistory.htm".includes(thisPageNameHtm)) {
+if (("ProviderPaymentHistory.htm").includes(thisPageNameHtm)) {
     addDateControls("#paymentPeriodBegin")
     addDateControls("#paymentPeriodEnd")
 } // SECTION_ENDProvider_Payment_History
 // SECTION_START Provider_Registration_and_Renewal
-if ("ProviderRegistrationAndRenewal.htm".includes(thisPageNameHtm)) {
+if (("ProviderRegistrationAndRenewal.htm").includes(thisPageNameHtm)) {
     if (notEditMode) {
-        if (typeof userCountyObject !== undefined) {
-            if ($('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject?.county + ' County)').length > 0) {
-                $('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObject.county + ' County)').click()
+        if (typeof userCountyObj !== undefined) {
+            if ($('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObj?.county + ' County)').length > 0) {
+                $('#providerRegistrationAndRenewalTable>tbody>tr:contains(' + userCountyObj.county + ' County)').click()
                 eleFocus('#editDB')
             }
         } else { eleFocus('#newDB') }
@@ -4737,7 +4880,7 @@ if (("ProviderTraining.htm").includes(thisPageNameHtm)) {
 
 
 // SECTION_START This was going to be a settings page, but if I go the extension route, there's no point...
-if ("PrivacyAndSystemSecurity.htm".includes(thisPageNameHtm)) {
+if (("PrivacyAndSystemSecurity.htm").includes(thisPageNameHtm)) {
     // $('div.content_8pad-15top').wrap('<div id="pass" class="hidden"></div>')
     // document.querySelector('#pass').insertAdjacentElement('beforebegin', document.querySelector('h1'))
     // document.querySelector('h1').addEventListener('click', (() => { document.getElementById('pass').classList.toggle('hidden') }))
@@ -4753,7 +4896,7 @@ if ("PrivacyAndSystemSecurity.htm".includes(thisPageNameHtm)) {
 }
 
 // SECTION_START Servicing_Agency_Incoming_Transfers
-if ("ServicingAgencyIncomingTransfers.htm".includes(thisPageNameHtm)) {
+if (("ServicingAgencyIncomingTransfers.htm").includes(thisPageNameHtm)) {
     document.querySelectorAll('tbody > tr > td:nth-child(6)').forEach((e) => {
         let caseNumberTransfer = e.innerText
         e.innerHTML = '<a target="_blank" href="/ChildCare/CaseAddress.htm?parm2=' + caseNumberTransfer + '">' + caseNumberTransfer + '</a>'
@@ -4762,7 +4905,7 @@ if ("ServicingAgencyIncomingTransfers.htm".includes(thisPageNameHtm)) {
 
 // ////////////////////////////////////////////////////////////////////////// PAGE_SPECIFIC_CHANGES SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ======================================================================================================================================================================================================
-
+} catch(err) {console.log(err)}
 // ======================================================================================================================================================================================================
 // ///////////////////////////////////////////////////////////////////////////// SITE_WIDE_FUNCTIONS SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -4815,15 +4958,19 @@ function listPageLinksAndList() {
 }
 //
 function doClick(target) {
-    let element = typeof(target) === "object" ? target : document.querySelector(target)
+    // let element = typeof(target) === "object" ? target : document.querySelector(target)
+    let element = sanitizeNode(target)
+    if (!element) { return }
     let clickEvent = new MouseEvent('click')
     element.dispatchEvent(clickEvent);
 }
 //
 function doWrap(ele, type='div') {
-  const wrappingElement = document.createElement(type);
-  ele.replaceWith(wrappingElement);
-  wrappingElement.appendChild(ele);
+    let element = sanitizeNode(ele)
+    if (!element) { return }
+    const wrappingElement = document.createElement(type);
+    element.replaceWith(wrappingElement);
+    wrappingElement.appendChild(element);
 }
 //
 function pleaseWait() {
@@ -4945,17 +5092,17 @@ function insertTextAndMoveCursor(textToInsert) {
     activeElem.value = currentText.slice(0, cursorPosition) + textToInsert + currentText.slice(cursorPosition) // setting the modified text in the text area
     textSelect(activeElem, cursorPosition + textToInsert.length);
 }
-function textSelect(inp, s, e) {//moves cursor to selected position (s) or selects text between (s) and (e)
+function textSelect(element, s, e) {//moves cursor to selected position (s) or selects text between (s) and (e)
     e = e || s;
-    if (inp.createTextRange) {
-        var r = inp.createTextRange();
+    if (element.createTextRange) {
+        var r = element.createTextRange();
         r.hidden(true);
         r.moveEnd('character', e);
         r.moveStart('character', s);
         r.select();
-    } else if (inp.setSelectionRange) {
-        inp.focus();
-        inp.setSelectionRange(s, e);
+    } else if (element.setSelectionRange) {
+        element.focus();
+        element.setSelectionRange(s, e);
     }
 }
 //
@@ -5016,7 +5163,7 @@ function addCommaSpace(value) {
     return String(value)
         .replace(/,([^0-9])/g, ", $1")
 }
-function reorderCommaName(commaName) {
+function commaNameReorder(commaName) {
     try {
         commaName = commaName.replace(/\b\w\b|\./g, '').replace(/\s+/g, ' ')
         commaName = commaName.trim()
@@ -5026,13 +5173,12 @@ function reorderCommaName(commaName) {
         return commaName
     } catch (error) { console.trace(error) }
 }
-function commaNameToObject(commaName) {
+function commaNameObject(commaName) {
     try {
         commaName = commaName.replace(/\b\w\b|\./g, '').replace(/\s+/g, ' ')
         commaName = commaName.trim()
         commaName = toTitleCase(commaName)
         let commaNameSplit = commaName.split(",")
-        commaName = commaNameSplit[1].trim() + " " + commaNameSplit[0].replace(/,/, '')
         return { first: commaNameSplit[1].trim(), last: commaNameSplit[0].trim() }
     } catch (error) { console.trace(error) }
 }
@@ -5050,46 +5196,18 @@ function fCaseName() {
     let aCaseName = $('#caseHeaderData div.col-lg-4').contents().eq(2).text().trim().split(/[\s,]+/)
     return { first: aCaseName[1], last: aCaseName[0] }
 }
-//
-// const formatName = function(commaName) { // works in console, not in userscript
-//     let self = this
-//     self.getFirstName = function(commaName) {
-//         let caseNameBackwards = self.toTitleCase(commaName).replace(/\b\w\b/, '').trim();
-//         let firstName = caseNameBackwards.split(",")[1].trim()
-//         return firstName
-//     }
-//     self.getLastName = function(commaName) {
-//         let caseNameBackwards = self.toTitleCase(commaName).replace(/\b\w\b/, '').trim();
-//         let lastName = caseNameBackwards.split(",")[0].replace(/,/, '')
-//         return lastName
-//     }
-//     self.toTitleCase = function (value, ...excludedWordList) {
-//         // const exceptions = excludedWordList
-//         // .flat(Infinity)
-//         // .map(item => String(item).trim())
-//         // .join('\\b|\\b');
-//         return String(value)
-//             // console.log(String(value).trim().replace(/\s+/g, ' '))
-//             .trim()
-//             .replace(/\s+/g, ' ')
-//             .replace(
-//                 RegExp(`\\b(?<upper>[\\w])(?<lower>[\\w]+)\\b`, 'g'),
-//                 (match, upper, lower) => `${upper.toUpperCase()}${lower.toLowerCase()}`,
-//             )
-//     }
-// }
-// let names = new formatName()
-// console.log( names.getFirstname("LAST,FIRST") )
-//
-function addDateControls(element, insideDiv = 1) {
-    let elementName = element.replace(/\#/, '')
-    let prevMonth = "-"
-    let nextMonth = "+"
-    if (insideDiv) { document.querySelector(element)?.parentNode?.classList.add('has-controls') }
-    document.querySelector(element).insertAdjacentHTML('beforebegin', '<button type="button" class="controls prev-control" id="prev.' + elementName + '">' + prevMonth + '</button>')
-    document.getElementById('prev.' + elementName).addEventListener('click', function(e) { controlDatePicker(e.target.id) })
-    document.querySelector(element).insertAdjacentHTML('afterend', '<button type="button" class="controls next-control" id="next.' + elementName + '">' + nextMonth + '</button>')
-    document.getElementById('next.' + elementName).addEventListener('click', function(e) { controlDatePicker(e.target.id) })
+
+function addDateControls(ele) {
+    let element = sanitizeNode(ele)
+    if (!element) { return }
+    if (element.parentElement.tagName !== "DIV") {
+        doWrap(element)
+    }
+    element.parentElement.classList.add('has-controls')
+    element.insertAdjacentHTML('beforebegin', '<button type="button" class="controls prev-control" id="prev.' + element.id + '">-</button>')
+    document.getElementById('prev.' + element.id).addEventListener('click', function(e) { controlDatePicker(e.target.id) })
+    element.insertAdjacentHTML('afterend', '<button type="button" class="controls next-control" id="next.' + element.id + '">+</button>')
+    document.getElementById('next.' + element.id).addEventListener('click', function(e) { controlDatePicker(e.target.id) })
 }
 //
 function controlDatePicker(elementId) {
@@ -5167,8 +5285,8 @@ function waitForElmHeight(selector) {
 };
 //
 function tempIncomes(tempIncome, endDate) {
-    let tempIncomeSelect = document.getElementById(tempIncome)
-    document.querySelector('.stylus')?.insertAdjacentHTML('beforeend', 'label[for=' + tempIncome + ']:first-letter { text-decoration:underline; }')
+    let tempIncomeSelect = tempIncome.indexOf('#') === 0 ? document.querySelector(tempIncome) : document.getElementById(tempIncome)
+    document.querySelector('.stylus')?.insertAdjacentHTML('beforeend', 'label[for=' + tempIncomeSelect.id + ']:first-letter { text-decoration:underline; }')
     window.addEventListener('keydown', function(e) {//Keyboard shortcuts
         if (e.altKey && e.key === 't') {
             e.preventDefault()
@@ -5231,6 +5349,18 @@ function getDateofDay(year, month, week, day) {
     return date
 }
 //
+function docReady(fn) {
+    if (["complete", "interactive"].includes(document.readyState)) {
+        setTimeout(fn, 1);
+    } else {
+        document.addEventListener("DOMContentLoaded", fn);
+    }
+}
+//
+function addListenerMulti(ele, arr, fn) {
+    arr.forEach(event => ele.addEventListener(event, fn, false));
+}
+//
 function tabIndxNegOne(elements) {
     setTimeout(function(e) { document.querySelectorAll(elements).forEach((element) => element.setAttribute('tabindex', '-1')) }, 400)
 }
@@ -5249,6 +5379,21 @@ function snackBar(text, title = "Copied!", textAlign = "left") {
     snackBar.classList.add('snackBar-show');
     setTimeout(function() { snackBar.classList.remove('snackBar-show'); }, 3000);
 }; // snack_bar end
+//
+function copy(clippy, sbText, sbTitle, sbAlign) {
+    navigator.clipboard.writeText(clippy)
+    sbText?.length && snackBar(sbText ?? '', sbTitle ?? '', sbAlign ?? '')
+}
+//
+function preventKeys(keyArray, ms=1500) {
+    window.addEventListener('keydown', keyShortDisable)
+    function keyShortDisable(key) {
+        if (keyArray.includes(key.key)) { key.preventDefault() }
+    }
+    setTimeout(function() {
+        window.removeEventListener('keydown', keyShortDisable)
+    }, ms)
+}
 //
 if (!iFramed) { // Keyboard_shortcuts start
     try {
@@ -5293,19 +5438,22 @@ if (!iFramed) { // Keyboard_shortcuts start
                 document.getElementById('save').click()
             }
         }) // keyboard shortcuts
-        if ("CaseWrapUp.htm".includes(thisPageNameHtm) && document.querySelector('.rederrortext').innerText === 'Case Wrap-Up successfully submitted.') {
+        if ("CaseWrapUp.htm".includes(thisPageNameHtm) && document.querySelector('.rederrortext')?.innerText === 'Case Wrap-Up successfully submitted.') {
             document.getElementById('secondaryActionArea').classList.add('hidden')
         };
         // SECTION_START Retract drop-down menu on page load
-        $('.sub_menu').css('visibility', 'hidden');
+        setTimeout(() => {
+            let visDropDown = document.querySelector('ul.dropdown  > li:hover > ul')
+            visDropDown && (visDropDown.style.visibility = 'hidden')
+        }, 1000)
         // SECTION_END Retract drop-down menu on page load
 
         //open_in_new_tab
-        notEditMode && (document.querySelector("#Report\\ a\\ Problem>a").setAttribute('target', '_blank'));
-        notEditMode && (document.querySelector("#Maximum\\ Rates>a").setAttribute('target', '_blank'));
+        notEditMode && (document.querySelector("#Report\\ a\\ Problem > a").setAttribute('target', '_blank'));
+        notEditMode && (document.querySelector("#Maximum\\ Rates > a").setAttribute('target', '_blank'));
 
         // SECTION_START Removing items from the tabindex // also see resetTabIndex()
-        $('#footer_links, #footer_info, #popup').children().attr('tabindex', '-1')
+        let footerTabIndx = [...document.querySelectorAll('#footer_links, #footer_info, #popup')].forEach( (e) => [...e.children].forEach((f) => f.setAttribute('tabindex', '-1') ) )
         tabIndxNegOne('#quit, #countiesTable #letterChoice, #reset, #noteCreator') //quit, countiesTable=application; redet date, eEE=activity pages; cIS=submit button; lC=specialletter; reset=caseNotes; tempLeave = activities; defer=redet
         tabIndxNegOne('#leaveDetailTemporaryLeavePeriodFrom, #leaveDetailTemporaryLeavePeriodTo, #leaveDetailExtendedEligibilityBegin, #tempLeavePeriodBegin, #tempLeavePeriodEnd, #extendedEligibilityBegin, #extendedEligibilityExpires, #redeterminationDate, #tempPeriodStart, #tempPeriodEnd, #deferValue') //.attr('tabindex', '-1') //EmploymentActivity, SupportActivity
         tabIndxNegOne('#leaveDetailRedeterminationDue, #leaveDetailExpires, #caseInputSubmit, #caseId, #selectPeriod')
@@ -5314,17 +5462,31 @@ if (!iFramed) { // Keyboard_shortcuts start
         // SECTION_END Removing items from the tabindex
 
         // SECTION_START Post load changes to the page
-        $('h1').parents('div.row').addClass('h1-parent-row')
+        document.querySelector('h1')?.closest('div.row')?.classList.add('h1-parent-row')
+        // $('h1').parents('div.row').addClass('h1-parent-row')
         document.querySelectorAll(".marginTop5, .marginTop10, .padding-top-5px").forEach((e) => e.classList.remove('marginTop5', 'marginTop10', 'padding-top-5px') )
         // SECTION_END Post load changes to the page
 
         // Fixing 'to'
-        $('#financialTableAndPanelData :is(label[for=annualizedDateRangeStart], label[for=annualizationPeriodStart])~div.col-lg-1.col-xs-1, div#manualPaymentTopPanelData div.col-lg-1').replaceWith('<label class="to col-lg-1 textInherit">to</label>')
-        $('label[for="paymentEndDate"], label[for="extendedPeriodEnd"], label[for="leaveDetailExpires"], label[for="extendedEligibilityExpires"]').addClass('to').text("to")
-        let $to = $('label.col-lg-1.textInherit, div.col-lg-1.textInherit').filter(function() { return $(this).text().trim() === 'to' || $(this).text().trim() === 'to:' }).addClass('to').text("to")//Making "to" between x to y elements smaller//(['to', 'to:']).includes($(this).text().trim())
-        $to.nextAll('div:has(input[type=text]), div:contains("20"), input[type=text]').addClass('to-next')
-        $to.prevAll('div:has(input[type=text]), div:contains("20"), input[type=text]').addClass('to-next')
-        $('.to-next > input').addClass('to-next')
+        // let toArray = [...document.querySelectorAll('#financialTableAndPanelData :is(label[for=annualizedDateRangeStart], label[for=annualizationPeriodStart])~div.col-lg-1.col-xs-1, div#manualPaymentTopPanelData div.col-lg-1, label[for="paymentEndDate"], label[for="extendedPeriodEnd"], label[for="leaveDetailExpires"], label[for="extendedEligibilityExpires"], label.col-lg-1.textInherit, div.col-lg-1.textInherit')]
+        // toArray.forEach(function(e) { e.outerHTML = '<label class="to col-lg-1 textInherit">to</label>' })
+        // let toText0 = [...document.querySelectorAll('#financialTableAndPanelData :is(label[for=annualizedDateRangeStart], label[for=annualizationPeriodStart])~div.col-lg-1.col-xs-1, div#manualPaymentTopPanelData div.col-lg-1')].forEach(function(e) { e.outerHTML = '<label class="to col-lg-1 textInherit">to</label>' })
+        // // $('#financialTableAndPanelData :is(label[for=annualizedDateRangeStart], label[for=annualizationPeriodStart])~div.col-lg-1.col-xs-1, div#manualPaymentTopPanelData div.col-lg-1').replaceWith('<label class="to col-lg-1 textInherit">to</label>')
+        // let toText1 = [...document.querySelectorAll('label[for="paymentEndDate"], label[for="extendedPeriodEnd"], label[for="leaveDetailExpires"], label[for="extendedEligibilityExpires"]')].forEach((e) => { e.classList.add('to'); e.innerText = "to" })
+        // // $('label[for="paymentEndDate"], label[for="extendedPeriodEnd"], label[for="leaveDetailExpires"], label[for="extendedEligibilityExpires"]').addClass('to').text("to")
+        // let toText2 = [...document.querySelectorAll('label.col-lg-1.textInherit, div.col-lg-1.textInherit')].filter(function(e) { return e.innerText.trim() === 'to' || e.innerText.trim() === 'to:' }).forEach((e) => { e.classList.add('to'); e.innerText = "to" })
+        // let $to = $('label.col-lg-1.textInherit, div.col-lg-1.textInherit').filter(function() { return $(this).text().trim() === 'to' || $(this).text().trim() === 'to:' }).addClass('to').text("to")//Making "to" between x to y elements smaller//(['to', 'to:']).includes($(this).text().trim())
+        // $to.nextAll('div:has(input[type=text]), div:contains("20"), input[type=text]').addClass('to-next')
+        // $to.prevAll('div:has(input[type=text]), div:contains("20"), input[type=text]').addClass('to-next')
+        // $('.to-next > input').addClass('to-next')
+        let toLabels = [...document.querySelectorAll('div.col-md-2 + label.col-lg-1:has(+ div.col-md-2)')]
+        toLabels.forEach(function(label) {
+            let nextSibling = label.nextElementSibling
+            if ( (["DIV", "INPUT"].includes(nextSibling.tagName) && nextSibling.children[0]?.type === "text") ) {
+                label.previousElementSibling.classList.add('to-next')
+                label.nextElementSibling.classList.add('to-next')
+            }
+        })
     }
     catch (error) { console.trace(error) }
 } // Keyboard_shortcuts end
@@ -5333,12 +5495,11 @@ if (!iFramed) { // Keyboard_shortcuts start
 // ======================================================================================================================================================================================================
 
 // SECTION_START Duplicate buttons above H1 row
-// if (!(/List.htm/).test(thisPageNameHtm) && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm"].includes(thisPageNameHtm)) {
 if (thisPageNameHtm.indexOf('List.htm') < 0 && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm", "CaseOverview.htm", ].includes(thisPageNameHtm)) {
     function checkDBclickability() {
         document.querySelectorAll('.mutable').forEach((e) => {
             let oldButtonId = e.getAttribute('id').split('DB')[0];
-            if (document.querySelector('#' + oldButtonId).getAttribute('disabled') !== null) {
+            if ( document.querySelector('#' + oldButtonId).hasAttribute('disabled') ) {
                 e.setAttribute('disabled', 'disabled')
             } else {
                 e.removeAttribute('disabled')
@@ -5370,13 +5531,14 @@ try {
         window.addEventListener('paste', async function(e) {
             navigator.clipboard.readText()
                 .then(text => {
-                    if ((/[0-9]{1,8}/).test(text)) {
-                        if (!["TEXT", "INPUT"].includes(document.activeElement.nodeName) || document.activeElement.id === caseOrProviderInput.id) {
-                            caseOrProviderInput.value = text.trim()
-                            document.querySelector('#caseInputSubmit, #submitProviderId, #providerIdSubmit').click()
-                        }
+                text = text.trim()
+                if ((/^[0-9]{1,8}$/).test(text)) {
+                    if (!["TEXT", "INPUT"].includes(document.activeElement.nodeName) || document.activeElement.id === caseOrProviderInput.id) {
+                        caseOrProviderInput.value = text
+                        document.querySelector('#caseInputSubmit, #submitProviderId, #providerIdSubmit').click()
                     }
-                })
+                }
+            })
         })
     }
 } catch (error) { console.trace(error) } // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
@@ -5456,5 +5618,5 @@ function starFall() {
 }
 if (new Date().toLocaleDateString().slice(0, 4) === "4/1" && Math.ceil(Math.random() * 4) / 4 === 1) { starFall() }
 
-setTimeout(() => { focusEle !== "blank" && eleFocus(focusEle) }, 200)
-console.timeEnd('MEC2Functions')
+setTimeout(() => { focusEle !== "blank" && eleFocus(focusEle) && !document.querySelector('.modal.in')}, 200)
+console.timeEnd('MEC2Functions');
