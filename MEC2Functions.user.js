@@ -679,7 +679,7 @@ function inCurrentBWP( compareDate = Date.now() ) {
 let storedActualDate = ''
 let actualDateField = document.getElementById('actualDate') ?? document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate, #applicationReceivedDate') ?? undefined
 function actualDateStorage() {
-    // if (!actualDateField || !userSettings.actualDateStorage) { return }
+    if ( !actualDateField.hasAttribute('disabled') ) { return }
     storedActualDate = sessionStorage.getItem('actualDateSS')
     if (!storedActualDate && !actualDateField.value) {
         if ( !"CaseApplicationInitiation.htm".includes(thisPageNameHtm) ) {
@@ -696,7 +696,7 @@ function actualDateStorage() {
         actualDateField.value = storedActualDate
     }
 }
-if (!notEditMode && !iFramed && actualDateField && userSettings.actualDateStorage) { actualDateStorage() }
+if (!notEditMode && !iFramed && actualDateField) { actualDateStorage() }
 //
 let excludedResetTabIndexList;
 function resetTabIndex(excludedListString) {
