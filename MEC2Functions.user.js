@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.03
+// @version      0.5.04
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -538,14 +538,6 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
         return this.instances
     }
 }
-//
-let selectPeriod = document.getElementById('selectPeriod')?.value
-let periodDates = selectPeriod?.length ? { range: selectPeriod, parm3: selectPeriod.replace(' - ', '').replaceAll('/', ''), start: selectPeriod.slice(0, 10), end: selectPeriod.slice(13) } : {}
-function inCurrentBWP(compareDate = new Date()) {
-    if (new Date(periodDates.start) <= compareDate && compareDate <= new Date(periodDates.end)) { return formatDate(compareDate, "mmddyyyy") }
-}
-let inCurrentPeriod = inCurrentBWP() ?? undefined
-
 let userXnumber = localStorage.getItem('MECH2.userIdNumber') ?? ''
 const countyNumbersNeighbors = new Map([
     ["x101", { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] }],
@@ -677,28 +669,35 @@ if (!iFramed) {
     catch (err) { console.trace(err) }
 }
 //======================== Case_History Section_End =================================
-
-if (!notEditMode && !iFramed) { //actualDate
-    // let actualDateField = document.querySelector('#actualDate:not([disabled])')
-    let actualDateField = document.querySelector('#actualDate') ?? document.querySelector('#effectiveDate, #employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate') ?? undefined
-    var storedActualDate = sessionStorage.getItem('actualDateSS')
-    if (actualDateField) {
-        if (!storedActualDate) {
-            document.getElementById('save').addEventListener('click', function() {
-                sessionStorage.setItem('actualDateSS', actualDateField.value)
-            })
-        }
-        else {
-            if (storedActualDate && !actualDateField.value.length) {
-                actualDateField.classList.add('red-outline')
-                actualDateField.value = storedActualDate
+let selectPeriod = document.getElementById('selectPeriod')?.value
+let periodDates = selectPeriod?.length ? { range: selectPeriod, parm3: selectPeriod.replace(' - ', '').replaceAll('/', ''), start: selectPeriod.slice(0, 10), end: selectPeriod.slice(13) } : {}
+function inCurrentBWP( compareDate = Date.now() ) {
+    compareDate = typeof compareDate === "number" ? compareDate : Date.parse(compareDate)
+    if ( inRange( compareDate, Date.parse(periodDates.start), Date.parse(periodDates.end) ) ) { return formatDate(compareDate, "mmddyyyy") }
+}
+//
+let storedActualDate = ''
+let actualDateField = document.getElementById('actualDate') ?? document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate, #applicationReceivedDate') ?? undefined
+function actualDateStorage() {
+    // if (!actualDateField || !userSettings.actualDateStorage) { return }
+    storedActualDate = sessionStorage.getItem('actualDateSS')
+    if (!storedActualDate && !actualDateField.value) {
+        if ( !"CaseApplicationInitiation.htm".includes(thisPageNameHtm) ) {
+            let inCurrentPeriod = inCurrentBWP() ?? undefined
+            if (inCurrentPeriod) {
+                sessionStorage.setItem('actualDateSS', inCurrentPeriod)
+                actualDateField.value = inCurrentPeriod
+                document.getElementById('cancel')?.addEventListener('click', function() { sessionStorage.removeItem('actualDateSS') })
             }
         }
+        let saveButton = document.getElementById('save')
+        saveButton?.addEventListener('click', function(event) { if (actualDateField.value.length === 10) { sessionStorage.setItem('actualDateSS', actualDateField.value); } } )
+    } else if (storedActualDate && !actualDateField.value.length) {
+        actualDateField.value = storedActualDate
     }
-} // actualDate
-// if (!notEditMode && sessionStorage.getItem('processingApplication') === "yes" && document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate') && !document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').value.length) {
-//     document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate').value = sessionStorage.getItem('actualDateSS')
-// }
+}
+if (!notEditMode && !iFramed && actualDateField && userSettings.actualDateStorage) { actualDateStorage() }
+//
 let excludedResetTabIndexList;
 function resetTabIndex(excludedListString) {
     const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
