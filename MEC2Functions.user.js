@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.04
+// @version      0.5.05
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -5354,6 +5354,10 @@ function docReady(fn) {
     } else {
         document.addEventListener("DOMContentLoaded", fn);
     }
+}
+//
+function inRange(x, min, max) {
+  return x >= min && x <= max;
 }
 //
 function addListenerMulti(ele, arr, fn) {
