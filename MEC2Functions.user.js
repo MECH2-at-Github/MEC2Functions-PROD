@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.05
+// @version      0.5.06
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -32,32 +32,35 @@ document.getElementById('help')?.insertAdjacentHTML('afterend', '<a href="/Child
 const pageWrap = document.querySelector('#page-wrap')
 const notEditMode = document.querySelectorAll('#page-wrap').length;
 let iFramed = window.location !== window.parent.location ? 1 : 0
-let greenline = document.querySelector(".line_mn_green") ?? undefined
 let focusEle = "blank"
 const longDateFormat = '{day: "2-digit", month: "2-digit", year: "numeric"}'
 let caseId = document.getElementById('caseId')?.value ?? undefined
 let providerId = caseId ?? document.getElementById('providerId')?.value
 let caseIdORproviderId = caseId ?? providerId ?? undefined
-if (greenline) {
-    greenline.id = "greenline"
-    greenline.closest('.container')?.insertAdjacentHTML('afterend', `
-<nav class="navigation container">
-    <div class="primary-navigation">
-        <div class="primary-navigation-row">
-            <div id="buttonPanelOne"></div>
-            <div id="buttonPanelOneNTF"></div>
-        </div>
-        <div class="primary-navigation-row">
-            <div id="buttonPanelTwo"></div>
-        </div>
-        <div class="primary-navigation-row">
-            <div id="buttonPanelThree"></div>
-        </div>
-    </div>
-    <div id="secondaryActionArea" class="button-container flex-horizontal db-container"></div>
-</nav>
-    `)
-}
+try {
+	let greenline = document.querySelector(".line_mn_green") ?? undefined
+	if (greenline) {
+		greenline.closest('.container')?.insertAdjacentHTML('afterend', `
+	<nav class="navigation container">
+		<div class="primary-navigation">
+			<div class="primary-navigation-row">
+				<div id="buttonPanelOne"></div>
+				<div id="buttonPanelOneNTF"></div>
+			</div>
+			<div class="primary-navigation-row">
+				<div id="buttonPanelTwo"></div>
+			</div>
+			<div class="primary-navigation-row">
+				<div id="buttonPanelThree"></div>
+			</div>
+		</div>
+		<div id="secondaryActionArea"><div id="duplicateButtons" class="db-container"></div></div>
+	</nav>
+		`)
+	}
+} // button navigation divs
+let secondaryActionArea = document.getElementById('secondaryActionArea')
+let duplicateButtons = document.getElementById('duplicateButtons')
 try {
     if (notEditMode) {
         document.querySelector('.navigation')?.insertAdjacentElement('beforebegin', pageWrap);
@@ -2964,7 +2967,7 @@ if (("CaseCopayDistribution.htm").includes(thisPageNameHtm)) {
 // SECTION_START Case_Create_Eligibility_Results
 if (("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) {
     if ($('strong:contains("Results successfully submitted.")').length) {
-        $('#secondaryActionArea').addClass('hidden')
+        document.getElementById('duplicateButtons').classList.add('hidden')
         $('#caseCERDetail').append('<button type="button" id="eligibilityResults" class="form-button center-vertical">Eligibility Results</button>')
         $('#eligibilityResults').click(function(e) { e.preventDefault(); document.getElementById(`Eligibility Results Selection`).children[0].click() })
         eleFocus('#eligibilityResults')
@@ -3678,19 +3681,27 @@ if (("CasePageSummary.htm").includes(thisPageNameHtm)) {
 // SECTION_START Case_Payment_History
 if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
     let tempTables = document.createElement('iframe')
-    tempTables.setAttribute('style', 'height: 0; width: 600px; border: none;')
-    document.querySelector('body').insertAdjacentElement('beforeend', tempTables)
+    tempTables.setAttribute('style', 'height: 0; width: 900px; border: none;')
+    document.body.append(tempTables)
     tempTables.contentDocument.body.style = "color: unset !important; background: unset !important;"
-    document.querySelectorAll('#paymentHistoryTable>tbody>tr>td:nth-of-type(3)').forEach((e) => {
+    document.querySelectorAll('#paymentHistoryTable > tbody > tr > td:nth-of-type(3)').forEach((e) => {
         let linkText = e.innerText
         e.innerHTML = '<td><a href="FinancialBilling.htm?parm2=' + caseId + '&parm3=' + linkText.replace(" - ", "").replaceAll("/", "") + '", target="_blank">' + linkText + '</a></td>'
     });
     addDateControls('#paymentPeriodBegin')
     addDateControls('#paymentPeriodEnd')
-    // Copy_Provider_And_Child_Payments
     let providerTableList = new Set()
     let childTableList = new Set()
-    evalData().then(async function(result) {
+    let getPaymentHTML = '<div style="display: flex; gap: 10px;" id="paymentFilterDiv"><select style="width: fit-content;" class="form-control" id="filterProvider"><option value>Provider Filter...</option></select>'
+    + '<select style="width: fit-content;" class="form-control" id="filterChild"><option value>Child Filter...</option></select>'
+    + '<button class="cButton" type="button" id="sendPaymentInfoToCB">Copy Payments</button></div>'
+    secondaryActionArea.insertAdjacentHTML('beforeend', getPaymentHTML)
+    let selectionProvider = document.getElementById('filterProvider')
+    let selectionChild = document.getElementById('filterChild')
+    document.getElementById('sendPaymentInfoToCB').addEventListener('click', function() {
+        getProviderAndChildPaymentInfo(selectionProvider.value, selectionChild.value)
+    })
+    evalData().then(function(result) {
         for (let row in result[0]) {
             providerTableList.add(result[0][row].providerName)
         }
@@ -3707,29 +3718,36 @@ if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
             let tempText = "<option>" + child + "</option>"
             childSelectList += tempText
         })
-        let getPaymentHTML1 = '<div style="display: flex;"><div style="margin: 10px 0 0 auto; display: flex; gap: 10px;" id="paymentFilterDiv"><select style="width: fit-content;" class="form-control" id="filterProvider"><option value>Provider Filter...</option>'
-        let getPaymentHTML2 = '</select><select style="width: fit-content;" class="form-control" id="filterChild"><option value>Child Filter...</option>'
-        let getPaymentHTML3 = '</select><button class="cButton" type="button" id="sendPaymentInfoToCB">Copy Payments</button></div></div>'
-        document.getElementById('secondaryActionArea').insertAdjacentHTML('afterend', getPaymentHTML1 + providerSelectList + getPaymentHTML2 + childSelectList + getPaymentHTML3)
-        document.getElementById('sendPaymentInfoToCB').addEventListener('click', function() {
-            let selectedProvider = document.querySelector('#filterProvider').value
-            let selectedChild = document.querySelector('#filterChild').value
-            getProviderAndChildPaymentInfo(selectedProvider, selectedChild)
-        })
+        selectionProvider.insertAdjacentHTML('beforeend', providerSelectList)
+        selectionChild.insertAdjacentHTML('beforeend', childSelectList)
     })
     function getProviderAndChildPaymentInfo(providerName, childName) {
+        let caseName = nameFuncs.commaNameObject(pageTitle)
         tempTables.contentDocument.body.replaceChildren()
-        let providerPaymentListString
-        let childPaymentListString
+        let providerPaymentsTotal = 0
+        let paymentFilters = ''
         evalData().then(function(result) {
             let childPaymentListArray = []
             let childPaymentTableArray = []
             let providerPaymentListArray = []
             let providerPaymentTableArray = []
+            let providerFilter = providerName ? 'Provider selected: ' + providerName + '. ' : ''
+            paymentFilters += providerFilter
             let providerNameList = providerName.length > 0 ? [providerName] : providerTableList
             let tableDiv = document.createElement('div')
-            tableDiv.insertAdjacentHTML('beforeend', '<style>table { border: 1px solid green; font-size: 24px; white-space: nowrap; table-layout:fixed; & td { padding: 2px 4px; border: none; } & thead tr { font-weight: 700; background: #07416f; color: white; } & tbody tr { color: black; background: white; } }</style>')
+            let style = `
+            <style>
+            table {
+                border: 1px solid green; font-size: 24px; white-space: nowrap; table-layout:fixed;
+                    & td { padding: 2px 4px; border: none; }
+                    & thead tr { font-weight: 700; background: #07416f; color: white; }
+                    & tbody tr { color: black; background: white; }
+            }
+            </style>`
+            let title = '<div id="casePaymentTitle"><span>' + caseName.first + ' ' + caseName.last + ' - ' + caseId + ' - CCAP payments from ' + document.getElementById('paymentPeriodBegin').value + ' to ' + document.getElementById('paymentPeriodEnd').value + '.</span></div>'
+            tableDiv.insertAdjacentHTML('beforeend', style + title)
             let providerTable = document.createElement('table')
+            providerTable.id = "providerTable"
             let providerTbody = document.createElement('tbody')
             providerNameList.forEach(function(provider) {
                 for (let row in result[0]) {
@@ -3737,68 +3755,71 @@ if (("CasePaymentHistory.htm").includes(thisPageNameHtm)) {
                     if (thisRow.providerName === provider) {
                         providerPaymentTableArray.push([ thisRow.billingPeriod, thisRow.providerName, thisRow.issuanceAmount, thisRow.copayAmount, thisRow.recoupAmount ])
                         providerPaymentListArray.push([ thisRow.billingPeriod, thisRow.providerName, thisRow.issuanceAmount, thisRow.copayAmount, thisRow.recoupAmount ].join("\t") )
+                        providerPaymentsTotal += Number( thisRow.issuanceAmount.slice(1) * 100 )
                     }
                 }
+                let providerPaymentsTotalCurrency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USA' }).format( (providerPaymentsTotal / 100) ).slice(4)
+                tableDiv.querySelector('#casePaymentTitle')?.insertAdjacentHTML('beforeend', '<span> Payments Total: $' + providerPaymentsTotalCurrency + '.</span>')
             })
             providerPaymentTableArray = providerPaymentTableArray.sort((a, b) => new Date(b[0].slice(0, 10)) - new Date(a[0].slice(0, 10)))
             providerPaymentTableArray.forEach((trow) => {
                 let tr = document.createElement('tr');
                 trow.forEach((cellText) => {
                     let cell = document.createElement('td');
-                    cell.appendChild(document.createTextNode(cellText));
-                    tr.appendChild(cell);
+                    cell.append(document.createTextNode(cellText));
+                    tr.append(cell);
                 })
-                providerTbody.appendChild(tr)
+                providerTbody.append(tr)
             })
             let providerTableHeader = document.createElement('thead')
             providerTableHeader.innerHTML = '<tr><td>Care Period</td><td>Provider</td><td>Payment</td><td>Copay</td><td>Recoup</td></tr>'
-            // providerTableHeader.innerHTML = providerTbody.length > 0 ? "<tr><td>Care Period</td><td>Provider</td><td>Payment</td><td>Copay</td><td>Recoup</td></tr>" : ""
-            providerTable.appendChild(providerTableHeader)
-            providerTable.appendChild(providerTbody)
-            providerPaymentListString = providerPaymentListArray.sort((a, b) => new Date(b.slice(0, 10)) - new Date(a.slice(0, 10))).join("\r\n")
-            // let providerPaymentHeaders = providerPaymentListString.length > 0 ? "Care Period\tProvider\tPayment\tCopay\tRecoup\r\n" : ""
-            tableDiv.appendChild(providerTable)
+            providerTable.append(providerTableHeader)
+            providerTable.append(providerTbody)
+            tableDiv.append(providerTable)
 
-            if (document.querySelector('#filterChild').value) {
+            let selectedChild = selectionChild?.value
+            if (selectedChild) {
+                let childNameProper = nameFuncs.commaNameReorder(selectionChild?.value)
+                paymentFilters += 'Child selected: ' + childNameProper + '.'
+                let childPaymentsTotal = 0
+                let childAmountsTotalCurrency
                 let spacingDiv = document.createElement('div')
                 spacingDiv.textContent = '-------------------------------------------------'
                 spacingDiv.setAttribute('style', 'display: block; height: 24px;')
                 let childTable = document.createElement('table')
                 let childTbody = document.createElement('tbody')
-                let childNameList = childName.length > 0 ? [childName] : childTableList
-                childNameList.forEach(function(child) {
                     for (let row in result[1]) {
                         let thisRow = result[1][row]
                         let correspondingTableOneRow = result[0][ thisRow.rowIndex2 ]
                         let providerCheck = (providerName.length < 1 || correspondingTableOneRow.providerName === providerName) ? 1 : 0
-                        if (thisRow.childName === child && providerCheck) {
+                        if (thisRow.childName === selectedChild && providerCheck) {
                             let tr = document.createElement('tr');
                             childPaymentListArray.push([ correspondingTableOneRow.billingPeriod, correspondingTableOneRow.providerName, thisRow.amount, thisRow.childName, ].join("\t") );
                             childPaymentTableArray.push([ correspondingTableOneRow.billingPeriod, correspondingTableOneRow.providerName, thisRow.amount, thisRow.childName, ])
+                            childPaymentsTotal += Number( thisRow.amount.slice(1) * 100 )
                         }
                     }
-                })
-                childPaymentTableArray = childPaymentTableArray.sort((a, b) => new Date(b[0].slice(0, 10)) - new Date(a[0].slice(0, 10)))
+                    childAmountsTotalCurrency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USA' }).format( (childPaymentsTotal / 100) ).slice(4)
+                childPaymentTableArray = childPaymentTableArray.sort((a, b) => Date.parse(b[0].slice(0, 10)) > Date.parse(a[0].slice(0, 10)))
                 childPaymentTableArray.forEach((trow) => {
                     let tr = document.createElement('tr');
                     trow.forEach((cellText) => {
                         let cell = document.createElement('td');
-                        cell.appendChild(document.createTextNode(cellText));
-                        tr.appendChild(cell);
+                        cell.append(document.createTextNode(cellText));
+                        tr.append(cell);
                     })
-                    childTbody.appendChild(tr)
+                    childTbody.append(tr)
                 })
                 let childTableHeader = document.createElement('thead')
                 childTableHeader.innerHTML = "<tr><td>Care Period</td><td>Provider</td><td>Pre-Copay $</td><td>Child</td></tr>"
-                childTable.appendChild(childTableHeader)
-                childTable.appendChild(childTbody)
-                childPaymentListString = childPaymentListArray.sort((a, b) => new Date(b.slice(0, 10)) - new Date(a.slice(0, 10))).join("\r\n")
-                let childPaymentHeaders = childPaymentListString.length > 0 ? "Care Period\tProvider\tPre-Copay Amount\tChild\r\n" : ""
-                tableDiv.appendChild(spacingDiv)
-                tableDiv.appendChild(childTable)
-                tableDiv.insertAdjacentHTML('beforeend', "<div>* Pre-Copay $ means the total calculated for that child before the household's copay is deducted.</div>")
+                childTable.append(childTableHeader)
+                childTable.append(childTbody)
+                tableDiv.append(spacingDiv)
+                tableDiv.append(childTable)
+                tableDiv.insertAdjacentHTML('beforeend', "<div>* Pre-Copay $ means the total amount calculated for the child before the household's copay is deducted.</div><div>Amounts Total for " + childNameProper + ": $" + childAmountsTotalCurrency + "</div>")
             }
-            tempTables.contentDocument.body.appendChild(tableDiv)
+            tableDiv.insertAdjacentHTML('beforeend', "<div>" + paymentFilters + "</div>")
+            tempTables.contentDocument.body.append(tableDiv)
             selectText(tableDiv, tempTables)
             snackBar('Copied Payments', 'blank')
         })
@@ -3897,7 +3918,7 @@ if (("CaseSchool.htm").includes(thisPageNameHtm)) {
 if (["CaseServiceAuthorizationOverview.htm", "CaseCopayDistribution.htm", "CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm)) {
     queueMicrotask(() => {
         if (document.querySelector('strong.rederrortext')?.textContent.indexOf('No results') > -1) {
-            document.getElementById('secondaryActionArea').style.display = "none"
+            duplicateButtons.classList.add('hidden')
             eleFocus('#submit')
         }
     })
@@ -4204,7 +4225,7 @@ if (("CaseTransfer.htm").includes(thisPageNameHtm)) {
     + '<button type="button" class="cButton" tabindex="-1" style="float: left;" id="closedTransfer">Transfer to:</button>'
     + '<input type="text" class="form-control" style="float: left; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${transferWorkerId}></input>'
 + '</div>'
-        document.getElementById('secondaryActionArea').insertAdjacentHTML('afterend', caseTransferButtons)
+        secondaryActionArea.insertAdjacentHTML('beforeend', caseTransferButtons)
         document.getElementById('transferWorker')?.addEventListener('blur', function() { validateTransferWorkerId(this.value) })
         document.getElementById('closedTransfer')?.addEventListener('click', function() {
             if (checkTransferWorkerId()) {
@@ -4672,16 +4693,17 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
         nonStandardTds.forEach((e) => e.remove())
         document.querySelector('table > tbody > tr > th:nth-child(5)').remove()
     }
-    let maxRatesCounty = document.getElementById('maximumRatesCounty')
+    let maximumRatesCounty = document.getElementById('maximumRatesCounty')
     let ratesProviderType = document.getElementById('ratesProviderType')
     let maximumRatesPeriod = document.getElementById('maximumRatesPeriod')
-    let firstNonBlankPeriod = maximumRatesPeriod.querySelector('option:nth-child(2)')
-    if (maxRatesCounty.value === "" && typeof userCountyObj !== undefined) { maxRatesCounty.value = userCountyObj.county; doEvent('#maximumRatesCounty') }
+    let firstNonBlankPeriod = maximumRatesPeriod.children[1]// .querySelector('option:nth-child(2)')
+    if (maximumRatesCounty.value === "" && typeof userCountyObj !== undefined) { maximumRatesCounty.value = userCountyObj.county; doEvent('#maximumRatesCounty') }
     if (ratesProviderType.value === '') { ratesProviderType.value = "Child Care Center"; doEvent('#ratesProviderType') }
     if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent('#maximumRatesPeriod') }
     ratesProviderType.addEventListener('change', function() { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent('#maximumRatesPeriod') })
+    maximumRatesCounty.addEventListener('change', function() { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent('#maximumRatesPeriod') })
     if (document.getElementById('ratesProviderType').value !== "Legal Non-licensed") {
-        document.querySelectorAll('tbody>tr>th:nth-child(n+2):nth-child(-n+4)').forEach(function(e) {
+        document.querySelectorAll('tbody > tr > th:nth-child(n+2):nth-child(-n+4)').forEach(function(e) {
              e.insertAdjacentHTML('beforeend', '<span class="maxRates"> (15%, 20%)</span>')
         })
         document.querySelectorAll('tbody>tr>td').forEach(function(e) {
@@ -4690,15 +4712,15 @@ if (("MaximumRates.htm").includes(thisPageNameHtm)) {
             }
         })
     } else if (document.getElementById('ratesProviderType').value === "Legal Non-licensed") {
-        document.querySelector('tbody>tr>th:nth-child(2)').insertAdjacentHTML('beforeend', '<span class="maxRates">(15%)</span>')
-        document.querySelectorAll('tbody>tr>td').forEach(function(e) {
+        document.querySelector('tbody > tr > th:nth-child(2)').insertAdjacentHTML('beforeend', '<span class="maxRates">(15%)</span>')
+        document.querySelectorAll('tbody > tr > td').forEach(function(e) {
             if (isFinite(e.textContent) && e.textContent > 0) {
                 e.insertAdjacentHTML('beforeend', '<span class="maxRates"> (' + (e.textContent * 1.15).toFixed(2) + ')</span>')
             }
         })
     }
-    document.getElementById('secondaryActionArea').insertAdjacentHTML('afterend', `
-    <div style="float: right !important;">
+    secondaryActionArea.insertAdjacentHTML('beforeend', `
+    <div>
         <button type="button" class="cButton" id="copyRates">Copy Rates</button>
         <button type="button" class="cButton" id="toggleDifferentials">Toggle Differentials</button>
     </div>
@@ -5442,7 +5464,7 @@ if (!iFramed) { // Keyboard_shortcuts start
             }
         }) // keyboard shortcuts
         if ("CaseWrapUp.htm".includes(thisPageNameHtm) && document.querySelector('.rederrortext')?.innerText === 'Case Wrap-Up successfully submitted.') {
-            document.getElementById('secondaryActionArea').classList.add('hidden')
+            duplicateButtons.classList.add('hidden')
         };
         // SECTION_START Retract drop-down menu on page load
         setTimeout(() => {
@@ -5497,12 +5519,14 @@ if (!iFramed) { // Keyboard_shortcuts start
 // ///////////////////////////////////////////////////////////////////////////// SITE_WIDE_FUNCTIONS SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ======================================================================================================================================================================================================
 
-// SECTION_START Duplicate buttons above H1 row
-if (thisPageNameHtm.indexOf('List.htm') < 0 && !["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm", "CaseOverview.htm", ].includes(thisPageNameHtm)) {
+function duplicateFormButtons() {
+    // SECTION_START Duplicate_Form_Buttons_Above_H1
+    let noDuplicateButtonsPages = ["ProviderSearch.htm", "CaseLockStatus.htm", "ClientSearch.htm", "MaximumRates.htm", "ReportAProblem.htm", "FinancialClaimTransfer.htm", "CaseApplicationInitiation.htm", "CaseReapplicationAddCcap.htm", "CaseOverview.htm", "Alerts.htm", ]
+    if (thisPageNameHtm.indexOf('List.htm') > -1 || noDuplicateButtonsPages.includes(thisPageNameHtm)) { return; }
     function checkDBclickability() {
         document.querySelectorAll('.mutable').forEach((e) => {
             let oldButtonId = e.getAttribute('id').split('DB')[0];
-            if ( document.querySelector('#' + oldButtonId).hasAttribute('disabled') ) {
+            if ( document.getElementById(oldButtonId)?.hasAttribute('disabled') ) {
                 e.setAttribute('disabled', 'disabled')
             } else {
                 e.removeAttribute('disabled')
@@ -5511,22 +5535,23 @@ if (thisPageNameHtm.indexOf('List.htm') < 0 && !["ProviderSearch.htm", "CaseLock
     }
     try {
         document.querySelectorAll('.modal .form-button').forEach((e) => e.classList.add('modal-button')) //popup buttons
-        document.querySelectorAll('tbody').forEach((e) => { e.addEventListener('click', () => checkDBclickability()) })
+        document.querySelectorAll('tbody').forEach((e) => { e.addEventListener( 'click', () => checkDBclickability() ) })
         document.querySelectorAll('.form-button:not([style$=none i], [id$="Business" i], [id$="Person" i], [id*=submit i], [id*=billed i], [id*=registration i], [id*=button i], [id*=search i], [type=hidden i], .panel-box-format input.form-button, .modal-button, #contactInfo, #selectFra, #reset, #changeType, #storage, #calculate, #cappingInfo, #calcAmounts, .cButton, .cButton__floating, .doNotDupe').forEach((e) => {
             if (e.value) {
                 let idName = e.getAttribute('id') + "DB";
-                document.querySelector('#secondaryActionArea').insertAdjacentHTML('beforeend', '<button  class="form-button mutable" id="' + idName + '" disabled="disabled"><span class="sAAspan">' + e.value + '</span></button>');
+                duplicateButtons.insertAdjacentHTML('beforeend', '<button class="form-button mutable" id="' + idName + '" disabled="disabled"><span class="sAAspan">' + e.value + '</span></button>');
             };
         })
-        !document.querySelectorAll('#secondaryActionArea > button').length && (document.querySelector('#secondaryActionArea').classList.add('hidden'))
-        document.querySelector('#secondaryActionArea').addEventListener('click', (e) => {
+        !duplicateButtons.children.length && (duplicateButtons.classList.add('hidden'))
+        duplicateButtons.addEventListener('click', (e) => {
             e.preventDefault()
-            if (e.target.closest('button:not(:disabled)')?.classList.contains('mutable')) { document.querySelector('#' + e.target.closest('button').id.slice(0, -2)).click() }
+            if (e.target.closest('button:not(:disabled)')?.classList.contains('mutable')) { document.getElementById(e.target.closest('button').id.slice(0, -2)).click() }
         })
     }
     catch (err) { console.trace(err) }
     finally { setTimeout(() => checkDBclickability(), 100) }
-} // SECTION_END Buttons above H1 row
+} // SECTION_END Duplicate_Form_Buttons_Above_H1
+!iFramed && duplicateFormButtons()
 //
 try {
     let caseOrProviderInput = document.querySelector(':is(#caseInput>#caseId, #providerInput>#providerId):not([disabled])')
