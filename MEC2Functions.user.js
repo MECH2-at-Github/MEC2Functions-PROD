@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.06
+// @version      0.5.07
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -59,6 +59,7 @@ try {
 		`)
 	}
 } // button navigation divs
+catch(error) { console.trace(error) }
 let secondaryActionArea = document.getElementById('secondaryActionArea')
 let duplicateButtons = document.getElementById('duplicateButtons')
 try {
