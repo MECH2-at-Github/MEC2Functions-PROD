@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.07
+// @version      0.5.08
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3069,6 +3069,7 @@ if (("CaseCSIA.htm").includes(thisPageNameHtm)) {
         if (e.value === "Yes") { document.querySelector('#deceasedDate').closest('.form-group').classList.remove('hidden') }
     })
 } // SECTION_END Case_CSIA
+/*
 // SECTION_START Case_Earned_Income
 if (("CaseEarnedIncome.htm").includes(thisPageNameHtm)) {
     tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome')
@@ -3124,8 +3125,10 @@ if (("CaseEarnedIncome.htm").includes(thisPageNameHtm)) {
         })
     };
 }; // SECTION_END Case_Earned_Income
+*/
 // SECTION_START Case_Earned_Income__Case_Unearned_Income__Case_Expense
 if (["CaseEarnedIncome.htm", "CaseUnearnedIncome.htm", "CaseExpense.htm"].includes(thisPageNameHtm)) {
+    /*
     if (notEditMode) {
         document.querySelector('tbody').addEventListener('click', () => {
             showHidePaymentChange()
@@ -3160,6 +3163,7 @@ if (["CaseEarnedIncome.htm", "CaseUnearnedIncome.htm", "CaseExpense.htm"].includ
         tabIndxReset()
     }
     showHidePaymentChange()
+    */
     $("h4:contains('Actual Income'), h4:contains('Student Income'), h4:contains('Actual Expense')").nextAll().addClass("hidden")
 }; // SECTION_END Case_Earned_Income__Case_Unearned_Income__Case_Expense
 // SECTION_START Case_Activity_pages
