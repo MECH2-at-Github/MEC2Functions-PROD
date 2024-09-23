@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.08
+// @version      0.5.09
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2526,10 +2526,9 @@ if (("CaseAction.htm").includes(thisPageNameHtm)) {
 // SECTION_START Case_Address
 if (("CaseAddress.htm").includes(thisPageNameHtm)) {
     let mailFields = [...document.querySelectorAll('#mailingAddressPanelData > div > div')]
-    document.getElementById('effectiveDate').closest('.form-group').insertAdjacentHTML('beforeend', '<button type="button" class="cButton centered-text float-right" tabindex="-1" id="copyMailing">Copy Mail Address</button>');
+    secondaryActionArea.insertAdjacentHTML('beforeend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mail Address</button>');
     document.getElementById('copyMailing').addEventListener('click', function() {
-        let oCaseName = commaNameObject(document.querySelector('title').innerText)
-        // let oCaseName = commaNameObject($('#caseHeaderData div.col-lg-4').contents().eq(2).text())
+        let oCaseName = nameFuncs.commaNameObject(pageTitle)
         if (document.getElementById('mailingStreet1').value !== "") {
             let state = swapStateNameAndAcronym(document.getElementById('mailingStateProvince').value)
             let copyText = oCaseName.first + " " + oCaseName.last + "\n" + document.getElementById('mailingStreet1').value + " " + document.getElementById('mailingStreet2').value + "\n" + document.getElementById('mailingCity').value + ", " + state + " " + document.getElementById('mailingZipCode').value
@@ -2543,17 +2542,25 @@ if (("CaseAddress.htm").includes(thisPageNameHtm)) {
         };
     });
     !document.getElementById('mailingStreet1')?.value?.length && !document.getElementById('edit').hasAttribute('disabled') && (checkMailingAddress())//Shrinks mailing address if blank
-    let provInpSel = [...document.querySelectorAll('#providerData :is(input, select)')].filter((e) => e.value === '')
-    for (let i = provInpSel.length-1; i >= 0; i--) { provInpSel[i].closest('.form-group').classList.add('hidden') }
+    // let provInpSel = [...document.querySelectorAll('#providerData :is(input, select)')].filter((e) => e.value === '')
+    // for (let i = provInpSel.length-1; i >= 0; i--) { provInpSel[i].closest('.form-group').classList.add('hidden') }
     if (notEditMode) {
-        let blankFields = [...document.querySelectorAll('#phone2, #phone3, #contactNotes, #email')].filter((e) => e.value === '')
-        for (let i = blankFields.length-1; i >= 0; i--) { blankFields[i].closest('.form-group').classList.add('hidden') }
+        let blankFields = ['phone2', 'phone3']
+        blankFields.forEach(function(e) {
+            let phoneNumber = document.getElementById(e)
+            if (!phoneNumber.value) {
+                let phoneFields = [...phoneNumber.parentElement.parentElement.children]
+                for (let i = 0; i < 11; i++) {
+                    phoneFields[i].classList.add('hidden')
+                }
+            }
+        })
         checkMailingAddress()
     };
     function checkMailingAddress() {
         let mailingCountry = document.getElementById('mailingCountry')
-        if ( !mailingCountry.value && !mailingCountry.classList.contains('hidden') ) { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].classList.add('hidden') } }
-        else { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].classList.remove('hidden') } }
+        if ( !mailingCountry.value && !mailingCountry.classList.contains('hidden') ) { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].style.visibility = "hidden" } }
+        else { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].style.visibility = "visible" } }
     };
     document.getElementById('caseAddressTable').addEventListener('click', function() { checkMailingAddress() });
 }; // SECTION_END Case_Address
