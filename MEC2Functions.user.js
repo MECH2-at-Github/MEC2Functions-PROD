@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.11
+// @version      0.5.12
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -113,6 +113,119 @@ try {
 
 const h4objects = h4list()
 
+const nameFuncs = {
+    getFirstName(commaName) {
+        let nameBackwards = toTitleCase(commaName).replace(/\b\w\b/, '').trim();
+        let firstName = nameBackwards.split(",")[1].trim()
+        return firstName
+    },
+    getLastName(commaName) {
+        let nameBackwards = toTitleCase(commaName).replace(/\b\w\b/, '').trim();
+        let lastName = nameBackwards.split(",")[0].replace(/,/, '')
+        return lastName
+    },
+    commaNameObject(commaName) {
+        try {
+            commaName = commaName.replace(/\b\w\b|\./g, '').replace(/\s+/g, ' ')
+            commaName = commaName.trim()
+            commaName = toTitleCase(commaName)
+            let commaNameSplit = commaName.split(",")
+            return { first: commaNameSplit[1].trim(), last: commaNameSplit[0].trim() }
+        } catch (error) { console.trace(error) }
+    },
+    commaNameReorder(commaName) {
+        try {
+            commaName = commaName.replace(/\b\w\b|\./g, '').replace(/\s+/g, ' ')
+            commaName = commaName.trim()
+            commaName = toTitleCase(commaName)
+            let commaNameSplit = commaName.split(",")
+            commaName = commaNameSplit[1].trim() + " " + commaNameSplit[0].replace(/,/, '')
+            return commaName
+        } catch (error) { console.trace(error) }
+    },
+    addCommaSpace(value) {
+        return String(value)
+            .replace(/\w\,\w/g, ", ")
+            // .replace(/,([^0-9])/g, ", $1")
+    },
+};
+//
+const dateFuncs = {
+    dayInMs: 86400000,
+    addDays(date, days) {
+        days = Number(days)
+        if (days === NaN) { return undefined }
+        let result = new Date(date);
+        result.setDate(result.getDate() + days);
+        return result;
+    },
+    dateDiffInDays(a, b) {
+        a = ['string', 'object'].includes(typeof a) ? Date.parse(a) : a
+        b = b === undefined ? Date.now() : ['string', 'object'].includes(typeof b) ? Date.parse(b) : b.valueOf
+        return Math.abs(Math.floor((b - a) / this.dayInMs))
+    },
+    sanitizeDate(inputDate, dateTypeNeeded) {
+        let isDateObject = inputDate instanceof Date
+        let inputTypeof = typeof inputDate
+        switch (dateTypeNeeded) {
+            case "date":
+                return isDateObject ? inputDate : new Date(inputDate)
+                break
+            case "number":
+                if ( inputTypeof === "number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return inputDate }
+                if ( inputTypeof === "string" ) { return Date.parse(inputDate) }
+                if ( isDateObject ) { return inputDate.valueOf() }
+                break
+            case "string":
+                if ( inputTypeof === "number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return new Date(inputDate).toLocaleDateString() }
+                if ( inputTypeof === "string" ) { return inputDate }
+                if ( isDateObject ) { return inputDate.toLocaleDateString() }
+                break
+        }
+    },
+    formatDate(date, format = "mmddyy") {
+        date = new Date(date)
+        switch (format) {
+            case "mmddyy":
+                date = date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" })
+                break
+            case "mdyy":
+                date = date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" })
+                break
+            case "mmddyyyy":
+                date = date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
+                break
+            default:
+                date = date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
+                break
+        }
+        return date
+    },
+    getDateString(year, month, week, day) {
+        const date = this.getDateofWeekdayWithWeek(year, month, week, day);
+        let dateString = date.toLocaleDateString();
+        return dateString;
+    },
+    getDateofWeekdayWithWeek(year, month, week, day) {
+        const firstDay = 1
+        if (week < 0) { month++ }
+        const date = new Date(year, month, (week * 7) + firstDay)
+        if (day < date.getDay()) { day += 7 }
+        date.setDate(date.getDate() - date.getDay() + day)
+        return date
+    },
+    getMonthDifference(firstDate, secondDate) {
+        firstDate = this.sanitizeDate(firstDate, "date")
+        secondDate = this.sanitizeDate(secondDate, "date")
+        let months;
+        months = (firstDate.getFullYear() - secondDate.getFullYear()) * 12
+        let datePassed = (secondDate.getDate() > firstDate.getDate()) ? 1 : 0
+        months -= secondDate.getMonth()
+        months += firstDate.getMonth()
+        months -= datePassed
+        return months <= 0 ? 0 : months;
+    },
+};
 //
 function h4list() {
     let h4objectsQuery = [...document.getElementsByTagName('h4')]
