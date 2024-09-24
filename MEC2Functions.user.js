@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.10
+// @version      0.5.11
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -111,6 +111,35 @@ try {
     $("h4").click((e) => $(e.target).nextAll().toggleClass("hidden")) //Make all h4 clicky hidden -- need a non-jQuery nextAll to switch to vanilla
 } catch(err) {console.log(err)}
 
+const h4objects = h4list()
+
+//
+function h4list() {
+    let h4objectsQuery = [...document.getElementsByTagName('h4')]
+    let h4objects = {}
+    h4objectsQuery.forEach(function(h4) {
+        h4objects[h4.textContent.replace(/\W/g, '').toLowerCase()] = {
+            h4: h4,
+            indexNumber: [...h4.parentElement.children].indexOf(h4),
+            h4siblings: function() {},
+        }
+    })
+    function h4siblings() {}
+        for (let h4name in h4objects) {
+            let h4parentChildren = h4objects[h4name].h4.parentElement.children
+            let h4parentChildrenLength = h4parentChildren.length
+            let h4nextSiblings = []
+            for (let i = h4objects[h4name].indexNumber; i < h4parentChildrenLength; i++) {
+                let nextSibling = h4parentChildren[i+1]
+                if (!nextSibling || nextSibling.nodeName === "H4") { break }
+                if ( !['SCRIPT', 'STYLE', 'BR', 'NAV'].includes(nextSibling.nodeName) ) {
+                    h4nextSiblings.push(nextSibling)
+                }
+            }
+            h4objects[h4name].siblings = h4nextSiblings
+        }
+    return h4objects
+};
 function getCaseParameters() { // Parameters for navigating from Alerts or Lists, and the column
     const caseTableMap = new Map([
         ["Alerts.htm", ["table#caseOrProviderAlertsTable > tbody", 3] ],
