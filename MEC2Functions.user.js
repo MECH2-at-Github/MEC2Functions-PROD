@@ -2512,8 +2512,8 @@ if (("ApplicationInformation.htm").includes(thisPageNameHtm)) {
             }
         }))
     }
-} // SECTION_END Case_Action
-// SECTION_START Application_Information
+} // SECTION_END Application_Information
+// SECTION_START Case_Action
 if (("CaseAction.htm").includes(thisPageNameHtm)) {
     if (notEditMode) {
         if ( document.referrer.indexOf("https://mec2.childcare.dhs.state.mn.us/ChildCare/CaseAction.htm") > -1 ) {
@@ -2525,44 +2525,57 @@ if (("CaseAction.htm").includes(thisPageNameHtm)) {
 } // SECTION_END Case_Action
 // SECTION_START Case_Address
 if (("CaseAddress.htm").includes(thisPageNameHtm)) {
-    let mailFields = [...document.querySelectorAll('#mailingAddressPanelData > div > div')]
-    secondaryActionArea.insertAdjacentHTML('beforeend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mail Address</button>');
-    document.getElementById('copyMailing').addEventListener('click', function() {
-        let oCaseName = nameFuncs.commaNameObject(pageTitle)
-        if (document.getElementById('mailingStreet1').value !== "") {
-            let state = swapStateNameAndAcronym(document.getElementById('mailingStateProvince').value)
-            let copyText = oCaseName.first + " " + oCaseName.last + "\n" + document.getElementById('mailingStreet1').value + " " + document.getElementById('mailingStreet2').value + "\n" + document.getElementById('mailingCity').value + ", " + state + " " + document.getElementById('mailingZipCode').value
-            navigator.clipboard.writeText(copyText)
-            snackBar(copyText);
-        } else {
-            let state = swapStateNameAndAcronym(document.getElementById('residenceStateProvince').value)
-            let copyText = oCaseName.first + " " + oCaseName.last + "\n" + document.getElementById('residenceStreet1').value + " " + document.getElementById('residenceStreet2').value + "\n" + document.getElementById('residenceCity').value + ", " + state + " " + document.getElementById('residenceZipCode').value
-            navigator.clipboard.writeText(copyText)
-            snackBar(copyText);
-        };
-    });
-    !document.getElementById('mailingStreet1')?.value?.length && !document.getElementById('edit').hasAttribute('disabled') && (checkMailingAddress())//Shrinks mailing address if blank
-    // let provInpSel = [...document.querySelectorAll('#providerData :is(input, select)')].filter((e) => e.value === '')
-    // for (let i = provInpSel.length-1; i >= 0; i--) { provInpSel[i].closest('.form-group').classList.add('hidden') }
     if (notEditMode) {
-        let blankFields = ['phone2', 'phone3']
-        blankFields.forEach(function(e) {
-            let phoneNumber = document.getElementById(e)
-            if (!phoneNumber.value) {
-                let phoneFields = [...phoneNumber.parentElement.parentElement.children]
-                for (let i = 0; i < 11; i++) {
-                    phoneFields[i].classList.add('hidden')
+        let mailingStreet1 = document.getElementById('mailingStreet1')
+        let edit = document.getElementById('edit')
+        secondaryActionArea.insertAdjacentHTML('beforeend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mail Address</button>');
+        evalData().then(function(results) {
+            let caseName = nameFuncs.commaNameReorder(pageTitle)
+            let mailFields = [...document.querySelectorAll('#mailingAddressPanelData > div > div')]
+            document.getElementById('copyMailing').addEventListener('click', function() {
+                let addressTableRow = childIndex(document.querySelector('.selected'))
+                let addressData = results[0][addressTableRow]
+                let mailingData
+                if (addressData.mailingStreet1) {
+                    mailingData = {
+                        streetData: [addressData.mailingStreet1, addressData.mailingStreet2].join(' '),
+                        cityData: addressData.mailingCity,
+                        stateData: swapStateNameAndAcronym(addressData.mailingStateProvince),
+                        zipData: [addressData.mailingZipCode, addressData.mailingZipCodePlus4].join('-'),
+                    }
+                } else {
+                    mailingData = {
+                        streetData: [addressData.residenceStreet1, addressData.residenceStreet2].join(' '),
+                        cityData: addressData.residenceCity,
+                        stateData: swapStateNameAndAcronym(addressData.residenceStateProvince),
+                        zipData: [addressData.residenceZipCode, addressData.residenceZipCodePlus4].join('-'),
+                    }
+                };
+                let copyText = caseName + "\n" + mailingData.streetData + "\n" + mailingData.cityData + ", " + mailingData.stateData + " " + mailingData.zipData;
+                navigator.clipboard.writeText(copyText);
+                snackBar(copyText);
+            })
+            !mailingStreet1?.value && !edit.hasAttribute('disabled') && (checkMailingAddress())//Removes visibility of mailing address fields if blank
+            let blankFields = ['phone2', 'phone3']
+            blankFields.forEach(function(e) {
+                let phoneNumber = document.getElementById(e)
+                if (!phoneNumber.value) {
+                    let phoneFields = [...phoneNumber.parentElement.parentElement.children]
+                    for (let i = 0; i < 11; i++) {
+                        phoneFields[i].classList.add('hidden')
+                    }
                 }
-            }
+            })
+            checkMailingAddress()
+            function checkMailingAddress() {
+                let mailingCountryValue = document.getElementById('mailingCountry').value
+                for (let ele of h4objects.mailingaddress.siblings) {
+                    mailingCountryValue ? ele.style.visibility = "visible" : ele.style.visibility = "hidden"
+                }
+            };
+            document.getElementById('caseAddressTable').addEventListener('click', function() { checkMailingAddress() });
         })
-        checkMailingAddress()
     };
-    function checkMailingAddress() {
-        let mailingCountry = document.getElementById('mailingCountry')
-        if ( !mailingCountry.value && !mailingCountry.classList.contains('hidden') ) { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].style.visibility = "hidden" } }
-        else { for (let i = mailFields.length-1; i >= 0; i--) { mailFields[i].style.visibility = "visible" } }
-    };
-    document.getElementById('caseAddressTable').addEventListener('click', function() { checkMailingAddress() });
 }; // SECTION_END Case_Address
 // SECTION_START Case_Application_Initiation
 if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm) && !notEditMode) {
@@ -5315,6 +5328,11 @@ function waitForElmHeight(selector) {
             subtree: true
         });
     });
+};
+//
+function childIndex(childEle) {
+    let indexNumber = [...childEle.parentElement.children].indexOf(childEle)
+    return indexNumber
 };
 //
 function tempIncomes(tempIncome, endDate) {
