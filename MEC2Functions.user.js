@@ -4,7 +4,7 @@
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.12
+// @version      0.5.13
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -33,6 +33,7 @@ const pageWrap = document.querySelector('#page-wrap')
 const notEditMode = document.querySelectorAll('#page-wrap').length;
 let iFramed = window.location !== window.parent.location ? 1 : 0
 let focusEle = "blank"
+const pageTitle = document.querySelector('title').innerText;
 const longDateFormat = '{day: "2-digit", month: "2-digit", year: "numeric"}'
 let caseId = document.getElementById('caseId')?.value ?? undefined
 let providerId = caseId ?? document.getElementById('providerId')?.value
