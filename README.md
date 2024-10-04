@@ -13,7 +13,7 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
 4. Done!
 
 # Features
-Primary Navigation buttons:
+* Primary Navigation buttons:
   * 3 rows of buttons are available to navigate MEC2. All buttons can be used to open a page in a new tab by right clicking on the button.
   * Row 1: Static, directly opens a page. The [ Case # ] field on the right is for a case number, and clicking [ Notes ] or [ Overview ] buttons opens the respective page in a new tab. Pressing enter opens CaseOverview.
   * Row 2: (Categories) Static, loads row 3 buttons. Does not directly open a page.
