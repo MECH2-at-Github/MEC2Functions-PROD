@@ -4,6 +4,7 @@ This script includes all user functions for MEC2 including the navigation menu a
 Install instructions:
 
 Tip: Right click links and then click "Open link in new tab". Tabs can be closed after doing the install.
+
 0. Due to Chrome/Edge browser changes, you must enable "Developer Mode" in Chrome/Edge's Extension's settings area. In Extension settings, the Developer Mode slider is located in the top right in Chrome, and on the left bar in Edge.
 1. Install a UserScript extension, such as [TamperMonkey on the Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo). Alternative (untested) extensions are ViolentMonkey and GreaseMonkey.
 2. Open [MEC2Navigation Install](https://github.com/MECH2-at-Github/MEC2Navigation-PROD/raw/main/MEC2Navigation.user.js) and click the [ Install ] button
