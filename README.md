@@ -13,12 +13,12 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
 4. Done!
 
 # Features
-Top Navigation Buttons:
-  * 3 rows of buttons are available to navigate MEC2.
-    * Row 1: Static, directly opens a page. [ + ] buttons open the page in a new tab. The field on the right is for a case number, and clicking [ Notes ] or [ Overview ] on the end opens pages in new tabs. Pressing enter opens CaseOverview.
-    * Row 2: (Categories) Static, loads row 3 buttons. Does not directly open a page.
-    * Row 3: (Page) Dynamic based on row 2 button. Directly opens a page.
-  * On page load, the category and page are highlighted.
+Primary Navigation buttons:
+  * 3 rows of buttons are available to navigate MEC2. All buttons can be used to open a page in a new tab by right clicking on the button.
+  * Row 1: Static, directly opens a page. The [ Case # ] field on the right is for a case number, and clicking [ Notes ] or [ Overview ] buttons opens the respective page in a new tab. Pressing enter opens CaseOverview.
+  * Row 2: (Categories) Static, loads row 3 buttons. Does not directly open a page.
+  * Row 3: (Page) Dynamic based on row 2 button. Directly opens a page.
+	  * On page load, the category button and page button are highlighted.
 
 * Focus on page load:
   * Almost all pages have a default field or button that is 'focused' on page load to allow for quicker data entry or button press. By default, spacebar 'pushes' a focused button.
