@@ -4238,18 +4238,18 @@ if (("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) {
         }
     }
 }; // SECTION_END Case SA_Overview Fill_manual_Billing_Forms
-// SECTION_START Special_Letters
+// SECTION_START Special_Letters_and_Memos;
 if (["CaseSpecialLetter.htm", "CaseMemo.htm", "ProviderMemo.htm", "ProviderSpecialLetter.htm"].includes(thisPageNameHtm)) {
-    if ( document.getElementById('status') ) {
-        document.getElementById('status').value = "Application"
+    let status = document.getElementById('status')
+    if (status) {
+        status.value = "Application"
         doEvent("#status")
-        document.getElementById('status').value = ""
+        status.value = ""
     }
     document.querySelector('.panel-default.panel-box-format')?.addEventListener('click', function(e) { //click checkbox if clicking label
-        if (e.target.nodeName === "STRONG") {
-            let checkboxParent = e.target.closest('div.col-lg-4')
-            checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
-        }
+        if (e.target.nodeName !== "STRONG") { return }
+        let checkboxParent = e.target.closest('div.col-lg-4')
+        checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
     })
     document.querySelector('#caseData input#other')?.addEventListener('click', function(event) {
         if ( document.getElementById('otherCommentsDiv').getAttribute('style') !== "display: none;" ) {
@@ -4259,30 +4259,28 @@ if (["CaseSpecialLetter.htm", "CaseMemo.htm", "ProviderMemo.htm", "ProviderSpeci
     document.querySelectorAll('div.col-lg-offset-3').forEach(function(e) {
         e.firstElementChild.setAttribute("for", e.querySelector('input.checkbox').id)
     })
-    document.querySelector('#status, #activity')?.addEventListener('input', function() { setTimeout(function() { resetTabIndex() }, 300) })
-
     let commentsText = document.querySelector('#comments, #memberComments, #textbox1')
     // [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ]
-    window.addEventListener('paste', function(e) { //AHK code: "LetterTextFromAHKSPLIT" %LetterGUINumber% "SPLIT" MEC2DocType "SPLIT" IdList
+    function pasteEvent(e) { //AHK code: "LetterTextFromAHKSPLIT" %LetterGUINumber% "SPLIT" MEC2DocType "SPLIT" IdList
         let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-        if (pastedText.indexOf("LetterTextFromAHK") === 0) {
-            e.preventDefault()
-            e.stopImmediatePropagation()
-            let aSpecialLetterData = pastedText.split('SPLIT') // [0] = SpecialLetterFromAHK, [1] = gid('comments').value [2] = gid('status').value ("Application", "Homeless App", "Ongoing", "Redetermination"), [3] = checkbox values,
-            if (document.getElementById('status')) {
-                document.getElementById('status').value = aSpecialLetterData[2]
-                void doEvent('#status')
-                let checkboxIds = aSpecialLetterData[3].split(',')
+        if (pastedText.indexOf("LetterTextFromAHK") !== 0) { return }
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        let aSpecialLetterData = pastedText.split('SPLIT') // [0] = SpecialLetterFromAHK, [1] = gid('comments').value [2] = gid('status').value ("Application", "Homeless App", "Ongoing", "Redetermination"), [3] = checkbox values,
+        if (status) {
+            status.value = aSpecialLetterData[2]
+            void doEvent('#status')
+            let checkboxIds = aSpecialLetterData[3].split(',')
+            queueMicrotask(() => {
                 for (let checkbox in checkboxIds) {
                     document.getElementById(checkboxIds[checkbox]).click()
                 }
-            }
-            commentsText.value = aSpecialLetterData[1]
-            eleFocus('#save')
+            })
         }
-    })
-
-} // SECTION_END Special_Letters
+        commentsText.value = aSpecialLetterData[1]
+        eleFocus('#save')}
+    document.addEventListener('paste', pasteEvent )
+}; // SECTION_END Special_Letters_and_Memos;
 // SECTION_START Case_Special_Needs
 if (["CaseSpecialNeeds.htm"].includes(thisPageNameHtm)) {
     document.getElementById('reasonText').setAttribute('type', 'text')
