@@ -3,8 +3,9 @@
 // @namespace    http://github.com/MECH2-at-Github
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
-// @match        mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.14
+// @match        http://mec2.childcare.dhs.state.mn.us/*
+// @match        https://mec2.childcare.dhs.state.mn.us/*
+// @version      0.5.15
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
