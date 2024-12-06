@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.15
+// @version      0.5.16
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -30,7 +30,10 @@ function noticeToUsers(lsValue) {
 // ====================================================================================================
 console.time('MEC2Functions')
 document.getElementById('help')?.insertAdjacentHTML('afterend', '<a href="/ChildCare/PrivacyAndSystemSecurity.htm?from=mec2functions" target="_blank" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>')
-const pageWrap = document.querySelector('#page-wrap')
+const rederrortextContent = [...document.querySelectorAll('strong.rederrortext')].map(ele => ele.textContent);
+const noResultsForCase = rederrortextContent?.some(ele => ele.includes('No results for case'));
+const pageWrap = document.getElementById('page-wrap'), save = document.getElementById('save'), quit = document.getElementById('quit');
+const editMode = (!pageWrap && !noResultsForCase), appModeNotEdit = (quit && save?.disabled);
 const notEditMode = document.querySelectorAll('#page-wrap').length;
 let iFramed = window.location !== window.parent.location ? 1 : 0
 let focusEle = "blank"
@@ -113,7 +116,128 @@ try {
     $("h4").click((e) => $(e.target).nextAll().toggleClass("hidden")) //Make all h4 clicky hidden -- need a non-jQuery nextAll to switch to vanilla
 } catch(err) {console.log(err)}
 
-const h4objects = h4list()
+
+const sanitize = {
+    evalText(text) { return String(text)?.replace(/\\/g,'').trim() },
+    query(query) {
+        if (!query) { return }
+        if (query instanceof HTMLElement || query instanceof NodeList) { return query }
+        if (!typeof query === "string") { console.trace("sanitize.query: argument 1 invalid (" + query + ") - must be a valid query string, an HTMLElement, or a NodeList"); return; }
+        return getSanitizedQuery(query)
+        function getSanitizedQuery(queryInput) {
+            let queryFromTextInput = queryInput.indexOf(',') === -1 && queryInput.indexOf('#') === 0 ? document.getElementById(queryInput.slice(1)) : document.querySelectorAll(queryInput)
+            return queryFromTextInput instanceof HTMLElement || queryFromTextInput instanceof NodeList ? queryFromTextInput : undefined
+        }
+    },
+    string(text) { return String(text)?.replace(/[^a-z0-9áéíóúñü \.,'_-]/gim, '') },
+    timeStamp(time) { return String(time)?.replace(/[^apm0-9:,\/ ]/gi, '') },
+    date(inputDate, dateTypeNeeded = "date") {
+        const isDateObject = inputDate instanceof Date, inputTypeof = typeof inputDate
+        switch (dateTypeNeeded) {
+            case "date": return isDateObject ? inputDate : new Date(inputDate)
+            case "number":
+                if ( inputTypeof === "number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return inputDate }
+                if ( inputTypeof === "string" ) { return Date.parse(inputDate) }
+                if ( isDateObject ) { return inputDate.getTime() }
+                break
+            case "string":
+                if ( inputTypeof === "number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return new Date(inputDate).toLocaleDateString() }
+                if ( inputTypeof === "string" ) { return inputDate }
+                if ( isDateObject ) { return inputDate.toLocaleDateString() }
+                break
+        }
+    },
+    JSON(obj) { try { return JSON.parse(obj) } catch (err) { return undefined } },
+};
+const h4objects = h4list();
+function h4list() { // h4elementText: { h4element, indexNumber, siblings }
+    class h4object {
+        constructor(h4) {
+            this.h4 = h4;
+            this.text = h4.textContent.replace(/\W/g, '').toLowerCase();
+            this.h4parentChildren = h4.parentElement.children;
+            this.indexNumber = [...this.h4parentChildren].indexOf(h4);
+            this.siblings = [];
+            this.h4siblingsFunc();
+            return this
+        }
+        h4siblingsFunc() {
+            let h4nextSiblings = []
+            for (let child of this.h4parentChildren) {
+                if ( child === this.h4 || ['SCRIPT', 'STYLE', 'BR', 'NAV'].includes(child.nodeName) ) { continue }
+                if (!child || child.nodeName === "H4") { break }
+                this.siblings.push(child)
+            }
+        }
+    }
+    let h4objectsQuery = [...document.getElementsByTagName('h4')]
+    let h4objectsObj = {}
+    h4objectsQuery.forEach(function(h4) {
+        let h4collection = new h4object(h4)
+        h4objectsObj[h4collection.text] = h4collection
+    })
+    return h4objectsObj
+};
+function addValueClassDoEvent(ele, addValue, addClass, event) {
+    ele = sanitize.query(ele)
+    if (!ele) { return }
+    addValue ? ele.value = addValue : 0
+    addClass && ele.classList.add(addClass)
+    event && doEvent(ele)
+};
+function createSlider(sliderOptions) {
+    let { label: label, title: title, id: sliderId, defaultOn: isChecked, font: sliderFontSize, classes: extraClasses, styles: extraStyles} = sliderOptions
+    isChecked = isChecked ? "checked" : ''
+    extraClasses = !extraClasses ? ' "'
+    : Array.isArray(extraClasses) ? ' ' + extraClasses.join(" ") + '"' : ' ' + extraClasses + '"'
+    extraStyles = !extraStyles ? ''
+    : Array.isArray(extraStyles) ? ' style="' + extraStyles.join(" ") + '"' : ' style="' + extraStyles + '"'
+    sliderFontSize = !sliderFontSize ? '' : ' style="font-size: ' + sliderFontSize + ';"'
+    return '<div class="toggle-slider' + extraClasses + extraStyles + '><label title="' + title + '">' + label + '</label><label class="switch"' + sliderFontSize + '><input class="toggleSlider" type="checkbox" id="' + sliderId + '" ' + isChecked + '><span class="slider round"></span></label></div>'
+};
+!function CaseEarnedIncome() {
+    if (!("CaseEarnedIncome.htm").includes(thisPageNameHtm)) { return };
+    let ceiIncomeType = document.getElementById('ceiIncomeType'), ceiEmpCountry = document.getElementById('ceiEmpCountry')
+    let ceiAddressLabels = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.querySelector('label[for=' + ele + ']'))
+    let ceiAddressLabelsAndDivs = [...ceiAddressLabels, ...ceiAddressLabels.map(ele => ele.nextElementSibling) ]
+    h4objects.actualincome.h4.click();
+    tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome')
+    function checkEmploymentType() {
+        let ceiIncomeTypeValue = ceiIncomeType?.value
+        if (ceiIncomeTypeValue === "Self-employment") {
+            unhideElement(h4objects.annualselfemploymentcalculation.siblings, true)
+            unhideElement(h4objects.incomeprojection.siblings, false)
+        } else if (ceiIncomeTypeValue !== "Self-employment" || (!editMode && !document.getElementById('ceiTotalIncome')?.value)) {//move second check outside of this if statement to its own?
+            unhideElement(h4objects.annualselfemploymentcalculation.siblings, false)
+            unhideElement(h4objects.incomeprojection.siblings, true)
+        }
+    };
+    checkEmploymentType()
+    let toggleEmployerAddress = createSlider({ label: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", defaultOn: false, classes: "float-right-imp h4-line", })
+    h4objects.details.h4.insertAdjacentHTML('afterend', toggleEmployerAddress)
+    document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressLabelsAndDivs, ele.target.checked) )
+    unhideElement(ceiAddressLabelsAndDivs, false)
+    if (editMode) {
+        ceiIncomeType.addEventListener('change', changeEvent => {
+            checkEmploymentType()
+            if ( changeEvent.target.value === "Self-employment") { return }
+            addValueClassDoEvent(ceiEmpCountry, 'USA', false, true)
+        })
+        ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', '#ceiPaymentEnd', '#ceiPaymentChange')
+        let ceiGrossIncome = document.getElementById('ceiGrossIncome'), ceiGrossAllowExps = document.getElementById('ceiGrossAllowExps')
+        ceiGrossIncome.parentElement.insertAdjacentHTML('afterend', '<div id="autoFiftyPercent"><div id="fiftyPercent"></div><button type="button" id="grossButton" class="cButton">Use 50%</button></div>');
+        let fiftyPercent = document.getElementById('fiftyPercent')
+        fiftyPercent.innerText = '50%: ' + (ceiGrossIncome.value * .5).toFixed(2)
+        ceiGrossIncome.addEventListener('input', () => { fiftyPercent.innerText = '50%: ' + (ceiGrossIncome.value * .5).toFixed(2) })
+        document.getElementById('grossButton').addEventListener('click', () => {
+            ceiGrossAllowExps.value = (ceiGrossIncome.value * .5).toFixed(2)
+            doEvent(ceiGrossAllowExps)
+            eleFocus(save)
+        });
+    } else if (!editMode) {
+        document.getElementById('earnedIncomeMemberTable').addEventListener('click', () => checkEmploymentType() );
+    }
+}(); // SECTION_END Case_Earned_Income;
 
 const nameFuncs = {
     getFirstName(commaName) {
@@ -229,32 +353,6 @@ const dateFuncs = {
     },
 };
 //
-function h4list() {
-    let h4objectsQuery = [...document.getElementsByTagName('h4')]
-    let h4objects = {}
-    h4objectsQuery.forEach(function(h4) {
-        h4objects[h4.textContent.replace(/\W/g, '').toLowerCase()] = {
-            h4: h4,
-            indexNumber: [...h4.parentElement.children].indexOf(h4),
-            h4siblings: function() {},
-        }
-    })
-    function h4siblings() {}
-        for (let h4name in h4objects) {
-            let h4parentChildren = h4objects[h4name].h4.parentElement.children
-            let h4parentChildrenLength = h4parentChildren.length
-            let h4nextSiblings = []
-            for (let i = h4objects[h4name].indexNumber; i < h4parentChildrenLength; i++) {
-                let nextSibling = h4parentChildren[i+1]
-                if (!nextSibling || nextSibling.nodeName === "H4") { break }
-                if ( !['SCRIPT', 'STYLE', 'BR', 'NAV'].includes(nextSibling.nodeName) ) {
-                    h4nextSiblings.push(nextSibling)
-                }
-            }
-            h4objects[h4name].siblings = h4nextSiblings
-        }
-    return h4objects
-};
 function getCaseParameters() { // Parameters for navigating from Alerts or Lists, and the column
     const caseTableMap = new Map([
         ["Alerts.htm", ["table#caseOrProviderAlertsTable > tbody", 3] ],
@@ -3291,6 +3389,7 @@ if (("CaseEarnedIncome.htm").includes(thisPageNameHtm)) {
 }; // SECTION_END Case_Earned_Income
 */
 // SECTION_START Case_Earned_Income__Case_Unearned_Income__Case_Expense
+	//blargy
 if (["CaseEarnedIncome.htm", "CaseUnearnedIncome.htm", "CaseExpense.htm"].includes(thisPageNameHtm)) {
     /*
     if (notEditMode) {
@@ -5743,6 +5842,14 @@ try {
     }
 } catch (error) { console.trace(error) } // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
 //
+function unhideElement(element, trueFalse) { // true to remove hidden, false to add hidden;
+    if (element instanceof HTMLElement) { addRemoveHidden(element, trueFalse) }
+    else if (element instanceof NodeList) { element = [...element] }
+    else if (Array.isArray(element)) {
+        [...element].forEach(function(ele) { addRemoveHidden(ele, trueFalse) })
+    }
+    function addRemoveHidden(ele2, trueFalse) { trueFalse ? ele2.classList.remove('hidden') : ele2.classList.add('hidden') }
+};
 function starFall() {
     document.querySelector('body').classList.add('fourOne')
     let start = new Date().getTime();
