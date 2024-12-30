@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.64
+// @version      0.5.65
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -1533,7 +1533,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     addDateControls("month", "#inputEffectiveDate")
     !async function storeWorkerName() {
         if (document.referrer !== "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") { return };
-        await intervalCheckForValue(workerName, 400, 5).then(workerNameValue => { countyInfo.updateCountyInfoLS( 'userName', nameFuncs.LastFirstToFirstL(workerNameValue) ) })
+        await intervalCheckForValue({element: workerName, interval: 400, iterations: 3}).then(workerNameValue => { countyInfo.updateCountyInfoLS( 'userName', nameFuncs.LastFirstToFirstL(workerNameValue) ) })
     }();
     let storeNumberTask = [submitButton, createButton].forEach(ele => ele.addEventListener('click', () => {
         if (caseOrProviderAlertTotal.value > 0) { sessionStorage.setItem('MECH2.preWorkerAlertCase', JSON.stringify({ numberId: alertGroupId.value, worker: inputWorkerId.value }) )}
@@ -1678,8 +1678,12 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             selectedCaseOrProvider.idTd = tableRow.children[2]
             selectedCaseOrProvider.caseId = selectedCaseOrProvider.idTd?.innerText
         })
+        alertTable.addEventListener('click', clickEvent => {
+            if ( !['TR', 'TD', 'A'].includes(clickEvent.target.nodeName) ) { return };
+            identifyAlertAndDoOmnibuttons( getTableRow(clickEvent.target) )
+        })
         waitForElmHeight("#caseOrProviderAlertsTable > tbody > tr").then(() => {
-            if (caseOrProviderAlertsTableTbody.children[0].textContent === "No records found" && alertTotal.value > 0) { doClick(submitButton) } // reloads the page if it incorrectly shows 0 alerts;
+            if (caseOrProviderAlertsTableTbody.children[0].textContent === "No records found" && alertTotal.value > 0) { doClick(submitButton); return; }; // reloads the page if it incorrectly shows 0 alerts;
             let caseOrProviderAlertsTableTbodyChildren = caseOrProviderAlertsTableTbody.children
             !function checkForDelayMfipAlerts() {
                 const checkCashArray = []
@@ -1727,21 +1731,17 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                 }
             }();
             !function preWorkerAlertClick() {
-                alertTable.addEventListener('click', clickEvent => {
-                    if ( !['TR', 'TD', 'A'].includes(clickEvent.target.nodeName) ) { return }
-                    identifyAlertAndDoOmnibuttons( getTableRow(clickEvent.target) )
-                })
                 setTimeout(() => {
                     let preWorkerAlertCaseSS = sanitize.JSON(sessionStorage.getItem('MECH2.preWorkerAlertCase'))
                     let matchedCaseOrProvIdRow = (preWorkerAlertCaseSS && typeof preWorkerAlertCaseSS === "object" && preWorkerAlertCaseSS.worker === inputWorkerId.value) ? tableOneAlerts.find(item => item.caseNumberOrProviderId.indexOf(preWorkerAlertCaseSS.numberId) > 0)?.rowIndex : 0
                     let selectedCase = caseOrProviderAlertsTableTbodyChildren[matchedCaseOrProvIdRow]
                     selectedCase?.click()
                     selectedCase?.scrollIntoView({ behavior: "smooth", block: "center" })
-                    setTimeout(() => { if (!findSelected()) { console.log('Clicking due to no alert being selected'); doClick(caseOrProviderAlertsTableTbodyChildren[0]) } }, 500)
+                    if (!findSelected()) { setTimeout(() => { console.log('Clicking due to no alert being selected'); doClick(caseOrProviderAlertsTableTbodyChildren[0]) }, 500) }
                     sessionStorage.removeItem('MECH2.preWorkerAlertCase')
                 }, 600)
             }();
-        })
+        });
 
         deleteButton.insertAdjacentElement('afterend', createButton)
         alertTotal.insertAdjacentHTML('afterend', `
@@ -1835,20 +1835,9 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         }();
         function fBaseCategoryButtons() {
             switch (caseOrProviderType.value) {
-                case "Case":
-                    if (caseCategoriesButtonsDiv.classList.contains('hidden')) { providerCategoriesButtonsDiv.classList.add('hidden'); caseCategoriesButtonsDiv.classList.remove('hidden'); }
-                    break
-                case "Provider":
-                    if (providerCategoriesButtonsDiv.classList.contains('hidden')) { caseCategoriesButtonsDiv.classList.add('hidden'); providerCategoriesButtonsDiv.classList.remove('hidden'); }
-                    break
+                case "Case": if (caseCategoriesButtonsDiv.classList.contains('hidden')) { providerCategoriesButtonsDiv.classList.add('hidden'); caseCategoriesButtonsDiv.classList.remove('hidden'); } break;
+                case "Provider": if (providerCategoriesButtonsDiv.classList.contains('hidden')) { caseCategoriesButtonsDiv.classList.add('hidden'); providerCategoriesButtonsDiv.classList.remove('hidden'); } break;
             }
-        }
-        function createOmniButtons( omniArray ) {
-            return omniArray.map(item => {
-                let omniPageMapData = omniPages.get(item)
-                if ( ["delete", "autonoteButton"].includes(item) || !omniPageMapData ) { return }
-                return '<button type="button" class="form-button" id=' + item +'>' + omniPageMapData + '</button>'
-            }).join('')
         }
         document.getElementById('baseCategoryButtonsDiv').addEventListener('click', ele => {
             if (ele.target.nodeName !== "BUTTON") { return }
@@ -1883,37 +1872,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         }
         let tableTwoAlertsGrouped = groupTableTwoAlerts()
         const noteTextJoinReplace = msgArray => msgArray.join('newline').replace(/\\/g, '').replace(/newline/g, '\n').replace(/Snoozed: [A-Za-z ]+: /g,'')
-        function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) {
-            switch (alertByCategory) {
-                case "childsupport.messages.csCSES": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('CSES') )
-                case "childsupport.messages.ncpAddress": {
-                    let parentAndNCPAddress = foundAlert.noteSummary + "\n-\nCase Address: " + fetchedDataArray[0]
-                    if ((noteMessage).includes(fetchedDataArray[0].slice(0, 12))) {
-                        foundAlert.noteSummary = "MATCH: " + foundAlert.noteSummary
-                        parentAndNCPAddress = parentAndNCPAddress.concat("\n-\nAddresses match. Sending special letter requesting additional information.")
-                    }
-                    return parentAndNCPAddress
-                }
-                case "eligibility.messages.unpaidCopay": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Failure') )
-                case "maxis.messages.gcReviewDate": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
-                case "maxis.messages.genGoodCauseChanged": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
-                case "maxis.messages.mailingAddress": return fetchedDataArray[0].length ? foundAlert.noteMessage + "\n-\nMailing Address: " + fetchedDataArray[0] + " " + fetchedDataArray[1] + " " + fetchedDataArray[2] : foundAlert.noteMessage + "\n-\nMailing address removed."
-                case "maxis.messages.marriage": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => ['Marriag','Marital','Designa'].includes(item.slice(0, 7)) )
-                case "maxis.messages.residenceAddress": return foundAlert.noteMessage + "\n-\nResidence Address: " + fetchedDataArray[0]
-            }
-        }
-        function noteSummaryReplacement(noteSummaryArray, msgText, personName) { return msgText.replace(noteSummaryArray[0], noteSummaryArray[1]).replace("personName", personName) }
-        function noteSummaryFunction({ alertByCategory, effectiveDate, selectedRowName } = {}) {
-            switch (alertByCategory) {
-                case "maxis.messages.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
-                case "information.messages.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
-            }
-        }
         window.addEventListener( "beforeunload", () => localStorage.removeItem("MECH2.note") )
-        function getMessageTextAndCategory(alertMessageText, alertTableCategory) {
-            let [ , messageCategory, noteMessage ] = alertMessageText.indexOf('Snoozed') === 0 ? alertMessageText.split(': ') : [ '', alertTableCategory, alertMessageText ]
-            return { messageCategory: messageCategory.toLowerCase().replace(/\W/g, ""), noteMessage, noteCategory: 'Other', }
-        }
         function identifyAlertAndDoOmnibuttons(selectedAlertTableRow) {
             if (selectedAlertTableRow === undefined) { return undefined };
             omniButtonsDiv.replaceChildren()
@@ -1930,6 +1889,17 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                 omniButtonsDiv.insertAdjacentHTML('afterbegin', createOmniButtons(foundAlert.omniPageButtons) )
                 eleFocus('#' + foundAlert.omniPageButtons[0])
                 break;
+            }
+            function createOmniButtons( omniArray ) {
+                return omniArray.map(item => {
+                    let omniPageMapData = omniPages.get(item)
+                    if ( ["delete", "autonoteButton"].includes(item) || !omniPageMapData ) { return }
+                    return '<button type="button" class="form-button" id=' + item +'>' + omniPageMapData + '</button>'
+                }).join('')
+            }
+            function getMessageTextAndCategory(alertMessageText, alertTableCategory) {
+                let [ , messageCategory, noteMessage ] = alertMessageText.indexOf('Snoozed') === 0 ? alertMessageText.split(': ') : [ '', alertTableCategory, alertMessageText ]
+                return { messageCategory: messageCategory.toLowerCase().replace(/\W/g, ""), noteMessage, noteCategory: 'Other', }
             }
         }
         doWrap(h4objects.alertdetail.h4)
@@ -1971,6 +1941,32 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             foundAlert.parameters = oWhatAlertType.parameters
             foundAlert.numberId = oWhatAlertType.numberId
             return foundAlert
+            function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) {
+                switch (alertByCategory) {
+                    case "childsupport.messages.csCSES": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('CSES') )
+                    case "childsupport.messages.ncpAddress": {
+                        let parentAndNCPAddress = foundAlert.noteSummary + "\n-\nCase Address: " + fetchedDataArray[0]
+                        if ((noteMessage).includes(fetchedDataArray[0].slice(0, 12))) {
+                            foundAlert.noteSummary = "MATCH: " + foundAlert.noteSummary
+                            parentAndNCPAddress = parentAndNCPAddress.concat("\n-\nAddresses match. Sending special letter requesting additional information.")
+                        }
+                        return parentAndNCPAddress
+                    }
+                    case "eligibility.messages.unpaidCopay": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Failure') )
+                    case "maxis.messages.gcReviewDate": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
+                    case "maxis.messages.genGoodCauseChanged": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
+                    case "maxis.messages.mailingAddress": return fetchedDataArray[0].length ? foundAlert.noteMessage + "\n-\nMailing Address: " + fetchedDataArray[0] + " " + fetchedDataArray[1] + " " + fetchedDataArray[2] : foundAlert.noteMessage + "\n-\nMailing address removed."
+                    case "maxis.messages.marriage": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => ['Marriag','Marital','Designa'].includes(item.slice(0, 7)) )
+                    case "maxis.messages.residenceAddress": return foundAlert.noteMessage + "\n-\nResidence Address: " + fetchedDataArray[0]
+                }
+            }
+            function noteSummaryReplacement(noteSummaryArray, msgText, personName) { return msgText.replace(noteSummaryArray[0], noteSummaryArray[1]).replace("personName", personName) }
+            function noteSummaryFunction({ alertByCategory, effectiveDate, selectedRowName } = {}) {
+                switch (alertByCategory) {
+                    case "maxis.messages.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
+                    case "information.messages.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
+                }
+            }
         };
         document.getElementById('autonoteButton').addEventListener('click', () => {
             automatedCaseNote().then(returnedAlert => {
@@ -3810,10 +3806,10 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             document.getElementById('noteCreator').value = "X1D10T"
             flashRedBorder.animate(newButton)
         } else {
-            let [, noteCategory, noteSummary, noteStringText ] = pastedText.split('SPLIT')
-            noteCategory.value = noteCategory
-            noteSummary.value = noteSummary
-            noteStringText.value = noteStringText
+            let [, noteCategoryData, noteSummaryData, noteStringTextData ] = pastedText.split('SPLIT')
+            noteCategory.value = noteCategoryData
+            noteSummary.value = noteSummaryData
+            noteStringText.value = noteStringTextData
             eleFocus(save)
         }
     })
@@ -3856,8 +3852,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 }
                 setTimeout(() => {
                     if (noteInfo.intendedPerson) {
-                        let intendedPerson = [...document.querySelectorAll('#noteMemberReferenceNumber > option')].find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) ).value
-                        noteMemberReferenceNumber.value = intendedPerson
+                        // let intendedPerson = [...document.querySelectorAll('#noteMemberReferenceNumber > option')].find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) ).value
+                        noteMemberReferenceNumber.value = [...document.querySelectorAll('#noteMemberReferenceNumber > option')].find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) ).value
                     }
                     noteCategory.value = noteInfo.noteCategory
                     noteSummary.value = noteInfo.noteSummary
@@ -4035,13 +4031,18 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             + '<button type="button" class="cButton" tabindex="-1" id="deniedOpen">Denied, Case Open</button>'
             + lnlTrainingButton
             + '</div>'
-            let targetDiv = textbox ? textbox.closest('.form-group').children[0] : "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group') : textbox.closest('.col-lg-12')
-            targetDiv.insertAdjacentHTML('beforeend', textareaButtonsDivHTML)
-            document.getElementById('textareaButtonsDiv').addEventListener('click', clickEvent => {
-                if (clickEvent.target.nodeName !== "BUTTON") { return }
-                let newLine = textbox.value ? '\n\n' : ''
-                insertTextAndMoveCursor(newLine + textareaButtonText[clickEvent.target.id], textbox)
-            })
+            !function addTextareaButtons() {
+                if (!textbox) { return };
+                let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
+                : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').children[0]
+                : textbox.closest('.col-lg-12')
+                targetDiv?.insertAdjacentHTML('beforeend', textareaButtonsDivHTML)
+                document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
+                    if (clickEvent.target.nodeName !== "BUTTON") { return }
+                    let newLine = textbox.value ? '\n\n' : ''
+                    insertTextAndMoveCursor(newLine + textareaButtonText[clickEvent.target.id], textbox)
+                })
+            }();
         }
     }
     !function Notices_PdfExport() {
@@ -4793,15 +4794,16 @@ function setIntervalLimited(callback, interval=100, x=1) {
         setTimeout(callback, i * interval);
     };
 }; // setIntervalLimited(() => { alert('hit') }, 1000, 10);//=> hit...hit...etc (every second, stops after 10);
-function intervalCheckForValue(element, interval=100, x=1) {
-    if (Number.isNaN(x) || Number.isNaN(interval)) { return };
+function intervalCheckForValue({element, interval=100, iterations=1}) {
+    if (Number.isNaN(iterations) || Number.isNaN(interval)) { return };
     element = sanitize.query(element)
     return new Promise((resolve, reject) => {
         checkForValue()
-        for (let i = 0; i < x; i++) {
+        for (let i = 0; i < iterations; i++) {
+            if (!element) { element = sanitize.query(element) }
             setTimeout(checkForValue, i * interval);
         };
-        function checkForValue() { if (element.value) { resolve(element.value) } }
+        function checkForValue() { if (element?.value) { resolve(element.value) } }
     })
 };
 function waitForTableCells(tableStr = 'table') { // table = 'table' or '#tableId', must be string;
