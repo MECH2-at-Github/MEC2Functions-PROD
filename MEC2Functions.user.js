@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.63
+// @version      0.5.64
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3819,12 +3819,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     })
     let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.JSON(localStorage.getItem("MECH2.note"))[caseOrProviderId] : undefined
     if (noteInfo) {
-        // doAutoNote(noteInfo)
-        // function doAutoNote(noteInfo) { // Auto_Case_Noting
         !function doAutoNote() { // Auto_Case_Noting
             if (!editMode) {
                 let continueToMakeNote = 1
-                if (["information", "childsupport", "maxis", "periodicprocessing", "parisinterstate"].includes(noteInfo.messageCategory)) {
                     evalData().then(results => {
                         let firstTenAlerts = results[0].slice(0, 10), firstTenAlertsLength = firstTenAlerts.length
                         let todayValue = Date.now(), twoMonthsValue = 5270400000
@@ -3847,31 +3844,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                                 return
                             }
                         })
-                        for (let i = 0; i < firstTenAlertsLength; i++) {
-                            let alertDateValue = sanitize.date(firstTenAlerts[i].noteCreateDate, "number")
-                            if (alertDateValue + twoMonthsValue < todayValue) { break }
-                            if (noteInfo.noteSummary.slice(0, 45) === firstTenAlerts[i].noteSummary.replace(/\\/g, '').slice(0, 45)) {
-                                noteStringText.value = "\n\n\n\t\tNote already exists, duplicate note not entered.\n\t\tClick 'Override Duplicate Check' to enter duplicate note.\n\t\t(Date range for duplicate check: 60 days.)"
-                                console.log(caseNotesTableTbody.children[firstTenAlerts[i].rowIndex])
-                                caseNotesTableTbody.children[firstTenAlerts[i].rowIndex].setAttribute('style', "color: var(--textColorPositive) !important;")
-                                localStorage.removeItem("MECH2.note")
-                                continueToMakeNote = 0
-                                h4objects.note.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton afterH4" id="overrideDupe">Override Duplicate Check</button>')
-                                document.getElementById('overrideDupe').addEventListener('click', () => {
-                                    let noteInfoCaseId = {}
-                                    noteInfoCaseId[caseOrProviderId] = noteInfo
-                                    localStorage.setItem( "MECH2.note", JSON.stringify(noteInfoCaseId) )
-                                    doClick(newButton)
-                                })
-                                restyleCreated()
-                                break
-                            }
-                        }
                         continueToMakeNote && doClick(newButton)
                     }).catch(err => { console.trace(err) })
-                } else { newButton.click() }
-            }
-            if (editMode) {
+            } else if (editMode) {
                 let userNameTitle = countyInfo.userSettings.promptUserNameTitle ? countyInfo.info.inputUserNameTitle : ""
                 if (noteInfo.noteCategory === "Child Support Note") { document.querySelector('option[value="Application"]').insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>'); }
                 let signatureName, workerName = countyInfo.info.userName
@@ -3897,7 +3872,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         secondaryActionArea.style.justifyContent = "start"
         !function duplicateNote() {
             let storedNoteDetails = sanitize.JSON(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
-            if (!storedNoteExists || storedNoteDetails?.noteMessage === noteStringText?.value) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
+            if (!storedNoteExists || storedNoteDetails?.noteSummary === noteSummary?.value) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
             if (!editMode) {
                 let storedNoteInfoHTML = storedNoteExists ? '<span style="margin-left: 10px;">Unsaved note exists for #' + storedNoteDetails.identifier + '</span>' : ''
                 secondaryActionArea?.insertAdjacentHTML('beforeend', '<div class="db-container"><button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML + ' </div>')
@@ -3927,16 +3902,16 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 })
                 document.getElementById('save').addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
             }
+            function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrProviderId, }; }
+            function fillNoteDetails(noteDetails) {
+                noteSummary.value = noteDetails.noteSummary
+                noteCategory.value = noteDetails.noteCategory
+                noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber
+                noteStringText.value = convertLineBreakToSpace(noteDetails.noteMessage)
+                eleFocus(noteStringText)
+                noteStringText.setSelectionRange(0, 0)
+            }
         }(); // End Duplicate_Note
-        function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrProviderId, }; }
-        function fillNoteDetails(noteDetails) {
-            noteSummary.value = noteDetails.noteSummary
-            noteCategory.value = noteDetails.noteCategory
-            noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber
-            noteStringText.value = convertLineBreakToSpace(noteDetails.noteMessage)
-            eleFocus(noteStringText)
-            noteStringText.setSelectionRange(0, 0)
-        }
         // SECTION_START Case_Notes_Only
         if (("CaseNotes.htm").includes(thisPageNameHtm)) {
             if (editMode && !notesTableNoRecords) {
