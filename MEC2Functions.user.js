@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.65
+// @version      0.5.66
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -1362,11 +1362,11 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
     // let validTransferWorker = (/[a-z0-9]{7}/i).test(closedCaseBank)
     let closedCaseBankLastThree = (closedCaseBank) ? closedCaseBank.slice(4) : ''
-    let todayDate = Date.now()
+    let todayDate = Date.now(), fortySixDays = 3974400000
     let changedToLinks, iframeContainer, transferiframe
     let transferWorker = document.getElementById('transferWorker'), footer_links = document.getElementById('footer_links')
     document.querySelectorAll('#inActiveCaseTable > tbody > tr > td:nth-of-type(4)').forEach(thisTd => {
-        let closedDatePlus46 = dateFuncs.addDays(thisTd.textContent, 46);
+        let closedDatePlus46 = sanitize.date(thisTd.textContent, "number") + fortySixDays
         if (closedDatePlus46 < todayDate) {
             let closedDate = thisTd.textContent
             thisTd.textContent = ''
@@ -1382,23 +1382,19 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     </div>`
     )
     function addTableButtons() {
-        document.querySelectorAll('span.cSpan').forEach(cSpanEle => cSpanEle.remove() )
-        if ((/[a-z0-9]{7}/i).test(closedCaseBank)) {
-            document.querySelectorAll('tr.oldClosed > td:nth-child(4)').forEach(ele => ele.insertAdjacentHTML('beforeend', '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>'))
-        }
+        removeTableButtons()
+        if (!(/[a-z0-9]{7}/i).test(closedCaseBank)) { return };
+        document.querySelectorAll('tr.oldClosed > td:nth-child(4)').forEach(ele => ele.insertAdjacentHTML('beforeend', '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>'))
     }
-    function removeTableButtons() {
-        document.querySelectorAll('span.cSpan').forEach( cSpanEle => cSpanEle.remove() )
-    }
+    function removeTableButtons() { document.querySelectorAll('span.cSpan').forEach( cSpanEle => cSpanEle.remove() ) }
     transferWorker?.addEventListener('blur', blurEvent => checkClosedCaseBank(blurEvent.target.value))
     function checkClosedCaseBank(eventValue) {
         if ((/[a-z0-9]{7}/i).test(eventValue)) {
-            if (eventValue !== countyInfo.info.closedCaseBank) {
-                countyInfo.updateCountyInfoLS('closedCaseBank', eventValue)
-                closedCaseBank = eventValue
-                closedCaseBankLastThree = closedCaseBank.slice(4)
-                addTableButtons()
-            }
+            if (eventValue === countyInfo.info.closedCaseBank) { return };
+            countyInfo.updateCountyInfoLS('closedCaseBank', eventValue)
+            closedCaseBank = eventValue
+            closedCaseBankLastThree = closedCaseBank.slice(4)
+            addTableButtons()
         } else {
             closedCaseBank = ''
             closedCaseBankLastThree = ''
@@ -1459,7 +1455,6 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         });
     }
     async function caseTransferEvent(tRowId) {
-        console.log(tRowId)
         return new Promise((resolve, reject) => {
             transferiframe.contentWindow.postMessage(['newTransfer', tRowId], "https://mec2.childcare.dhs.state.mn.us")
             let tRow = document.getElementById(tRowId)
@@ -1482,8 +1477,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                     }/* eslint-enable no-fallthrough */
                     tRow.classList.remove('oldClosed')
                     reject(messageEvent.data[1])
-                }
-                if (messageEvent.data[0] === "transferStatus" && messageEvent.data[1] === "Success") {
+                } else if (messageEvent.data[0] === "transferStatus" && messageEvent.data[1] === "Success") {
                     window.onmessage = null
                     tRow.style.opacity = '.35'
                     tRow.querySelector('span').remove()
@@ -2091,22 +2085,18 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         secondaryActionArea.insertAdjacentHTML('beforeend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mail Address</button>');
         evalData().then(results => {
             document.getElementById('copyMailing').addEventListener('click', () => {
-                let addressTableRow = childOrRowIndex(document.querySelector('.selected')), addressData = results[0][addressTableRow], mailingData
-                if (addressData.mailingStreet1) {
-                    mailingData = {
+                let addressTableRow = childOrRowIndex(document.querySelector('.selected')), addressData = results[0][addressTableRow]
+                let mailingData = addressData.mailingStreet1 ? {
                         streetData: [addressData.mailingStreet1, addressData.mailingStreet2].join(' '),
                         cityData: addressData.mailingCity,
                         stateData: stateDataSwap.swapStateNameAndAcronym(addressData.mailingStateProvince),
                         zipData: [addressData.mailingZipCode, addressData.mailingZipCodePlus4].join('-'),
-                    }
-                } else {
-                    mailingData = {
+                    } : {
                         streetData: [addressData.residenceStreet1, addressData.residenceStreet2].join(' '),
                         cityData: addressData.residenceCity,
                         stateData: stateDataSwap.swapStateNameAndAcronym(addressData.residenceStateProvince),
                         zipData: [addressData.residenceZipCode, addressData.residenceZipCodePlus4].join('-'),
                     }
-                };
                 let copyText = caseName + "\n" + mailingData.streetData + "\n" + mailingData.cityData + ", " + mailingData.stateData + " " + mailingData.zipData;
                 navigator.clipboard.writeText(copyText);
                 snackBar(copyText);
@@ -2132,7 +2122,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     document.getElementById('reporterType').disabled = true
     if (!editMode) {
         !function providerPagesButtons() {
-            let providerButtonHTML = [ ["buttonProviderAddress", "Address"], ["buttonProviderInformation", "Email"], ["buttonProviderParentAware", "Parent Aware"], ["buttonProviderAccreditation", "Accred."] ]
+            let providerButtonHTML = [ ["buttonProviderAddress", "Address"], ["buttonProviderInformation", "Contact"], ["buttonProviderParentAware", "Parent Aware"], ["buttonProviderAccreditation", "Accred."] ]
             .map(([id, name]) => { return '<button type="button" class="cButton sidePadding" tabindex="-1" id="' + id + '">' + name + '</button>' }).join('');
             h4objects.providerinformation.h4.insertAdjacentHTML('afterend','<div id="providerPageButtons" class="float-right-imp h4-line" style="display: flex; gap: 5px;">' + providerButtonHTML + '</div>');
             document.getElementById('providerPageButtons').addEventListener('click', clickEvent => {
@@ -3273,9 +3263,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 !function CaseTransfer() {
     if (!("CaseTransfer.htm").includes(thisPageNameHtm)) { return };
     if (iFramed && !editMode) {
-        window.onmessage = ([ status, transferCaseNum ] = []) => {
+        window.onmessage = (messageEvent) => {
             if (event.origin !== "https://mec2.childcare.dhs.state.mn.us") return false;
-            if (status === "newTransfer") { startWorkerTransfer(transferCaseNum) }
+            if (messageEvent.data[0] === "newTransfer") { startWorkerTransfer(messageEvent.data[1]) }
         }
     }
     let ssTransferCase = 'MECH2.caseTransfer.' + caseId
@@ -3351,24 +3341,26 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     }
 
     function checkRedErrorText() {
+        let firstErrorMessage = rederrortextContent?.length ? rederrortextContent[0] : 0
+        if (!firstErrorMessage) { return };
         if (editMode) {
-            switch (rederrortextContent[0]) {/* eslint-disable no-fallthrough */
+            switch (firstErrorMessage) {/* eslint-disable no-fallthrough */
                 case "Transfer To Worker ID is not valid for Servicing Agency.":
                 case "Transfer To Worker ID is invalid.":
                     countyInfo.updateCountyInfoLS('closedCaseBank', "delete")
                 case "Transfer To Worker ID is missing.":
                 case "Transfer From Worker ID cannot be the same as Transfer To Worker ID.":
                     sessionStorage.setItem(ssTransferCase, 'transferError')
-                    sessionStorage.setItem(ssError, rederrortextContent[0])
+                    sessionStorage.setItem(ssError, firstErrorMessage)
                     document.getElementById('cancel').click()
                     break
             }/* eslint-enable no-fallthrough */
         } else if (!editMode) {
-            if (rederrortextContent[0] === "Case Number is missing.") { return }
-            else if (rederrortextContent[0].includes("CASE LOCKED")) {
+            if (firstErrorMessage === "Case Number is missing.") { return }
+            else if (firstErrorMessage.includes("CASE LOCKED")) {
                 iFramed && parent.postMessage(['transferError', 'Locked Case'], "https://mec2.childcare.dhs.state.mn.us")
             } else {
-                let errorMessage = redTextMap.get(rederrortextContent[0])
+                let errorMessage = redTextMap.get(firstErrorMessage)
                 sessionStorage.removeItem(ssTransferCase)
                 sessionStorage.removeItem(ssError)
                 iFramed && parent.postMessage(['transferError', errorMessage], "https://mec2.childcare.dhs.state.mn.us")
@@ -4096,10 +4088,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             document.getElementById('mailingSiteHomeState').value = 'Minnesota'
             typeof userCountyObj !== undefined && (document.getElementById('mailingSiteHomeCounty').value = userCountyObj.county)
         }
-        $(mailingCountry).change(() => { //jquery
-            if (!document.getElementById('mailingState').value) {
-                document.getElementById('mailingState').value = 'Minnesota'
-            }
+        mailingCountry.addEventListener('input', () => {
+            if (!document.getElementById('mailingState').value) { document.getElementById('mailingState').value = 'Minnesota' }
         })
     }
     // SECTION_END ProviderAddress Default values for Country, State, County
@@ -4876,20 +4866,20 @@ function splitStringAtWordBoundary(str, maxLength) {
 };
 //           send value to clipboard;
 function copyMailing() {
-    let providerData = document.getElementById('providerData'), providerType = providerData.children[3].children[0].childNodes[2].textContent.trim(), providerName = providerData.children[0].childNodes[4].textContent.trim()
-    if ( ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) ) { providerName = nameFuncs.commaNameReorder(providerName) }
-    if (document.getElementById('addrBillFormDisplay').value === "Site/Home") {
-        let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingSiteHomeState').value)
-        let copyText = providerName + "\n" + document.getElementById('mailingSiteHomeStreet1').value + " " + document.getElementById('mailingSiteHomeStreet2').value + "\n" + document.getElementById('mailingSiteHomeCity').value + ", " + state + " " + document.getElementById('mailingSiteHomeZipCode').value
-        navigator.clipboard.writeText(copyText);
-        snackBar(copyText);
-    } else {
-        let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingState').value)
-        let copyText = providerName + "\n" + document.getElementById('mailingStreet1').value + " " + document.getElementById('mailingStreet2').value + "\n" + document.getElementById('mailingCity').value + ", " + state + " " + document.getElementById('mailingZipCode').value
-        navigator.clipboard.writeText(copyText);
-        snackBar(copyText);
-    };
-};
+    // let providerData = document.getElementById('providerData'), providerType = providerData.children[3].children[0].childNodes[2].textContent.trim(), providerName = providerData.children[0].childNodes[4].textContent.trim()
+    // if ( ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) ) { providerName = nameFuncs.commaNameReorder(providerName) }
+    // if (document.getElementById('addrBillFormDisplay').value === "Site/Home") {
+    //     let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingSiteHomeState').value)
+    //     let copyText = providerName + "\n" + document.getElementById('mailingSiteHomeStreet1').value + " " + document.getElementById('mailingSiteHomeStreet2').value + "\n" + document.getElementById('mailingSiteHomeCity').value + ", " + state + " " + document.getElementById('mailingSiteHomeZipCode').value
+    //     navigator.clipboard.writeText(copyText);
+    //     snackBar(copyText);
+    // } else {
+    //     let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingState').value)
+    //     let copyText = providerName + "\n" + document.getElementById('mailingStreet1').value + " " + document.getElementById('mailingStreet2').value + "\n" + document.getElementById('mailingCity').value + ", " + state + " " + document.getElementById('mailingZipCode').value
+    //     navigator.clipboard.writeText(copyText);
+    //     snackBar(copyText);
+    // };
+}; // unused function, designed for provider addresses;
 function copy(clipText, sbText, sbTitle, sbAlign) {
     navigator.clipboard.writeText(clipText)
     sbText?.length && snackBar(sbText ?? '', sbTitle ?? '', sbAlign ?? '')
