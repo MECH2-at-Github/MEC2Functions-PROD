@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.66
+// @version      0.5.67
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -1697,15 +1697,15 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                 alertDetailRow.insertAdjacentHTML('beforeend', '<button type="button" id="doMfipCheck" class="cButton" tabindex="-1">Check MFIP Alerts</button>')
                 document.getElementById('doMfipCheck').addEventListener( 'click', () => checkMfipResults(checkCashArray) )
                 function checkMfipResults(checkMFIPArray) {
-                    forAwaitMultiCaseEval(checkMFIPArray, "CaseOverview").then(multiCaseResult => {
-                        for (let [thisCase, thisCaseData] of multiCaseResult) {
-                            let programTable = thisCaseData[0]
+                    forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(checkMFIPArray) {
+                        for (let thisCase in checkMFIPArray) {
+                            let programTable = checkMFIPArray[thisCase][0]
                             for (let row in programTable) {
                                 if ( ["MFIP", "DWP"].includes(programTable[row].programNameHistory) ) {
                                     let mfipStatus = programTable[row].programNameHistory + ': ' + programTable[row].programStatusHistory
                                     let ccapStatus = ' | CCAP: ' + programTable[0].programNameHistory
                                     let inactiveDate = programTable[row].programStatusHistory === "Inactive" ? ' ' + programTable[row].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : ''
-                                    cashAlertResults[thisCase] = { ...cashAlertResults[thisCase], mfipStatus, inactiveDate, ccapStatus }
+                                    cashAlertResults[thisCase] = { ...cashAlertResults[thisCase], mfipStatus: mfipStatus, inactiveDate: inactiveDate, ccapStatus: ccapStatus }
                                     break
                                 }
                             }
