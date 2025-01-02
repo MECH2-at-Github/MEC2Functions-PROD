@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.67
+// @version      0.5.68
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -139,8 +139,8 @@ const newFeatureNotice = {
 }; // function_and_values
 newFeatureNotice.noticeToUsersBuildHTML();
 //
-const rederrortextContent = [...document.querySelectorAll('strong.rederrortext')].map(ele => ele.textContent);
-const noResultsForCase = rederrortextContent?.some(ele => ele.includes('No results for case'));
+const rederrortextContent = [...document.querySelectorAll('strong.rederrortext'), ...document.querySelectorAll('.error_alertbox_new > strong')].map(ele => ele.textContent);
+const noResultsForCase = rederrortextContent?.find(ele => ele.includes('No results for case'));
 const pageWrap = document.getElementById('page-wrap'), save = document.getElementById('save'), quit = document.getElementById('quit');
 const editMode = (!pageWrap && !noResultsForCase), appModeNotEdit = (quit && save?.disabled);
 const iFramed = window.location !== window.parent.location;
@@ -777,6 +777,7 @@ const dateFuncs = {
     dayInMs: 86400000,
     addDays(date, days) { return sanitize.date(date, "number") + (days * this.dayInMs) },
     dateDiffInDays(a, b) {
+        if (!a) { return }
         a = sanitize.date(a, "number")
         b = b === undefined ? Date.now() : sanitize.date(b, "number")
         return Math.abs(Math.floor((b - a) / this.dayInMs))
@@ -992,7 +993,7 @@ const actualDate = {
     dateField: document.getElementById('actualDate') ?? document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate, #applicationReceivedDate, #bSfEffectiveDate') ?? document.getElementById('effectiveDate') ?? undefined,
     invalidDateWarning: '<span id="actualDateTooltip" class="tooltips" style="height: 1lh;"><span class="tooltips-text tooltips-bottomleft narrow" style="visibility: visible; opacity: 1;">Warning: Date not valid.</span></span>',
     notInBWPwarning: '<span id="actualDateTooltip" class="tooltips" style="height: 1lh;"><span class="tooltips-text tooltips-bottomleft narrow" style="visibility: visible; opacity: 1;">Warning: Date not in the current period.</span></span>',
-    actualDateNeedsFilling: (this.dateField && this.dateField.disabled === false && !this._actualDateMatch()) ? true : false,
+    // actualDateNeedsFilling: (this.dateField && this.dateField.disabled === false && !this._actualDateMatch()) ? true : false,
     _actualDateMatch() {
         if (!this.dateField) { return undefined };
         let actualDateParsed = sanitize.JSON( sessionStorage.getItem('actualDateSS') )
@@ -1537,124 +1538,109 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     //unminify code: .replace(/(?:{)( \w+: )g, "\n                   $1").replace(/(: {|",|\/,) (\w+: )/g, "$1\n                    $2").replace(/, },\n/g, ",\n                },")
     const alertsByCategories = { //sorted by either likelyhood of occurrence or match priority - priority names should start with "_";
         childsupport: {
-            messages: {
-                ncpAddress: { textIncludes: /Absent Parent of Child Ref #\d{2} has an address/, noteCategory: "NCP Information", noteSummary: [/(?:[A-Za-z\- ]+)(\#\d{2})(?:[a-z\- ]+)(.+?\d{5})(?:\d{0,4})\./, "ABPS of $1 address: $2"], textFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteText: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
-                cpAddress: { textIncludes: /Parentally Responsible Individual Ref #\d{2} add/, noteCategory: "Household Change", noteSummary: [/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[a-z- +]+)(.+)(\d{5})(?:\d{0,4})/i, "HH address per PRISM: $1$2"], omniPageButtons: ["CaseAddress"], },
-                csInterface: { textIncludes: /Complete Child Support Interface win/, noteCategory: "Child Support Note", omniPageButtons: ["CaseCSIA"], },
-                csCSES: { textIncludes: /CSES\: Parentage|CSES\: Residence Address|CSES\: Birthdate|CSES\: Employer\'s name for Absent Parent|CSES\: Child support amount|CSES\: Support payment frequency|Absent Parent of Child Ref #\d{2} has an SSN change to/, noteSummary: "CSES Messages", noteCategory: "Child Support Note", noteText: "doFunctionOnNotes", omniPageButtons: ["delete"], },
-                csDeleteFocus: { textIncludes: /Absent Parent of Child Ref #\d{2} has a new empl|Amount of child support|Child support payment|Disbursed child care support|Paternity for Child Ref/, noteCategory: "Child Support Note", omniPageButtons: ["delete"], },
-                nonCoopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is not cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
-                coopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
-                csCpNewEmployer: { textIncludes: /Child support reported new employer for Parentally Responsible Individual/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEmploymentActivity"], },
-                cpNameChange: { textIncludes: /Parentally Responsible Individual Ref #\d{2} reported a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], intendedPerson: true, omniPageButtons: ["CaseMember"], },
-                csRecordsDiffer: { textIncludes: /differs with child support records/, noteCategory: "Child Support Note", omniPageButtons: ["CaseMember", "CaseAddress"], },
-                ncpNameChange: { textIncludes: /Absent Parent of Child Ref #\d{2} has a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z-\# ]+)(\d{2})(?: has a name change to )([a-z\'\-\,\. ]+)(?:\.)/i, "ABPS of M$1 name change: $2"], omniPageButtons: ["CaseCSE"], },
-                employerAddress: { textIncludes: /Complete Employer Address on the Earned Incom/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEarnedIncome"], },
-            },
+            ncpAddress: { textIncludes: /Absent Parent of Child Ref #\d{2} has an address/, noteCategory: "NCP Information", noteSummary: [/(?:[A-Za-z\- ]+)(\#\d{2})(?:[a-z\- ]+)(.+?\d{5})(?:\d{0,4})\./, "ABPS of $1 address: $2"], noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
+            cpAddress: { textIncludes: /Parentally Responsible Individual Ref #\d{2} add/, noteCategory: "Household Change", noteSummary: [/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[a-z- +]+)(.+)(\d{5})(?:\d{0,4})/i, "HH address per PRISM: $1$2"], omniPageButtons: ["CaseAddress"], },
+            csInterface: { textIncludes: /Complete Child Support Interface win/, noteCategory: "Child Support Note", omniPageButtons: ["CaseCSIA"], },
+            csCSES: { textIncludes: /CSES\: Parentage|CSES\: Residence Address|CSES\: Birthdate|CSES\: Employer\'s name for Absent Parent|CSES\: Child support amount|CSES\: Support payment frequency|Absent Parent of Child Ref #\d{2} has an SSN change to/, noteSummary: "CSES Messages", noteCategory: "Child Support Note", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["delete"], },
+            csDeleteFocus: { textIncludes: /Absent Parent of Child Ref #\d{2} has a new empl|Amount of child support|Child support payment|Disbursed child care support|Paternity for Child Ref/, noteCategory: "Child Support Note", omniPageButtons: ["delete"], },
+            nonCoopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is not cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
+            coopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
+            csCpNewEmployer: { textIncludes: /Child support reported new employer for Parentally Responsible Individual/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEmploymentActivity"], },
+            cpNameChange: { textIncludes: /Parentally Responsible Individual Ref #\d{2} reported a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], intendedPerson: true, omniPageButtons: ["CaseMember"], },
+            csRecordsDiffer: { textIncludes: /differs with child support records/, noteCategory: "Child Support Note", omniPageButtons: ["CaseMember", "CaseAddress"], },
+            ncpNameChange: { textIncludes: /Absent Parent of Child Ref #\d{2} has a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z-\# ]+)(\d{2})(?: has a name change to )([a-z\'\-\,\. ]+)(?:\.)/i, "ABPS of M$1 name change: $2"], omniPageButtons: ["CaseCSE"], },
+            employerAddress: { textIncludes: /Complete Employer Address on the Earned Incom/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEarnedIncome"], },
         },
         eligibility: {
-            messages: {
-                unapprovedElig: { textIncludes: /Unapproved results have/, noteCategory: "Other", omniPageButtons: ["CaseEligibilityResultSelection"], },
-                eligWarningInhib: { textIncludes: /Warning messages exist|Eligibility Results have/, noteCategory: "Other", omniPageButtons: ["CaseEditSummary"], },
-                unpaidCopay: { textIncludes: /Failure to pay copayment/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4}) - (\d{2}\/\d{2}\/\d{2,4})/, "Unpaid copay for period $1 - $2"], omniPageButtons: ["FinancialBillingApproval"], noteText: "doFunctionOnNotes", },
-                noProgramSwitch: { textIncludes: /The program switch is not/, noteCategory: "Other", omniPageButtons: ["CaseOverview", "CaseSupportActivity"], },
-            },
+            unapprovedElig: { textIncludes: /Unapproved results have/, noteCategory: "Other", omniPageButtons: ["CaseEligibilityResultSelection"], },
+            eligWarningInhib: { textIncludes: /Warning messages exist|Eligibility Results have/, noteCategory: "Other", omniPageButtons: ["CaseEditSummary"], },
+            unpaidCopay: { textIncludes: /Failure to pay copayment/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4}) - (\d{2}\/\d{2}\/\d{2,4})/, "Unpaid copay for period $1 - $2"], omniPageButtons: ["FinancialBillingApproval"], noteMsgFunc: "doFunctionOnNotes", },
+            noProgramSwitch: { textIncludes: /The program switch is not/, noteCategory: "Other", omniPageButtons: ["CaseOverview", "CaseSupportActivity"], },
         },
         information: {
-            messages: {
-                mailed: { textIncludes: /Redetermination form has been mailed/, noteCategory: "Redetermination", noteSummary: 'doFunction', omniPageButtons: ["autonoteButton"], },
-                noRedet: { textIncludes: /Redetermination has not been received/, noteCategory: "Redetermination", noteSummary: "Closing %0: Redet not complete/received", summaryFetchData: ["CaseOverview:0.0.programBeginDateHistory"], omniPageButtons: ["autonoteButton"], },
-                autoDenied: { textIncludes: /This case has been auto-denied/, noteCategory: "Application", noteSummary: "This case has been auto-denied", omniPageButtons: ["autonoteButton"], },
-                terminatedSA: { textIncludes: /The system auto approved a terminated Service/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
-                homelessApp: { textIncludes: /^Homeless/, noteCategory: "Application", omniPageButtons: ["autonoteButton"], },
-                autoApprovedSA: { textIncludes: /The system auto approved a Service Auth/, noteSummary: "SA for age category change was auto-approved", noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
-                xferStatusChanged: { textIncludes: /changed to In Progress/, noteCategory: "Other", omniPageButtons: ["delete"], },
-                dualAccess: { textIncludes: /Dual access has been initiated/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
-                closeSusp: { textIncludes: /allowed period of suspension expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1"], omniPageButtons: ["autonoteButton"], },
-                closeTI: { textIncludes: /allowed period of temporary ineligibility expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: TI period expires on $1"], omniPageButtons: ["autonoteButton"], },
-                caseTransferring: { textIncludes: /This case is transferring to your Servicing/, noteCategory: "Other", omniPageButtons: ["CaseAddress", "ServicingAgencyIncomingTransfers"], },
-                caseTransferInProgress: { textIncludes: /The transfer status has been changed/, noteCategory: "Other", omniPageButtons: ["delete"], },
-                caseTransferInProgress: { textIncludes: /A new Job Search Tracking window/, noteCategory: "Other", omniPageButtons: ["CasePageSummary"], },
-                servicingEnd: { textIncludes: /The Servicing Ends date/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Servicing Ends date changed to $1"], omniPageButtons: ["autonoteButton"], },
-            },
+            mailed: { textIncludes: /Redetermination form has been mailed/, noteCategory: "Redetermination", noteSummary: 'doFunction', omniPageButtons: ["autonoteButton"], },
+            noRedet: { textIncludes: /Redetermination has not been received/, noteCategory: "Redetermination", noteSummary: "Closing %0: Redet not complete/received", summaryFetchData: ["CaseOverview:0.0.programBeginDateHistory"], omniPageButtons: ["autonoteButton"], },
+            autoDenied: { textIncludes: /This case has been auto-denied/, noteCategory: "Application", noteSummary: "This case has been auto-denied", omniPageButtons: ["autonoteButton"], },
+            terminatedSA: { textIncludes: /The system auto approved a terminated Service/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
+            homelessApp: { textIncludes: /^Homeless/, noteCategory: "Application", omniPageButtons: ["autonoteButton"], },
+            autoApprovedSA: { textIncludes: /The system auto approved a Service Auth/, noteSummary: "SA for age category change was auto-approved", noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
+            xferStatusChanged: { textIncludes: /changed to In Progress/, noteCategory: "Other", omniPageButtons: ["delete"], },
+            dualAccess: { textIncludes: /Dual access has been initiated/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
+            closeSusp: { textIncludes: /allowed period of suspension expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1"], omniPageButtons: ["autonoteButton"], },
+            closeTI: { textIncludes: /allowed period of temporary ineligibility expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: TI period expires on $1"], omniPageButtons: ["autonoteButton"], },
+            caseTransferring: { textIncludes: /This case is transferring to your Servicing/, noteCategory: "Other", omniPageButtons: ["CaseAddress", "ServicingAgencyIncomingTransfers"], },
+            caseTransferInProgress: { textIncludes: /The transfer status has been changed/, noteCategory: "Other", omniPageButtons: ["delete"], },
+            caseTransferInProgress: { textIncludes: /A new Job Search Tracking window/, noteCategory: "Other", omniPageButtons: ["CasePageSummary"], },
+            servicingEnd: { textIncludes: /The Servicing Ends date/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Servicing Ends date changed to $1"], omniPageButtons: ["autonoteButton"], },
         },
         masschange: {
-            messages: {
-                autoCopayApproval: { textIncludes: /Case was auto-approved with a copay decrease/, noteSummary: [/[A-Z0-9\,\.\- ]+ (\$\d+) [A-Z0-9\,\.\- ]+/i, "Elig with copay decrease of $1+ auto-approved"], noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
-            },
+            autoCopayApproval: { textIncludes: /Case was auto-approved with a copay decrease/, noteSummary: [/[A-Z0-9\,\.\- ]+ (\$\d+) [A-Z0-9\,\.\- ]+/i, "Elig with copay decrease of $1+ auto-approved"], noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
         },
         maxis: {
-            messages: {
-                gcReviewDate: { textIncludes: /Good Cause (?:Claim|Review) date/i, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+)(\d{1,2}\/\d{1,2}\/\d{2,4}) to (Blank|\d{1,2}\/\d{1,2}\/\d{2,4})(?:[a-z0-9 ]+.)/i, "Good Cause review date: $1 to $2"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteText: "doFunctionOnNotes", },
-                genGoodCauseChanged: { textIncludes: /Good Cause/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: [/([a-z ]+)(?: for [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteText: "doFunctionOnNotes", },
-                abpsChange: { textIncludes: /for Absent Parent/, noteCategory: "Child Support Note", noteSummary: [/([a-z ]+)(?: for Absent Parent [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], },
-                schoolChanged: { textIncludes: /SCHL Panel|Ver has been changed on the School|Kindergarten|School Type|School Status|Last Grade Completed/, noteCategory: "Other", omniPageButtons: ["delete", "CaseSchool", "CaseEducationActivity"], },
-                childRef: { textIncludes: /for Child Ref/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+)(?: for Child Ref # \d\d has[a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember"], },
-                windowAddedRemoved: { textIncludes: /window [a-z0-9 ]+ been/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+ window)(?:[a-z0-9 ]+ been )([a-z ]+)(?: by.+)/i, "$1: $2"], omniPageButtons: ["autonoteButton", "CaseMember"], },
-                changeReported: { textIncludes: /reported to MAXIS/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+ has been reported to MAXIS)(?:.*)/i, "$1"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseUnearnedIncome"], },
-                csCoop: { textIncludes: /from Not Cooperating to Cooperating/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: "MAXIS: CP is cooperating with CS", omniPageButtons: ["autonoteButton", "CaseCSE"], },
-                csNonCoop: { textIncludes: /from Cooperating to Not Cooperating/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: "MAXIS: CP is not cooperating with CS", omniPageButtons: ["autonoteButton", "CaseCSE"], },
-                marriage: { textIncludes: /Marriage Date|Marital status|Designated Spouse/, noteCategory: "Household Change", noteSummary: "Marriage alerts from MAXIS worker", noteText: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseMemberII"], },
-                memberLeft: { textIncludes: /Member Left date/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})./, "REMO: personName left $1"], omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
-                memberJoined: { textIncludes: /Member window for Reference Number/, noteCategory: "Household Change", intendedPerson: true, noteSummary: 'doFunction', omniPageButtons: ["CaseNotes", "CaseMember"], },
-                childRemoved: { textIncludes: /Child's Reference Number has been removed/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseParent", "CaseRemoveMember"], },
-                childCseRemoved: { textIncludes: /Child Ref Nbr \d{2} has been removed/, noteCategory: "Other", omniPageButtons: ["CaseCSE", "CaseRemoveMember"], },
-                dateOfDeath: { textIncludes: /Date of Death/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseMember"], },
-                remoPanelAdded: { textIncludes: /Remo Panel has been added/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
-                schoolPanelAdded: { textIncludes: /SCHL Panel|School Type/, noteCategory: "Other", omniPageButtons: ["CaseNotes", "CaseSchool", "CaseEducationActivity"], },
-                livingSituation: { textIncludes: /Living Situation has been/, noteCategory: "Other", omniPageButtons: ["delete"], },
-                disabilityStart: { textIncludes: /Disability start date/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["delete", "CaseDisability"], },
-                residenceAddress: { textIncludes: /Residence Address has been/, noteCategory: "Household Change", noteSummary: "Residence address changed by MAXIS worker", textFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteText: "doFunctionOnNotes", pageFilter: "", omniPageButtons: ["autonoteButton", "CaseAddress"], },
-                mailingAddress: { textIncludes: /Mailing Address has been/, noteCategory: "Household Change", noteSummary: "Mailing address changed by MAXIS worker", textFetchData: ["CaseAddress:0.0.mailingStreet1", "CaseAddress:0.0.mailingStreet2", "CaseAddress:0.0.mailingCity", ], noteText: "doFunctionOnNotes", pageFilter: "", omniPageButtons: ["autonoteButton", "CaseAddress"], },
-                // unemployment: { textIncludes: /Unemployment Insurance reported/, noteCategory: "Other", omniPageButtons: ["CaseUnearnedIncome"], },
-                // reportedToMaxis: { textIncludes: /reported to MAXIS/, noteCategory: "Other", omniPageButtons: ["CaseNotes"], },
-                // memberVerChanged: { textIncludes: /Verification has been changed on the Member window/, noteCategory: "Other", omniPageButtons: ["CaseMember",], },
-                // memberIIVerChanged: { textIncludes: /has been changed on the Member II/, noteCategory: "Other", omniPageButtons: ["CaseMemberII",], },
-                verSourceChanged: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+ on the )([a-z]+)(?: window from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "Maxis: $1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
-                // hasBeenChanged: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+)(?: has[a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
-                verSsnChanged: { textIncludes: /SSN has been changed|SSN Verification has been changed|Paternity for Child Ref|Last Grade Completed/, noteCategory: "Other", omniPageButtons: ["delete"], },
-            },
+            gcReviewDate: { textIncludes: /Good Cause (?:Claim|Review) date/i, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+)(\d{1,2}\/\d{1,2}\/\d{2,4}) to (Blank|\d{1,2}\/\d{1,2}\/\d{2,4})(?:[a-z0-9 ]+.)/i, "Good Cause review date: $1 to $2"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteMsgFunc: "doFunctionOnNotes", },
+            genGoodCauseChanged: { textIncludes: /Good Cause/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: [/([a-z ]+)(?: for [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteMsgFunc: "doFunctionOnNotes", },
+            abpsChange: { textIncludes: /for Absent Parent/, noteCategory: "Child Support Note", noteSummary: [/([a-z ]+)(?: for Absent Parent [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], },
+            schoolChanged: { textIncludes: /SCHL Panel|Ver has been changed on the School|Kindergarten|School Type|School Status|Last Grade Completed/, noteCategory: "Other", omniPageButtons: ["delete", "CaseSchool", "CaseEducationActivity"], },
+            childRef: { textIncludes: /for Child Ref/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+)(?: for Child Ref # \d\d has[a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember"], },
+            changeReported: { textIncludes: /reported to MAXIS/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+ has been reported to MAXIS)(?:.*)/i, "$1"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseUnearnedIncome"], },
+            csCoop: { textIncludes: /from Not Cooperating to Cooperating/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: "MAXIS: CP is cooperating with CS", omniPageButtons: ["autonoteButton", "CaseCSE"], },
+            csNonCoop: { textIncludes: /from Cooperating to Not Cooperating/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: "MAXIS: CP is not cooperating with CS", omniPageButtons: ["autonoteButton", "CaseCSE"], },
+            marriage: { textIncludes: /Marriage Date|Marital status|Designated Spouse/, noteCategory: "Household Change", noteSummary: "Marriage alerts from MAXIS worker", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseMemberII"], },
+            memberLeft: { textIncludes: /Member Left date/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})./, "REMO: personName left $1"], omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
+            memberJoined: { textIncludes: /Member window for Reference Number/, noteCategory: "Household Change", intendedPerson: true, noteSummary: 'doFunction', omniPageButtons: ["CaseNotes", "CaseMember"], },
+            childRemoved: { textIncludes: /[Child\'s Reference Number has been removed|Parent window has been added]/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseParent", "CaseRemoveMember"], },
+            childCseRemoved: { textIncludes: /Child Ref Nbr \d{2} has been removed/, noteCategory: "Other", omniPageButtons: ["CaseCSE", "CaseRemoveMember"], },
+            dateOfDeath: { textIncludes: /Date of Death/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseMember"], },
+            remoPanelAdded: { textIncludes: /Remo Panel has been added/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
+            schoolPanelAdded: { textIncludes: /SCHL Panel|School Type/, noteCategory: "Other", omniPageButtons: ["CaseNotes", "CaseSchool", "CaseEducationActivity"], },
+            livingSituation: { textIncludes: /Living Situation has been/, noteCategory: "Other", omniPageButtons: ["delete"], },
+            disabilityStart: { textIncludes: /Disability start date/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["delete", "CaseDisability"], },
+            residenceAddress: { textIncludes: /Residence Address has been/, noteCategory: "Household Change", noteSummary: "Residence address changed by MAXIS worker", noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
+            mailingAddress: { textIncludes: /Mailing Address has been/, noteCategory: "Household Change", noteSummary: "Mailing address changed by MAXIS worker", noteMsgFetchData: ["CaseAddress:0.0.mailingStreet1", "CaseAddress:0.0.mailingStreet2", "CaseAddress:0.0.mailingCity", ], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
+            // unemployment: { textIncludes: /Unemployment Insurance reported/, noteCategory: "Other", omniPageButtons: ["CaseUnearnedIncome"], },
+            // reportedToMaxis: { textIncludes: /reported to MAXIS/, noteCategory: "Other", omniPageButtons: ["CaseNotes"], },
+            // memberVerChanged: { textIncludes: /Verification has been changed on the Member window/, noteCategory: "Other", omniPageButtons: ["CaseMember",], },
+            // memberIIVerChanged: { textIncludes: /has been changed on the Member II/, noteCategory: "Other", omniPageButtons: ["CaseMemberII",], },
+            windowAddedRemoved: { textIncludes: /window [a-z0-9 ]+ been/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+ window)(?:[a-z0-9 ]+ been )([a-z ]+)(?: by.+)/i, "$1: $2"], omniPageButtons: ["autonoteButton", "CaseMember"], },
+            verMultiChanged: { textIncludes: /SSN has been changed|SSN Verification has been changed|Paternity for Child Ref|Last Grade Completed/, noteCategory: "Other", omniPageButtons: ["delete"], },
+            verSourceChanged: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+ on the )([a-z]+)(?: window from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "Maxis: $1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
+            // hasBeenChanged: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+)(?: has[a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
         },
         parisinterstate: {
-            messages: {
-                parisMatch: { textIncludes: /PARIS/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
-            },
+            parisMatch: { textIncludes: /PARIS/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
         },
         periodicprocessing: {
-            messages: {
-                jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Job search hours end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
-                missingKindergarten: { textIncludes: /Member missing Kindergarten/, noteCategory: "Other", omniPageButtons: ["CaseSchool"], },
-                ageCategory: { textIncludes: /Member turned/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember"], },
-                tyExpires: { textIncludes: /The allowed time on Transition Year will expi/, noteCategory: "Other", noteSummary: [/(?:[a-z ]+)(\d{2}\/\d{2}\/\d{2,4})(?:[a-z\. ]+)/i, "Approved TY to BSF elig results eff $1"], pageFilter: "", omniPageButtons: ["FundingAvailability"], },
-                extendedEligExpiring: { textIncludes: /activity extended eligibility/, noteCategory: "Activity Change", noteSummary: [/The (\w+)(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseEmploymentActivity", "CaseSupportActivity"], },
-                homelessExpiring: { textIncludes: /The Homeless 3 month period will expire/, noteCategory: "Application", noteSummary: [/(?:[A-Za-z0-9 ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI"], omniPageButtons: ["autonoteButton", "CaseAction"], },
-                homelessMissing: { textIncludes: /Homeless case has one or more missing/, noteCategory: "Application", noteSummary: "Homeless case has missing verifications", omniPageButtons: ["autonoteButton"], },
-                goodCauseReview: { textIncludes: /The Next Good Cause Review/, noteCategory: "Child Support Note", omniPageButtons: ["autonoteButton"], },
-                disabilityExpires: { textIncludes: /The allowed disability period/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseDisability"], },
-            },
+            jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Job search hours end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
+            missingKindergarten: { textIncludes: /Member missing Kindergarten/, noteCategory: "Other", omniPageButtons: ["CaseSchool"], },
+            ageCategory: { textIncludes: /Member turned/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember"], },
+            tyExpires: { textIncludes: /The allowed time on Transition Year will expi/, noteCategory: "Other", noteSummary: [/(?:[a-z ]+)(\d{2}\/\d{2}\/\d{2,4})(?:[a-z\. ]+)/i, "Approved TY to BSF elig results eff $1"], omniPageButtons: ["FundingAvailability"], },
+            extendedEligExpiring: { textIncludes: /activity extended eligibility/, noteCategory: "Activity Change", noteSummary: [/The (\w+)(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseEmploymentActivity", "CaseSupportActivity"], },
+            homelessExpiring: { textIncludes: /The Homeless 3 month period will expire/, noteCategory: "Application", noteSummary: [/(?:[A-Za-z0-9 ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI"], omniPageButtons: ["autonoteButton", "CaseAction"], },
+            homelessMissing: { textIncludes: /Homeless case has one or more missing/, noteCategory: "Application", noteSummary: "Homeless case has missing verifications", omniPageButtons: ["autonoteButton"], },
+            goodCauseReview: { textIncludes: /The Next Good Cause Review/, noteCategory: "Child Support Note", omniPageButtons: ["autonoteButton"], },
+            disabilityExpires: { textIncludes: /The allowed disability period/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseDisability"], },
         },
         provider: {
-            messages: {
-                parentAwareRatingStartEnd: { textIncludes: /Parent Aware/, noteCategory: "Provider Change", omniPageButtons: ["CaseServiceAuthorizationApproval"], },
-                providerUnsafe: { textIncludes: /Provider has been deactivated for unsafe care./, noteCategory: "Provider Change", noteSummary: "Provider has been deactivated for unsafe care.", fetchData: ["CaseServiceAuthorizationOverview:1"], pageFilter: "Provider No Longer Eligible", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
-                providerDeactivatedRenewal: { textIncludes: /Provider has been deactivated.  Renewal/, noteCategory: "Provider Change", noteSummary: "Provider deactivated. Renewal was not received.", fetchData: ["CaseServiceAuthorizationOverview:1"], pageFilter: "Provider No Longer Eligible", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
-                providerRegistrationClosed: { textIncludes: /Provider's Registration Status is closed/, noteCategory: "Provider Change", noteSummary: "Provider's Registration Status is closed.", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
-                providerRegistrationReactivated: { textIncludes: /Registration for Provider/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
-                providerDeactivatedRegistration: { textIncludes: /Provider has been deactivated. Registration/, noteCategory: "Registration", noteSummary: "Provider deactivated. Reg. pended 30 days.", omniPageButtons: ["autonoteButton", "ProviderRegistrationAndRenewal"], },
-                providerBackgroundStudy: { textIncludes: /Provider background study is due/, noteCategory: "Background Study", omniPageButtons: ["autonoteButton", "ProviderRegistrationAndRenewal"], },
-            },
+            parentAwareRatingStartEnd: { textIncludes: /Parent Aware/, noteCategory: "Provider Change", omniPageButtons: ["CaseServiceAuthorizationApproval"], },
+            providerUnsafe: { textIncludes: /Provider has been deactivated for unsafe care./, noteCategory: "Provider Change", noteSummary: "Provider has been deactivated for unsafe care.", fetchData: ["CaseServiceAuthorizationOverview:1"], pageFilter: "Provider No Longer Eligible", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
+            providerDeactivatedRenewal: { textIncludes: /Provider has been deactivated.  Renewal/, noteCategory: "Provider Change", noteSummary: "Provider deactivated. Renewal was not received.", fetchData: ["CaseServiceAuthorizationOverview:1"], pageFilter: "Provider No Longer Eligible", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
+            providerRegistrationClosed: { textIncludes: /Provider's Registration Status is closed/, noteCategory: "Provider Change", noteSummary: "Provider's Registration Status is closed.", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
+            providerRegistrationReactivated: { textIncludes: /Registration for Provider/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
+            providerDeactivatedRegistration: { textIncludes: /Provider has been deactivated. Registration/, noteCategory: "Registration", noteSummary: "Provider deactivated. Reg. pended 30 days.", omniPageButtons: ["autonoteButton", "ProviderRegistrationAndRenewal"], },
+            providerBackgroundStudy: { textIncludes: /Provider background study is due/, noteCategory: "Background Study", omniPageButtons: ["autonoteButton", "ProviderRegistrationAndRenewal"], },
         },
         serviceauthorization: {
-            messages: {
-                unapprovedSA: { textIncludes: /Unapproved Service Authorization results/, noteCategory: "Provider Change", omniPageButtons: ["CaseServiceAuthorizationApproval", "CaseServiceAuthorizationOverview"], },
-            },
+            unapprovedSA: { textIncludes: /Unapproved Service Authorization results/, noteCategory: "Provider Change", omniPageButtons: ["CaseServiceAuthorizationApproval", "CaseServiceAuthorizationOverview"], },
         },
         workercreated: {
-            messages: {
-                approveMFIPclosing: { textIncludes: /Approve new results/, noteCategory: "Other", noteSummary: "Approved CCMF to TY switch", omniPageButtons: ["CaseCreateEligibilityResults"], },
-            },
+            approveMFIPclosing: { textIncludes: /Approve new results/, noteCategory: "Other", noteSummary: "Approved CCMF to TY switch", omniPageButtons: ["CaseCreateEligibilityResults"], },
         },
     }
+    const omniPages = new Map([
+        ["CaseAction", "Case Action",], ["CaseAddress", "Address"], ["CaseCreateEligibilityResults", "Create Elig"], ["CaseCSE", "CSE"], ["CaseCSIA", "CSIA"], ["CaseDisability", "Disa"], ["CaseEarnedIncome", "Earned"], ["CaseEditSummary", "Edits"],
+        ["CaseEducationActivity", "Education"], ["CaseEmploymentActivity", "Employment"], ["CaseMember", "Member"], ["CaseMemberII", "Member II"], ["CaseParent", "Parent"], ["CaseRemoveMember", "Remo"], ["CaseSchool", "School"], ["CaseServiceAuthorizationApproval", "SA:A"],
+        ["CaseSupportActivity", "Support"], ["CaseUnearnedIncome", "Unearned"], ["FinancialBillingApproval", "Billing"], ["FundingAvailability", "Funding"], ["ServicingAgencyIncomingTransfers", "Transfer"],
+    ])
     function whatAlertType(caseOrProviderTypeValue) {
         switch (caseOrProviderTypeValue) {
             case "Case": return { page: "CaseNotes.htm", type: "Case", numberId: 'caseNumber', numberId: document.getElementById('caseNumber').value, parameters: getListAndAlertTableParameters.case() };
@@ -1697,6 +1683,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                 alertDetailRow.insertAdjacentHTML('beforeend', '<button type="button" id="doMfipCheck" class="cButton" tabindex="-1">Check MFIP Alerts</button>')
                 document.getElementById('doMfipCheck').addEventListener( 'click', () => checkMfipResults(checkCashArray) )
                 function checkMfipResults(checkMFIPArray) {
+
                     forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(checkMFIPArray) {
                         for (let thisCase in checkMFIPArray) {
                             let programTable = checkMFIPArray[thisCase][0]
@@ -1833,9 +1820,9 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                 case "Provider": if (providerCategoriesButtonsDiv.classList.contains('hidden')) { caseCategoriesButtonsDiv.classList.add('hidden'); providerCategoriesButtonsDiv.classList.remove('hidden'); } break;
             }
         }
-        document.getElementById('baseCategoryButtonsDiv').addEventListener('click', ele => {
-            if (ele.target.nodeName !== "BUTTON") { return }
-            window.open('/ChildCare/' + ele.target.id + '.htm' + whatAlertType(caseOrProviderType.value).parameters, '_blank')
+        document.getElementById('baseCategoryButtonsDiv').addEventListener('click', clickEvent => {
+            if (clickEvent.target.nodeName !== "BUTTON") { return }
+            window.open('/ChildCare/' + clickEvent.target.id + '.htm' + whatAlertType(caseOrProviderType.value).parameters, '_blank')
         })
 // SECTION_END Alert_Type_Based_Action
 
@@ -1847,14 +1834,8 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         // noteCategory: Notes page category;
         // noteSummary: Note page summary. Regex to replace text; %# to auto-replace text with summaryFetchedData; omit to use first 50 characters of noteMessage;
         // summaryFetchData: Data fetched from another page using evalData();
-        // noteText: if not blank, sends through switch along with textFetchedData; if = "doFunctionOnNotes", __Notes.htm will send the category through a switch;
-        // textFetchData: Data fetched from another page using evalData(); request format: ["pageNameWithoutHtm:key.key.key"]
+        // noteMsgFunc: if not blank, sends through switch. if noteMsgFetchData exists, fetches (eval)Data first; request format: ["pageNameWithoutHtm:key.key.key"]
         // createAlert (not implemented yet, might get moved to __Notes.htm): if true, will open WorkerCreateAlert and auto-fill;
-        const omniPages = new Map([
-            ["CaseAction", "Case Action",], ["CaseAddress", "Address"], ["CaseCreateEligibilityResults", "Create Elig"], ["CaseCSE", "CSE"], ["CaseCSIA", "CSIA"], ["CaseDisability", "Disa"], ["CaseEarnedIncome", "Earned"], ["CaseEditSummary", "Edits"],
-            ["CaseEducationActivity", "Education"], ["CaseEmploymentActivity", "Employment"], ["CaseMember", "Member"], ["CaseMemberII", "Member II"], ["CaseRemoveMember", "Remo"], ["CaseSchool", "School"], ["CaseServiceAuthorizationApproval", "SA:A"],
-            ["CaseSupportActivity", "Support"], ["CaseUnearnedIncome", "Unearned"], ["FinancialBillingApproval", "Billing"], ["FundingAvailability", "Funding"], ["ServicingAgencyIncomingTransfers", "Transfer"],
-        ])
         function groupTableTwoAlerts() {
             let alertsByRowIndex = {}
             for (let index in tableTwoAlerts) {
@@ -1865,7 +1846,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             return alertsByRowIndex
         }
         let tableTwoAlertsGrouped = groupTableTwoAlerts()
-        const noteTextJoinReplace = msgArray => msgArray.join('newline').replace(/\\/g, '').replace(/newline/g, '\n').replace(/Snoozed: [A-Za-z ]+: /g,'')
+        const noteMsgFuncJoinReplace = msgArray => msgArray.join('newline').replace(/\\/g, '').replace(/newline/g, '\n').replace(/Snoozed: [a-z ]+: /ig,'')
         window.addEventListener( "beforeunload", () => localStorage.removeItem("MECH2.note") )
         function identifyAlertAndDoOmnibuttons(selectedAlertTableRow) {
             if (selectedAlertTableRow === undefined) { return undefined };
@@ -1874,7 +1855,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             foundAlert = Object.assign( getMessageTextAndCategory(alertMessage.value, selectedRowCategory.textContent), { selectedAlertTableRow } )
             if (typeof alertsByCategories[foundAlert.messageCategory] !== "object") { return };
             fBaseCategoryButtons()
-            let alertMessagesInCategory = alertsByCategories[foundAlert.messageCategory]?.messages
+            let alertMessagesInCategory = alertsByCategories[foundAlert.messageCategory]
             if (!Object.keys(alertMessagesInCategory).length) { return };
             for (let message in alertMessagesInCategory) {
                 if (alertMessagesInCategory[message]?.textIncludes.test(alertMessage.value) === false) { continue };
@@ -1905,7 +1886,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             let [ , effectiveDate, selectedRowName ] = foundAlert.selectedAlertTableRow.children
             let dateRange = undefined // not yet implemented
             if ("noteSummary" in foundAlert) {
-                if (foundAlert.noteSummary === "doFunction") { foundAlert.noteSummary = noteSummaryFunction({ alertByCategory: foundAlert.messageCategory + ".messages." + foundAlert.message, effectiveDate, selectedRowName }) }
+                if (foundAlert.noteSummary === "doFunction") { foundAlert.noteSummary = noteSummaryFunction({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, effectiveDate, selectedRowName }) }
                 else if (typeof foundAlert.noteSummary === "object") { foundAlert.noteSummary = await noteSummaryReplacement(foundAlert.noteSummary, foundAlert.noteMessage, foundAlert.intendedPerson) }
                 if ("summaryFetchData" in foundAlert) {
                     for await ( let [i, page] of foundAlert.summaryFetchData.entries() ) { // reminder: can't .map() promises;
@@ -1915,16 +1896,16 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                     }
                 }
             } else { foundAlert.noteSummary = foundAlert.noteMessage.slice(0, 50) }
-            if ( "noteText" in foundAlert ) {
-                if ( "textFetchData" in foundAlert ) {
+            if ("noteMsgFunc" in foundAlert) {
+                if ("noteMsgFetchData" in foundAlert) {
                     let textFetchedData = []
-                    for await (let page of foundAlert.textFetchData) {
+                    for await (let page of foundAlert.noteMsgFetchData) {
                         let [ pageName, evalString ] = page.split(":")
                         let fetchedData = await evalData({ caseProviderNumber: oWhatAlertType.numberId, pageName, dateRange, evalString })
                         textFetchedData.push(fetchedData)
-                        foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + ".messages." + foundAlert.message, noteMessage: foundAlert.noteMessage, fetchedDataArray: textFetchedData, alertTableSelectedRow: foundAlert.selectedAlertTableRow}) ?? foundAlert.noteMessage
                     }
-                } else { foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + ".messages." + foundAlert.message, alertTableSelectedRow: foundAlert.selectedAlertTableRow }) ?? foundAlert.noteMessage }
+                    foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, noteMessage: foundAlert.noteMessage, fetchedDataArray: textFetchedData, alertTableSelectedRow: foundAlert.selectedAlertTableRow}) ?? foundAlert.noteMessage
+                } else { foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, alertTableSelectedRow: foundAlert.selectedAlertTableRow }) ?? foundAlert.noteMessage }
             }
             if ("intendedPerson" in foundAlert) { foundAlert.intendedPerson = nameFuncs.commaNameObject(selectedRowName.textContent).first }
             // currently unused and untested // if ("dateRange" in foundAlert) { //     if (Number.isNaN(foundAlert.dateRange)) { return } //     let startDate = document.getElementById('periodBeginDate').value, endDate = document.getElementById('periodEndDate').value //     foundAlert.dateRange = foundAlert.dateRange !== 0 ? foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') : 0 //     if (foundAlert.dateRange !== 0) { foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') } // }
@@ -1936,9 +1917,10 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             foundAlert.numberId = oWhatAlertType.numberId
             return foundAlert
             function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) {
+                console.log(alertByCategory)
                 switch (alertByCategory) {
-                    case "childsupport.messages.csCSES": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('CSES') )
-                    case "childsupport.messages.ncpAddress": {
+                    case "childsupport.csCSES": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('CSES') )
+                    case "childsupport.ncpAddress": {
                         let parentAndNCPAddress = foundAlert.noteSummary + "\n-\nCase Address: " + fetchedDataArray[0]
                         if ((noteMessage).includes(fetchedDataArray[0].slice(0, 12))) {
                             foundAlert.noteSummary = "MATCH: " + foundAlert.noteSummary
@@ -1946,19 +1928,19 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                         }
                         return parentAndNCPAddress
                     }
-                    case "eligibility.messages.unpaidCopay": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Failure') )
-                    case "maxis.messages.gcReviewDate": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
-                    case "maxis.messages.genGoodCauseChanged": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
-                    case "maxis.messages.mailingAddress": return fetchedDataArray[0].length ? foundAlert.noteMessage + "\n-\nMailing Address: " + fetchedDataArray[0] + " " + fetchedDataArray[1] + " " + fetchedDataArray[2] : foundAlert.noteMessage + "\n-\nMailing address removed."
-                    case "maxis.messages.marriage": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => ['Marriag','Marital','Designa'].includes(item.slice(0, 7)) )
-                    case "maxis.messages.residenceAddress": return foundAlert.noteMessage + "\n-\nResidence Address: " + fetchedDataArray[0]
+                    case "eligibility.unpaidCopay": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Failure') )
+                    case "maxis.gcReviewDate": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
+                    case "maxis.genGoodCauseChanged": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
+                    case "maxis.mailingAddress": return fetchedDataArray[0].length ? foundAlert.noteMessage + "\n-\nMailing Address: " + fetchedDataArray[0] + " " + fetchedDataArray[1] + " " + fetchedDataArray[2] : foundAlert.noteMessage + "\n-\nMailing address removed."
+                    case "maxis.marriage": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => ['Marriag','Marital','Designa'].includes(item.slice(0, 7)) )
+                    case "maxis.residenceAddress": return foundAlert.noteMessage + "\n-\nResidence Address: " + fetchedDataArray[0]
                 }
             }
             function noteSummaryReplacement(noteSummaryArray, msgText, personName) { return msgText.replace(noteSummaryArray[0], noteSummaryArray[1]).replace("personName", personName) }
             function noteSummaryFunction({ alertByCategory, effectiveDate, selectedRowName } = {}) {
                 switch (alertByCategory) {
-                    case "maxis.messages.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
-                    case "information.messages.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
+                    case "maxis.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
+                    case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
                 }
             }
         };
@@ -2130,7 +2112,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                 clickEvent.preventDefault()
                 window.open("/ChildCare/" + providerPageName + ".htm?providerId=" + ccpEle.providerId.value, "_blank");
             })
-        }()
+        }();
         evalData().then(({ 0: childProvidersData} = {}) => {
             if (!childProvidersData) { return };
             childProvidersData.forEach(providerData => { childProviderTableTbodyRows[providerData.rowIndex].children[2].innerHTML = '<a href="https://mec2.childcare.dhs.state.mn.us/ChildCare/ProviderOverview.htm?providerId=' + providerData.providerId + '" target="_blank">' + sanitize.evalText(providerData.providerName) + '</a>' })
@@ -2170,7 +2152,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                 childProviderSaaButtons.insertAdjacentHTML("afterbegin", "<button type='button' id='copyStart' class='form-button hidden'>Copy Start</button><button type='button' id='copyEndings' class='form-button hidden'>Copy Endings</button>")
                 let copyStartButton = document.getElementById('copyStart'), copyEndingsButton = document.getElementById('copyEndings')
                 function checkForDates() {
-                    ccpEle.carePeriodBeginDate?.value && !ccpEle.carePeriodEndDate?.value ? copyStartButton.classList.remove('hidden') : copyStartButton.classList.add('hidden')
+                    (ccpEle.carePeriodBeginDate?.value && !ccpEle.carePeriodEndDate?.value) ? copyStartButton.classList.remove('hidden') : copyStartButton.classList.add('hidden')
                     ccpEle.carePeriodEndDate?.value ? copyEndingsButton.classList.remove('hidden') : copyEndingsButton.classList.add('hidden')
                 }
                 copyStartButton.addEventListener('click', () => copyStartToSS() )
@@ -2227,6 +2209,11 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             })
         }
     }()
+    let licensedOnlyElements = [ 'childCareMatchesEmployer', 'primaryBeginDate', 'primaryEndDate', 'secondaryBeginDate', 'secondaryEndDate', ]
+    let lnlOnlyElementsToNo = [ 'providerLivesWithChild', 'careInHome', 'relatedToChild' ]
+        //[ ccpEle.providerLivesWithChild, ccpEle.careInHome, ccpEle.relatedToChild ]
+    let lnlOnlyElements = [ 'providerLivesWithChild', 'careInHome', 'relatedToChild', 'exemptionReason', 'exemptionPeriodBeginDate', 'formSent', 'signedFormReceived', 'providerLivesWithChildBeginDate', 'providerLivesWithChildEndDate', 'careInHomeOfChildBeginDate', 'careInHomeOfChildEndDate' ]
+        //[ ccpEle.providerLivesWithChild, ccpEle.careInHome, ccpEle.relatedToChild, ccpEle.exemptionReason, ccpEle.exemptionPeriodBeginDate, ccpEle.formSent, ccpEle.signedFormReceived, ccpEle.providerLivesWithChildBeginDate, ccpEle.providerLivesWithChildEndDate, ccpEle.careInHomeOfChildBeginDate, ccpEle.careInHomeOfChildEndDate ]
     // SECTION_END Open provider information page from Child's Provider page
     function childProviderPage() {
         if (!ccpEle.providerType.value) { return };
@@ -2237,92 +2224,112 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         }
         for (let fields in beginEndFields) { !beginEndFields[fields].start?.value && beginEndFields[fields].end?.setAttribute('tabindex', '-1') }
         if (ccpEle.providerType.value !== "Legal Non-licensed") {
-            let setLnlItemsToNo = [ ccpEle.providerLivesWithChild, ccpEle.careInHome, ccpEle.relatedToChild ]
-            let setLnlItems = [ ccpEle.providerLivesWithChild, ccpEle.careInHome, ccpEle.relatedToChild, ccpEle.exemptionReason, ccpEle.exemptionPeriodBeginDate, ccpEle.formSent, ccpEle.signedFormReceived, ccpEle.providerLivesWithChildBeginDate, ccpEle.providerLivesWithChildEndDate, ccpEle.careInHomeOfChildBeginDate, ccpEle.careInHomeOfChildEndDate ]
+            document.querySelector('.lnlData')?.setAttribute('style', 'display: none;')
             if (editMode) {//not LNL
-                let checkBoxes = [...document.getElementById('reporterTypeCheckboxes').children]
-                let boxesChecked = [...checkBoxes].filter(ele => ele.checked).forEach(ele2 => { ele2.tabindex = '-1' })
-                }
-            setLnlItems.forEach(element => {
-                element.tabindex = '-1'
-                element.parentElement.parentElement.style.opacity = "0.5"
-                if (setLnlItemsToNo.includes(element) ) { element.value = "N" }
-            })
             // evalData(ccpProviderId.value, 'ProviderParentAware', undefined, '0.parentAwareType', 'provider').then( result => {}) BLORG
+                evalData({ caseProviderNumber: ccpEle.providerId.value, pageName: 'ProviderParentAware', evalString: '0.0.parentAwareType', caseOrProvider: 'provider', }).then(parentAwareResult => {
+                    if (!parentAwareResult) { return };
+                    ccpEle.hoursOfCareAuthorized.parentElement.parentElement.parentElement.insertAdjacentHTML('beforeend', `
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 textInherit">
+                      <label for="parentAwareRating" class="control-label textInherit col-md-4 col-lg-4 textR">Parent Aware: </label>
+                      <div class="col-lg-3 col-md-3 textInherit">
+                        <input id="parentAwareRating" name="parentAwareRating" class="form-control" title="Parent Aware Rating" type="text" value="" disabled="disabled">
+                    </div></div>`)
+                    document.getElementById('parentAwareRating').value = parentAwareResult
+                })
+                let checkBoxes = [...document.getElementById('reporterTypeCheckboxes').children];
+                let boxesChecked = [...checkBoxes].filter(ele => ele.checked).forEach(ele2 => { ele2.tabindex = '-1' });
+            }
+            lnlOnlyElements.forEach(element => {
+                ccpEle[element].parentElement.parentElement.style.opacity = "0.3"
+                if (!editMode) { return }
+                ccpEle[element].tabindex = '-1'
+                if (lnlOnlyElementsToNo.includes(element) ) { ccpEle[element].value = "N" }
+            })
+            licensedOnlyElements.forEach(element => {
+                ccpEle[element].parentElement.parentElement.style.opacity = "1"
+                if (!editMode) { return }
+                ccpEle[element].removeAttribute('tabIndex')
+            })
             // evalData(ccpProviderId.value, 'ProviderAccreditation', undefined, '0.parentAwareType', 'provider').then(result => {})
             // evalData({ caseProviderNumber: '', pageName: '', dateRange: '', evalString: '', caseOrProvider: '', })
         } else if (ccpEle.providerType.value === "Legal Non-licensed") {//is LNL
-            let lnlReportingTypeBox = document.querySelector('#reporterTypeCheckboxes > input[value="LNL Provider Used"]')
-            !lnlReportingTypeBox.checked && lnlReportingTypeBox.click()
-            let naBox = document.querySelector('#reporterTypeCheckboxes > input[value="Not Applicable"]')
-            naBox.checked && naBox.click()
+            document.querySelector('.lnlData')?.setAttribute('style', 'display: block;')
+            document.querySelector('#reporterTypeCheckboxes > input[value="LNL Provider Used"]').checked = true
+            document.querySelector('#reporterTypeCheckboxes > input[value="Not Applicable"]').checked = false
+            lnlOnlyElements.forEach(element => {
+                ccpEle[element].parentElement.parentElement.style.opacity = "1"
+                if (!editMode) { return }
+                ccpEle[element].removeAttribute('tabIndex')
+            })
+            licensedOnlyElements.forEach(element => {
+                ccpEle[element].parentElement.parentElement.style.opacity = "0.3"
+                if (!editMode) { return }
+                ccpEle[element].tabindex = '-1'
+            })
             lnlTraining()
         }
     };
-    let lnlOnly = [ ccpEle.providerLivesWithChildBeginDate, ccpEle.careInHome, ccpEle.relatedToChild, ccpEle.providerLivesWithChild, ccpEle.formSent, ccpEle.signedFormReceived, ccpEle.exemptionReason, ccpEle.exemptionPeriodBeginDate, ]
-    let licensedOnly = [ ccpEle.childCareMatchesEmployer, ccpEle.primaryBeginDate, ccpEle.primaryEndDate, ccpEle.secondaryBeginDate, ccpEle.secondaryEndDate, ]
     async function lnlTraining() {
         ccpEle.relatedToChild.addEventListener( 'change', checkIfRelated )
         let ccpProvIdValue = ccpEle.providerId.value
         let lnlDataProvId = "lnlData" + ccpProvIdValue, lnlDataProvIdEle = document.getElementById(lnlDataProvId)
         let providerTypeFormGroup = ccpEle.providerType.closest('.row')
-        let lnlSS = sessionStorage.getItem('lnlSS.' + ccpProvIdValue)
-        if (lnlSS) {
+        let lnlSS = sessionStorage.getItem('lnlSS.' + ccpProvIdValue) ?? ""
+        !function lnlHTML() {
+            if (lnlDataProvIdEle) { return };
             let lnlDiv = providerTypeFormGroup.insertAdjacentHTML('afterend', '<div class="lnlData" id=' + lnlDataProvId + '>' + lnlSS + '</div>')
-            checkIfRelated()
-            return false
-        }
-        if (!lnlDataProvIdEle) {
-            let lnlDiv = providerTypeFormGroup.insertAdjacentHTML('afterend', '<div class="lnlData" id=' + lnlDataProvId + '></div>')
+            if (lnlSS) { checkIfRelated(); return; }
             $("#" + lnlDataProvId).load('/ChildCare/ProviderTraining.htm?providerId=' + ccpProvIdValue + ' #providerTrainingData', () => {//jquery
                 let ptd = document.querySelector('#' + lnlDataProvId + ' > #providerTrainingData')
                 ptd.querySelector('div.form-group:has(input.form-button)').remove()
                 ptd.querySelectorAll('h4, br').forEach( ele => ele.remove() )
                 ptd.querySelectorAll('input, select').forEach(ele => { ele.disabled = true; ele.classList.add('borderless') })
                 ptd.querySelectorAll('div.col-lg-2').forEach( ele => ele.removeAttribute('style') )
-                let trainingDateNodes = ptd.querySelectorAll('.panel-box-format input[id]')
+                // let trainingDateNodes = ptd.querySelectorAll('.panel-box-format input[id]')
                 let trainingMap = new Map([
                     ["cardio", { name: "CPR", verified: "cardioVerification" }],
                     ["firstAid", { name: "First Aid", verified: "firstAidVerification" }],
-                    ["suids", { name: "SUIDS", verified: "suidsVerification", related: "Yes", careForRelated: "Any related child < 1 year" }],
-                    ["headTrauma", { name: "AHT", verified: "headTraumaVerification", related: "Yes", careForRelated: "Any related child < 5 years" }],
-                    ["orientation", { name: "Supervising for Safety", related: "No", verified: "orientationVerification", careForRelated: "All related children instead of AHT if age < 5 years and SUIDS if age < 1 year", careForUnrelated: "All unrelated children age < 5 years, all unrelated children age > 5 years after 90 days" }],
+                    ["suids", { name: "SUIDS", verified: "suidsVerification", related: "Yes", careForRelated: "Related child < 1 year" }],
+                    ["headTrauma", { name: "AHT", verified: "headTraumaVerification", related: "Yes", careForRelated: "Related child < 5 years" }],
+                    ["orientation", { name: "Supervising for Safety", verified: "orientationVerification", related: "No", careForRelated: "Related child instead of AHT if age < 5 years or SUIDS if age < 1 year", careForUnrelated: "Required for an unrelated child." }],
                     ["ongoing", { name: "Ongoing Training", verified: "ongoingVerification" }],
                     ["annual", { name: "Annual Inspection", verified: undefined }]
                 ])
-                trainingDateNodes.forEach(ele => {
+                // trainingDateNodes.forEach(ele => {
+                ptd.querySelectorAll('.panel-box-format input[id]').forEach(ele => {
                     let trainingName = ele.id.slice(0, -4)
                     document.querySelector('label[for=' + ele.id + ']').textContent = trainingMap.get(trainingName).name + ": "
-                    // if (ele.value?.length) {
+                    // if (ele.value) {
                     // }
                 })
-                $(ptd.querySelectorAll('.form-group')).unwrap()//jquery
+                // $(ptd.querySelectorAll('.form-group')).unwrap()//jquery
+                ptd.querySelectorAll('.form-group').forEach(ele => doUnwrap(ele))
                 ptd.classList.remove('displayNone')
-                let childUnderFive, childUnderOne
                 let resultsHTML = `
                     <div class="form-group"> <div class="col-lg-12 textInherit">
-                            <label for="registration" class="col-lg-2 control-label textR textInherit marginTop10">Registration:</label>
-                            <div class="col-lg-6 padL0 textInherit">
-                                <div id="registration" type="text" name="registration" title="LNL Registration Status and Effective Date"></div>
-                            </div>
+                        <label for="registration" class="col-lg-2 control-label textR textInherit marginTop10">Registration:</label>
+                        <div class="col-lg-6 padL0 textInherit">
+                          <input class="form-control borderless" id="registration" type="text" name="registration" title="LNL Registration Status and Effective Date"></input>
+                        </div>
                     </div> </div>
                     <div class="form-group"> <div class="col-lg-12 textInherit related" id="hasRelatedCare">
-                            <label for="relatedCare" class="col-lg-2 control-label textR textInherit marginTop10 related">Related Care:</label>
-                            <div class="col-lg-7 padL0 textInherit" style="text-decoration: inherit;">
-                                <div id="relatedCare" type="text" name="relatedCare" class="inline-text related" style="text-decoration: inherit;" title="LNL Related Care Breakdown"></div>
-                                <span class="tooltips">ⓘ
-                                    <span class="tooltips-text tooltips-topleft">Child’s sibling, grandparent, great-grandparent, aunt, or uncle of the child, based on blood relationship, marriage or court decree.</span>
-                                </span>
-                            </div>
+                        <label for="relatedCare" class="col-lg-2 control-label textR textInherit marginTop10 related">Related Care:</label>
+                        <div class="col-lg-7 padL0 textInherit" style="text-decoration: inherit; padding-left: 9px !important;">
+                          <div id="relatedCare" type="text" name="relatedCare" class="inline-text related" style="text-decoration: inherit;" title="LNL Related Care Breakdown"></div>
+                          <span class="tooltips">ⓘ
+                            <span class="tooltips-text tooltips-topleft">Child’s sibling, grandparent, great-grandparent, aunt, or uncle of the child, based on blood relationship, marriage or court decree.</span>
+                          </span>
+                        </div>
                     </div> </div>
                     <div class="form-group"> <div class="col-lg-12 textInherit unrelated" id="hasUnrelatedCare">
-                            <label for="unrelatedCare" class="col-lg-2 control-label textR textInherit marginTop10 unrelated">Unrelated Care:</label>
-                            <div class="col-lg-7 padL0 textInherit">
-                                <div class="inline-text unrelated" id="unrelatedCare" type="text" name="unrelatedCare" title="LNL Unrelated Care Breakdown"></div>
-                                <span class="tooltips">ⓘ
-                                    <span class="tooltips-text tooltips-topleft">Provider is eligible to be paid for up to 90 days without Supervising for Safety training (for children under 5, they must have age related trainings if they haven't completed SfS. The 90 days is NOT tracked by MEC2 automatically.</span>
-                                </span>
-                            </div>
+                        <label for="unrelatedCare" class="col-lg-2 control-label textR textInherit marginTop10 unrelated">Unrelated Care:</label>
+                        <div class="col-lg-7 padL0 textInherit" style="padding-left: 9px !important;">
+                          <div class="inline-text unrelated" id="unrelatedCare" type="text" name="unrelatedCare" title="LNL Unrelated Care Breakdown"></div>
+                          <span class="tooltips">ⓘ
+                            <span class="tooltips-text tooltips-topleft">Provider is eligible to be paid for up to 90 days without Supervising for Safety training (for a child under 5, they must have age related trainings if they haven't completed SfS. The 90 days is NOT tracked by MEC2 automatically.</span>
+                          </span>
+                        </div>
                     </div> </div>
                     `
                 ptd.insertAdjacentHTML('beforeend', resultsHTML)
@@ -2332,20 +2339,14 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                                 </span>
                 `)
                 let registrationArray = evalData({ caseProviderNumber: ccpProvIdValue, pageName: 'ProviderRegistrationAndRenewal', evalString: '0', caseOrProvider: 'provider', }).then(registrationResult => {
-                    for (let registration in registrationResult) {
-                        if (registrationResult[registration].financiallyResponsibleAgency === userCountyObj?.county + ' County') {
-                            let matchedRegistration = registrationResult[registration], registrationResultsArray = [ matchedRegistration.registrationStatus, matchedRegistration.statusEffective ] // status, date
-                            ptd.querySelector('#registration').textContent = registrationResultsArray.join(' ')
-                            return registrationResultsArray
-                        }
-                    }
+                    let matchedRegistration = registrationResult.find(registration => registration.financiallyResponsibleAgency === userCountyObj?.county + ' County') ?? {}
+                    if ("financiallyResponsibleAgency" in matchedRegistration) { ptd.querySelector('#registration').value = matchedRegistration.registrationStatus + ' ' + matchedRegistration.statusEffective }
                 }).catch(err => { console.trace(err) })
                 checkIfRelated()
-                sessionStorage.setItem('lnlSS.' + ccpProvIdValue, document.getElementById(lnlDataProvId).outerHTML)
+                // sessionStorage.setItem('lnlSS.' + ccpProvIdValue, document.getElementById(lnlDataProvId).outerHTML)
             })
-        }
+        }();
         if (lnlDataProvIdEle) {
-            // document.getElementById(lnlDataProvId).classList.remove('hidden')
             checkIfRelated()
             return false
         }
@@ -2354,48 +2355,53 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             ccpEle.unrelatedCare ??= document.getElementById('unrelatedCare')
             ccpEle.hasRelatedCare ??= document.getElementById('hasRelatedCare')
             ccpEle.unrelatedCare.replaceChildren()
-            let todayDate = Date.now()
-            let trainingDates = { ahtDate: '', ahtDateDiff: '', suidsDate: '', suidsDateDiff: '', sfsDate: '', sfsDateDiff: '', }
             let underOne = '<span style="display: inline-block;">Under 1:&nbsp;</span>', underFive = '<span style="display: inline-block;">Under 5:&nbsp;</span>', overFive = '<span style="display: inline-block;">Over 5:&nbsp;</span>'
             let yieldSign = '<div style="background: center center / cover; line-height: 14px;"><span style="background: yellow; color: black;">⚠</span>.&nbsp;</div>'
-            let careStartDate = ccpEle.carePeriodBeginDate.value
             let careBreakdown = { relatedLTfive: "Under 5: ❌. ", relatedLTone: "Under 1: ❌. ", relatedGTfive: "Over 5: ✅", unrelatedLTfive: "<span>Under 5: ❌.&nbsp;</span>", unrelatedLTone: "<span>Under 1: ❌.&nbsp;</span>", unrelatedGTfive: overFive + yieldSign, sfsValue: 0 }
-            trainingDates.sfsDate = document.getElementById('orientationDate'); trainingDates.sfsDateDiff = trainingDates.sfsDate ? dateFuncs.dateDiffInDays(todayDate, trainingDates.sfsDate.value) : ''
-            if (document.getElementById('orientationVerification').value === "Yes") {
-                if (trainingDates.sfsDateDiff > 730) { trainingDates.sfsDate.style = 'color: var(--textColorNegative) !important;'; trainingDates.sfsDateDiff = undefined }
-                else {
-                    careBreakdown.sfsValue = 1
-                    careBreakdown.relatedLTfive = "Under 5: ✅. "
-                    careBreakdown.relatedLTone = "Under 1: ✅. "
-                    careBreakdown.unrelatedLTfive = "<span>Under 5: ✅.&nbsp;</span>"
-                    careBreakdown.unrelatedLTone = "<span>Under 1: ✅.&nbsp;</span>"
-                    careBreakdown.unrelatedGTfive = "<span>Over 5: ✅.</span>"
-                }
+            const lnlTrainings = {
+                elements: {
+                    aht: document.getElementById('headTraumaDate'),
+                    suids: document.getElementById('suidsDate'),
+                    sfs: document.getElementById('orientationDate'),
+                },
+                dateDiff: {},
+                aht: { related: careBreakdown.relatedLTfive, relatedVal: "Under 5: ✅. ", unrelatedCat: careBreakdown.unrelatedLTfive, ageCat: underFive, },
+                suids: { related: careBreakdown.relatedLTone, relatedVal: "Under 1: ✅. ", unrelatedCat: careBreakdown.unrelatedLTone, ageCat: underOne, },
             }
-                trainingDates.ahtDate = document.getElementById('headTraumaDate')
-                trainingDates.ahtDateDiff = trainingDates.sfsDateDiff ?? dateFuncs.dateDiffInDays(careStartDate, trainingDates.ahtDate.value)
-                trainingDates.suidsDate = document.getElementById('suidsDate')
-                trainingDates.suidsDateDiff = trainingDates.sfsDateDiff ?? dateFuncs.dateDiffInDays(careStartDate, trainingDates.suidsDate.value)
-            if (document.getElementById('headTraumaVerification').value === "Yes") {
-                if (trainingDates.ahtDateDiff < 730) { careBreakdown.relatedLTfive = "Under 5: ✅. "; careBreakdown.unrelatedLTfive = underFive + yieldSign }
-                else { trainingDates.ahtDate.style = 'color: var(--textColorNegative) !important;' }
-            }//orientationVerification
-            if (document.getElementById('suidsVerification').value === "Yes") {
-                if (trainingDates.suidsDateDiff < 730) { careBreakdown.relatedLTone = "Under 1: ✅. "; careBreakdown.unrelatedLTone = underOne + yieldSign }
-                else { trainingDates.suidsDate.style = 'color: var(--textColorNegative) !important;' }
+            lnlTrainings.dateDiff.sfs = dateFuncs.dateDiffInDays(Date.now(), lnlTrainings.elements.sfs.value)
+            if (inRange(lnlTrainings.dateDiff.sfs, 0, 730)) {
+                lnlTrainings.dateDiff.aht = lnlTrainings.dateDiff.sfs; lnlTrainings.dateDiff.suids = lnlTrainings.dateDiff.sfs;
+                careBreakdown.sfsValue = 1
+                careBreakdown.relatedLTfive = "Under 5: ✅. "
+                careBreakdown.relatedLTone = "Under 1: ✅. "
+                careBreakdown.unrelatedLTfive = "<span>Under 5: ✅.&nbsp;</span>"
+                careBreakdown.unrelatedLTone = "<span>Under 1: ✅.&nbsp;</span>"
+                careBreakdown.unrelatedGTfive = "<span>Over 5: ✅.</span>"
+            } else {
+                lnlTrainings.elements.sfs.style = 'color: var(--textColorNegative) !important;';
+                ['aht', 'suids'].forEach(training => {
+                    lnlTrainings.dateDiff[training] ??= ( dateFuncs.dateDiffInDays(Date.now(), lnlTrainings.elements[training].value) ?? "" )
+                    if (inRange(lnlTrainings.dateDiff[training], 0, 730)) { lnlTrainings[training].related = lnlTrainings[training].relatedVal; lnlTrainings[training].unrelatedCat = lnlTrainings[training].ageCat + (careBreakdown.sfsValue === 1 ? "✅.&nbsp;" : yieldSign) }
+                    else { lnlTrainings.elements[training].style = 'color: var(--textColorNegative) !important;' }
+                })
             }
             ccpEle.relatedCare.textContent = careBreakdown.relatedLTone + careBreakdown.relatedLTfive + careBreakdown.relatedGTfive
             ccpEle.unrelatedCare.insertAdjacentHTML('afterbegin', careBreakdown.unrelatedLTone + careBreakdown.unrelatedLTfive + careBreakdown.unrelatedGTfive)
-            if (ccpEle.relatedToChild.value !== "Y") { ccpEle.hasRelatedCare.setAttribute('style', 'text-decoration: line-through; opacity: .6;') } else { ccpEle.hasRelatedCare.removeAttribute('style') }
+            switch (ccpEle.relatedToChild.value) {
+                case "Y": ccpEle.relatedCare.removeAttribute('style'); break;
+                case "N": ccpEle.relatedCare.setAttribute('style', 'text-decoration: line-through; color: var(--disabledTextColor);'); break;
+                default: ccpEle.relatedCare.setAttribute('style', 'opacity: 0 !important;')
+            }
         }
     }
     childProviderPage()
     function providerTypeExists() {
         childProviderPage()
-        let providerTypeValue = ccpEle.providerType.value
-        if (!providerTypeValue) { console.trace('CaseChildProvider.htm section, !providerTypeValue') }
-        else if (providerTypeValue !== "Legal Non-licensed") { eleFocus(ccpEle.primaryBeginDate) }
-        else if (providerTypeValue === "Legal Non-licensed") { eleFocus(ccpEle.providerLivesWithChild) }
+        switch (ccpEle.providerType.value) {
+            case "": console.trace('CaseChildProvider.htm section, !ccpEle.providerType.value'); break
+            case "Legal Non-licensed": eleFocus(ccpEle.providerLivesWithChild); break;
+            default: eleFocus(ccpEle.primaryBeginDate); break;
+        }
     }
     let listenForDateChange = [ccpEle.primaryBeginDate, ccpEle.secondaryBeginDate].forEach(ele => {
         ele.addEventListener( 'keydown', () => updateValuesAndFocus(event, ccpEle.carePeriodBeginDate.value) )
@@ -3264,7 +3270,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     if (!("CaseTransfer.htm").includes(thisPageNameHtm)) { return };
     if (iFramed && !editMode) {
         window.onmessage = (messageEvent) => {
-            if (event.origin !== "https://mec2.childcare.dhs.state.mn.us") return false;
+            if (messageEvent.origin !== "https://mec2.childcare.dhs.state.mn.us") return false;
             if (messageEvent.data[0] === "newTransfer") { startWorkerTransfer(messageEvent.data[1]) }
         }
     }
@@ -4846,7 +4852,7 @@ const stateDataSwap = {
     stateNameToAcronym(stateName) { return Object.keys(this.stateNamesAndLetters).find(key => this.stateNamesAndLetters[key] === this.stateNamesAndLetters) ?? this.stateNamesAndLetters },
     swapStateNameAndAcronym(stateInfo) { return Object.keys(this.stateNamesAndLetters).find(key => this.stateNamesAndLetters[key] === stateInfo) ?? this.stateNamesAndLetters[stateInfo] },
 };
-function inRange(x, min, max) { return x >= min && x <= max };
+function inRange(x, min, max) { return typeof x === "string" ? undefined : x >= min && x <= max };
 function childOrRowIndex(childEle) { return childEle.nodeName === "TR" ? (childEle.rowIndex -1) : [...childEle.parentElement.children].indexOf(childEle) };
 function splitStringAtWordBoundary(str, maxLength) {
     if (str.length <= maxLength) { return str }
@@ -4931,7 +4937,7 @@ function doToggle(elOrArray) {
         else { el.style.display = 'none' }
     })
 };
-function doUnwrap(ele) { ele = sanitize.query(ele); ele.outerHTML = ele.innerHTML };
+function doUnwrap(ele) { ele = sanitize.query(ele); ele.parentElement.outerHTML = ele.outerHTML };
 function unhideElement(element, trueFalse) { // true to remove hidden, false to add hidden;
     if (element instanceof HTMLElement) { addRemoveHidden(element, trueFalse) }
     else if (element instanceof NodeList) { element = [...element] }
@@ -5003,15 +5009,15 @@ function insertTextAndMoveCursor(textToInsert, activeEle) {
     };
 };
 function tabIndxNegOne(elementStringList) { queueMicrotask(() => { [...sanitize.query(elementStringList, true)].forEach(ele => { ele.tabindex = '-1' }) }) };
-function tempIncomes(tempIncome, endDate) {
-    tempIncome = sanitize.query(tempIncome)
-    endDate = sanitize.query(endDate)
-    document.querySelector('.stylus')?.insertAdjacentHTML('beforeend', 'label[for=' + tempIncome.id + ']:first-letter { text-decoration:underline; }')
+function tempIncomes(tempIncomeEle, endDateEle) {
+    tempIncomeEle = sanitize.query(tempIncomeEle)
+    endDateEle = sanitize.query(endDateEle)
+    document.querySelector('.stylus')?.insertAdjacentHTML('beforeend', 'label[for=' + tempIncomeEle.id + ']:first-letter { text-decoration:underline; }')
     window.addEventListener('keydown', keydownEvent => { //Keyboard shortcut
         if (keydownEvent.altKey && keydownEvent.key === 't') {
             keydownEvent.preventDefault()
-            if (tempIncome.value === "") { tempIncome.value = "Yes"; endDate.tabIndex = 0; }
-            else { tempIncome.value = ""; endDate.tabIndex = -1; }
+            if (tempIncomeEle.value === "") { tempIncomeEle.value = "Yes"; endDateEle.tabIndex = 0; }
+            else { tempIncomeEle.value = ""; endDateEle.tabIndex = -1; }
         }
     })
 };
@@ -5067,17 +5073,12 @@ function preventKeys(keyArray, ms=1500) {
     } catch (error) { console.trace(error) }; // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
 }();
 //           personal amusement;
-function starFall() {
+!function starFall() {
     if (!countyInfo.userSettings.starFall) { return };
-    // if (!new Date().toLocaleDateString().slice(0, 4) === "4/1" || !Math.ceil(Math.random() * 4) / 4 === 1) { return }
     document.body.classList.add('starfall')
     let start = Date.now()
     const originPosition = { x: 0, y: 0 };
-    const last = {
-        starTimestamp: start,
-        starPosition: originPosition,
-        mousePosition: originPosition
-    }
+    const last = { starTimestamp: start, starPosition: originPosition, mousePosition: originPosition }
     const config = {
         starAnimationDuration: 1000,
         minimumTimeBetweenStars: 350,
@@ -5091,48 +5092,26 @@ function starFall() {
     let count = 0;
     const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
         selectRandom = items => items[rand(0, items.length - 1)];
-    const withUnit = (value, unit) => value + unit,
-        px = value => withUnit(value, "px"),
-        ms = value => withUnit(value, "ms");
-    // const calcDistance = (a, b) => {
-    //     const diffX = b.x - a.x,
-    //         diffY = b.y - a.y;
-    //     return Math.hypot(diffX, diffY);
-    // }
     const calcDistance = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
     const calcElapsedTime = (start, end) => end - start;
-    const appendElement = element => document.body.append(element),
-        removeElement = (element, delay) => setTimeout(() => document.body.removeChild(element), delay);
+    const appendElement = element => document.body.append(element), removeElement = (element, delay) => setTimeout(() => document.body.removeChild(element), delay);
     const createStar = position => {
-        const star = document.createElement("span"),
-            color = selectRandom(config.colors);
+        const star = document.createElement("span"), color = selectRandom(config.colors);
         star.className = "star fa-solid fa-sparkle";
-        star.style.left = px(position.x);
-        star.style.top = px(position.y);
-        star.style.fontSize = selectRandom(config.sizes);
-        star.style.color = `${color}`;
-        star.style.textShadow = `0px 0px 1.5rem ${color} / 0.5`;
-        star.style.animationName = config.animations[count++ % 3];
-        star.style.starAnimationDuration = ms(config.starAnimationDuration);
+        star.setAttribute('style', 'color: '+ color +'; left: '+ position.x +'px; top: '+ position.y +'px; font-size: '+ selectRandom(config.sizes) +'; text-shadow: 0px 0px 1.5rem '+ color +' / 0.5; animation-name: '+ config.animations[count++ % 3] +'; star-animation-duration: '+ config.starAnimationDuration +'ms;')
         appendElement(star);
         removeElement(star, config.starAnimationDuration);
     }
-    const updateLastStar = position => {
-        last.starTimestamp = Date.now()
-        last.starPosition = position;
-    }
-    const updateLastMousePosition = position => { last.mousePosition = position }
+    const updateLastStar = position => { last.starTimestamp = Date.now(); last.starPosition = position; };
+    const updateLastMousePosition = position => { last.mousePosition = position };
     const adjustLastMousePosition = position => {
-        if (last.mousePosition.x === 0 && last.mousePosition.y === 0) {
-            last.mousePosition = position;
-        }
+        if (last.mousePosition.x === 0 && last.mousePosition.y === 0) { last.mousePosition = position }
     };
     const handleOnMove = e => {
         const mousePosition = { x: e.clientX, y: e.clientY }
         adjustLastMousePosition(mousePosition);
-        const now = Date.now(),
-            hasMovedFarEnough = calcDistance(last.starPosition, mousePosition) >= config.minimumDistanceBetweenStars,
-            hasBeenLongEnough = calcElapsedTime(last.starTimestamp, now) > config.minimumTimeBetweenStars;
+        const hasMovedFarEnough = calcDistance(last.starPosition, mousePosition) >= config.minimumDistanceBetweenStars,
+            hasBeenLongEnough = calcElapsedTime(last.starTimestamp, Date.now()) > config.minimumTimeBetweenStars;
         if (hasMovedFarEnough || hasBeenLongEnough) {
             createStar(mousePosition);
             updateLastStar(mousePosition);
@@ -5141,7 +5120,7 @@ function starFall() {
     }
     window.onmousemove = mousemoveEvent => handleOnMove(mousemoveEvent);
     document.body.onmouseleave = () => updateLastMousePosition(originPosition);
-};
+}();
 // ///////////////////////////////////////////////////////////////////////////// SITE_WIDE_FUNCTIONS SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ======================================================================================================================================================================================================
 setTimeout(() => { if (focusEle !== "blank" && !document.querySelector('.modal.in')) { eleFocus(focusEle) } }, 200);
@@ -5171,7 +5150,6 @@ function mec2enhancements() {
     }();
     mec2functionsEnhancementsDialog.showModal()
     document.getElementById('mec2functionsEnhancementsClose')?.addEventListener( 'click', () => { mec2functionsEnhancementsDialog.remove() }, { once: true, });
-    // document.getElementById('mec2functionsEnhancementsClose')?.addEventListener( 'click', () => { document.getElementById('mec2functionsEnhancementsContainer').remove() }, { once: true, });
     function addPulsateAnimation(selector, styleSheet) {
         let firstVisibleOfSelector = document.querySelector(selector)
         firstVisibleOfSelector.scrollIntoView(false, { behavior: "smooth", })
