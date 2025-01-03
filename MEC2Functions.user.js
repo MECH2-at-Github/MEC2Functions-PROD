@@ -5,14 +5,13 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.68
+// @version      0.5.69
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
 'use strict';
-// ("global elements list", "selectPeriod, save, pageWrap, "
-// ("global strings list", "selectPeriodValue, inCurrentPeriod, userXnumber, !editMode, iFramed, focusEle, caseId, providerId (provider pages), caseOrProviderId, reviewingEligibility, thisPageName, thisPageNameHtm, slashThisPageNameHtm, doNotDupe, selectPeriodValue")
-// ("global object list", "countyInfo, userCountyObj, selectPeriodDates, stateData, ")
+// ("global strings list", "selectPeriodValue, userXnumber, editMode, iFramed, focusEle, caseId, providerId (provider pages), caseOrProviderId, reviewingEligibility, thisPageName, thisPageNameHtm, doNotDupe, ")
+// ("global object list", "countyInfo, userCountyObj, selectPeriodDates, stateData, actualDate, ")
 // ("global array list", "listPagesArray, ")
 //
 const pageName = window.location.pathname.slice(11, window.location.pathname.lastIndexOf(".htm")), thisPageName = pageName.indexOf("/") === 0 ? pageName.slice(1) : pageName, thisPageNameHtm = thisPageName + ".htm";
@@ -139,6 +138,10 @@ const newFeatureNotice = {
 }; // function_and_values
 newFeatureNotice.noticeToUsersBuildHTML();
 //
+// const globalEles = {
+//     pageWrap: document.getElementById('page-wrap'), save: document.getElementById('save'), quit: document.getElementById('quit'), submitButton: document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitProviderId, #providerIdSubmit'),
+//     caseIdElement: document.querySelector('#caseId:not([type=hidden])'), providerIdElement: document.querySelector('#providerInput > #providerId:not([type=hidden])'), selectPeriod: document.getElementById('selectPeriod'),
+// }
 const rederrortextContent = [...document.querySelectorAll('strong.rederrortext'), ...document.querySelectorAll('.error_alertbox_new > strong')].map(ele => ele.textContent);
 const noResultsForCase = rederrortextContent?.find(ele => ele.includes('No results for case'));
 const pageWrap = document.getElementById('page-wrap'), save = document.getElementById('save'), quit = document.getElementById('quit');
@@ -156,7 +159,17 @@ const caseOrProviderId = caseId ?? providerId;
 const pageTitle = document.querySelector('title').innerText;
 const submitButton = document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitProviderId, #providerIdSubmit');
 //
-!function navButtonDivs() {
+!function preventCloseWhenEditing() {
+    if (!editMode) { return }
+    window.addEventListener('beforeunload', unloadEvent => {
+        if (confirm("Close the page with unsaved data?")) {
+            unloadEvent.preventDefault();
+            unloadEvent.returnValue = ''; // Chrome requires returnValue to be set
+        }
+    });
+}();
+//
+!function primaryNavigationButtonDivs() {
     try {
         let greenline = document.querySelector("div.container:has(.line_mn_green)") ?? undefined
         greenline?.insertAdjacentHTML('afterend', `
@@ -176,6 +189,8 @@ const submitButton = document.querySelector('#submit, #caseInputSubmit, #alertIn
     finally { document.documentElement.style.setProperty('--mainPanelMovedDown', '0') }
 }();
 const secondaryActionArea = document.getElementById('secondaryActionArea'), duplicateButtons = document.getElementById('duplicateButtons');
+// globalEles.secondaryActionArea = document.getElementById('secondaryActionArea');
+// globalEles.duplicateButtons = document.getElementById('duplicateButtons');
 //
 const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
 !function userSettingDivs() {
@@ -328,19 +343,6 @@ const getListAndAlertTableParameters = { // Parameters for navigating from Alert
 }; // function_and_values
 let newTabField;
 //
-document.body.insertAdjacentHTML('beforeend', '<div id="snackBarDiv"></div>'); // snack_bar start
-function snackBar(text, title = "Copied!", textAlign = "left") {
-    let snackBarDiv = document.getElementById('snackBarDiv')
-    snackBarDiv.replaceChildren()
-    let snackBarTxt = ""
-    if (title !== 'notitle') { snackBarTxt += "<span class='snackBar-title'>" + title + "</span>" }
-    let snackBarTextArray = text.split('\n')
-    for (const line of snackBarTextArray) {
-        snackBarTxt += "<span>" + line + "</span>";
-    }
-    snackBarDiv.insertAdjacentHTML('beforeend', '<div class="snackBar">' + snackBarTxt + '</div>')
-    setTimeout(() => snackBarDiv.children[0].classList.add('snackBar-hide'), 1);
-}; // snack_bar end
 function getTableRow(ele) {
     if (!sanitize.query(ele)) { return };
     while ( !["TR", "TBODY"].includes(ele.nodeName) ) { ele = ele.parentElement }
@@ -367,7 +369,7 @@ function docReady(fn) {
 // ====================================================================================================
 // /////////////////////////////////// SECTION_START CUSTOM_NAVIGATION \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ///////////////////////////// PRIMARY_NAVIGATION_BUTTONS SECTION_START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-!function navigationButtons() {
+!function primaryNavigation() {
     const searchIcon = "<span style='font-size: 80%; margin-left: 2px;'>🔍</span>";
     const navMaps = {
         rowMap: new Map([
@@ -578,23 +580,18 @@ function docReady(fn) {
             }
         }
         //
-        function clickRowTwo(eventTarget) {
+        function clickRowTwo(clickTarget) {
             buttonDivTwo.querySelectorAll('.cButton.nav.browsing').forEach(ele => ele.classList.remove('browsing'))
-            populateNavRowThree(sanitize.string(eventTarget.id))
-            eventTarget.classList.add('browsing')
+            populateNavRowThree(sanitize.string(clickTarget.id))
+            clickTarget.classList.add('browsing')
         }
         document.querySelector('.primary-navigation').addEventListener('click', eventClick => {
             let eventClickTarget = eventClick.target
-            if ( eventClickTarget.parentElement === buttonDivOneNTF || eventClickTarget.nodeName !== "BUTTON") { return }
-            if ( eventClickTarget.parentElement === buttonDivTwo ) {
-                clickRowTwo(eventClickTarget)
-                return
-            }
-            if (editMode) {
-                openNav(sanitize.string(eventClickTarget.id), "_blank")
-                return
-            }
+            if ( eventClickTarget.parentElement === buttonDivOneNTF || eventClickTarget.nodeName !== "BUTTON") { return };
+            if ( eventClickTarget.parentElement === buttonDivTwo ) { clickRowTwo(eventClickTarget); return };
+            if (editMode) { openNav(sanitize.string(eventClickTarget.id), "_blank"); return };
             openNav(sanitize.string(eventClickTarget.id), "_self")
+            eventClickTarget.classList.add('open-page')
         })
         document.querySelector('.primary-navigation').addEventListener('contextmenu', eventContextMenu => {
             let parentDiv = eventContextMenu.target.closest('div')
@@ -2000,10 +1997,30 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     }
 }(); // SECTION_END Alert_Worker_Created_Alert;
 !function _Application_Pages() {
+    !function __ApplicationInformation() {
+        if (!("ApplicationInformation.htm").includes(thisPageNameHtm)) { return }
+        let appReceivedField = document.getElementById('receivedDate')
+        let appReceivedDate = appReceivedField.value
+        let appDateCompare = sanitize.date(appReceivedField.value, "number")
+        if (appReceivedField.value !== '') {
+            h4objects.dates.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="appReceivedDateButton">Copy App Date</button>')
+            document.getElementById('appReceivedDateButton').addEventListener('click', (() => {
+                actualDate._setActualDate({adCaseNum: "noCaseNumberYet", adDate: appReceivedDate, adField: 'receivedDate'})
+                sessionStorage.setItem('processingApplication', "yes")
+                snackBar("Stored application date", 'notitle')
+                if ( !inRange( appDateCompare, sanitize.date(selectPeriodDates.start, "number"), sanitize.date(selectPeriodDates.end, "number") ) ) {
+                    document.getElementById('retroAppDateLbl').style.visibility = "hidden"
+                    document.getElementById('retroAppDate').insertAdjacentHTML('afterend','<span>Notice: Application date is outside the current biweekly period.</span>')
+                }
+            }))
+        }
+    }(); // SECTION_END Application_Information;
     !function __CaseApplicationInitiation() {
         if (!("CaseApplicationInitiation.htm").includes(thisPageNameHtm) || !editMode) { return };
         countyInfo.userSettings.selectPeriodReversal && selectPeriodReversal()
-        document.getElementById('next').addEventListener('click', () => { sessionStorage.setItem('processingApplication', "yes") })
+        let pmiNumber = document.getElementById('pmiNumber')
+        pmiNumber?.addEventListener('blur', blurEvent => { if ( pmiNumber.value ) { eleFocus( firstEmptyElement() ) } })
+        document.getElementById('next')?.addEventListener('click', () => { sessionStorage.setItem('processingApplication', "yes") })
         function appDateChanged(changeEvent) {
             let appDateChange = changeEvent.target.value
             if (appDateChange.length < 10) { return false }
@@ -2026,25 +2043,6 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         let unchecked = [...document.querySelectorAll('input[type=checkbox]')].filter(box => box.checked === false).forEach(box2 => { box2.parentElement.style.backgroundColor = 'yellow' })
         }(); // SECTION_END Case_Reapplication_Add_Ccap;
 }();
-!function ApplicationInformation() {
-    if (!("ApplicationInformation.htm").includes(thisPageNameHtm)) { return }
-    let appReceivedField = document.getElementById('receivedDate')
-    let appReceivedDate = appReceivedField.value
-    let appDateCompare = sanitize.date(appReceivedField.value, "number")
-    if (appReceivedField.value !== '') {
-        h4objects.dates.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="appReceivedDateButton">Copy App Date</button>')
-        document.getElementById('appReceivedDateButton').addEventListener('click', (() => {
-            actualDate._setActualDate({adCaseNum: "noCaseNumberYet", adDate: appReceivedDate, adField: 'receivedDate'})
-            // sessionStorage.setItem('actualDateSS', appReceivedDate)
-            sessionStorage.setItem('processingApplication', "yes")
-            snackBar("Stored application date", 'notitle')
-            if ( !inRange( appDateCompare, sanitize.date(selectPeriodDates.start, "number"), sanitize.date(selectPeriodDates.end, "number") ) ) {
-                document.getElementById('retroAppDateLbl').style.visibility = "hidden"
-                document.getElementById('retroAppDate').insertAdjacentHTML('afterend','<span>Notice: Application date is outside the current biweekly period.</span>')
-            }
-        }))
-    }
-}(); // SECTION_END Application_Information;
 !function BillsList() {
     if (!"BillsList.htm".includes(thisPageNameHtm)) { return };
     listPageLinksAndList([0, "FinancialBilling", 4], [2, "ProviderInformation"])
@@ -2115,7 +2113,10 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         }();
         evalData().then(({ 0: childProvidersData} = {}) => {
             if (!childProvidersData) { return };
-            childProvidersData.forEach(providerData => { childProviderTableTbodyRows[providerData.rowIndex].children[2].innerHTML = '<a href="https://mec2.childcare.dhs.state.mn.us/ChildCare/ProviderOverview.htm?providerId=' + providerData.providerId + '" target="_blank">' + sanitize.evalText(providerData.providerName) + '</a>' })
+            childProvidersData.forEach(providerData => {
+                childProviderTableTbodyRows[providerData.rowIndex].children[2].innerHTML = '<a href="https://mec2.childcare.dhs.state.mn.us/ChildCare/ProviderOverview.htm?providerId=' + providerData.providerId + '" target="_blank">' + sanitize.evalText(providerData.providerName) + '</a>'
+                if (childProviderTableTbodyRows[providerData.rowIndex].children[4].textContent) { childProviderTableTbodyRows[providerData.rowIndex].classList.add('disabledRow')}
+            })
         }).catch(err => { console.trace(err) })
     } else if (editMode) {
         h4objects.providerdesignation.h4.insertAdjacentHTML('afterend','<div id="resetButtons" class="float-right-imp h4-line" style="display: flex; gap: 10px;">'
@@ -2734,10 +2735,10 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 }(); // SECTION_END _Case_Eligibility_Pages;
 !function _Case_ServiceAuthorization_Copay_Pages() {
 !function __CaseCopayDistribution() {
-if (!("CaseCopayDistribution.htm").includes(thisPageNameHtm)) { return };
+    if (!("CaseCopayDistribution.htm").includes(thisPageNameHtm)) { return };
     if (editMode) {
         waitForTableCells('#providerInformationTable').then(() => {
-            let copayProviderId = document.querySelector('#providerInformationTable > tbody > tr.selected > td:nth-child(1)'), overrideReason = document.getElementById('overrideReason'), recoupment = document.getElementById('recoupment'), copay= document.getElementById('copay')
+            let copayProviderId = document.querySelector('#providerInformationTable > tbody > tr.selected > td:nth-child(1)'), overrideReason = document.getElementById('overrideReason'), recoupment = document.getElementById('recoupment'), copay = document.getElementById('copay')
             let storedCopayInfo = sessionStorage.getItem('MECH2.ageCategory.' + caseId + '.' + copayProviderId.textContent)
             if (storedCopayInfo !== null) {
                 let copayDist = sanitize.JSON(storedCopayInfo)
@@ -2745,6 +2746,9 @@ if (!("CaseCopayDistribution.htm").includes(thisPageNameHtm)) { return };
                 recoupment.value = copayDist.recoupment
                 overrideReason.value = copayDist.overrideReason
                 eleFocus(save)
+            } else {
+                addValueClassDoEvent(overrideReason, 'Copay Distribution Adjustment', 'red-outline', false)
+                eleFocus(copay)
             }
             save.addEventListener("click", () => {
                 let copayDist = {
@@ -2758,7 +2762,7 @@ if (!("CaseCopayDistribution.htm").includes(thisPageNameHtm)) { return };
         })
     }
 }(); // SECTION_END Case_Copay_Distribution;
-if (thisPageName.indexOf("CaseServiceAuthorization") !== 0) { return };
+    if (thisPageName.indexOf("CaseServiceAuthorization") !== 0) { return };
 !function __CaseServiceAuthorization_And_Copay() { // Hide_Duplicate_Buttons_when_no_SA
 if (!["CaseServiceAuthorizationOverview.htm", "CaseCopayDistribution.htm", "CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm)) { return }
     if (rederrortextContent.find(arrItem => arrItem.indexOf('No results') > -1)) {
@@ -3276,8 +3280,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     }
     let ssTransferCase = 'MECH2.caseTransfer.' + caseId
     let ssError = "MECH2.transferError"
-    let transferWorkerIdLS = countyInfo.info.closedCaseBank ?? ''
-    let transferWorkerId = (/[a-z0-9]{7}/i).test(transferWorkerIdLS) ? transferWorkerIdLS : ''
+    let transferWorkerId = countyInfo.info.closedCaseBank ?? ''
+    transferWorkerId = validateTransferWorkerId(transferWorkerId)
     let transferSS = sessionStorage.getItem(ssTransferCase) ?? ''
     const redTextMap = new Map([
         ["Transfer To Worker ID is not valid for Servicing Agency.", "Invalid Agency"],
@@ -3291,32 +3295,31 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 
     if (transferSS) {
         if (!editMode) {
-            switch (transferSS) { /* eslint-disable no-fallthrough */
+            switch (transferSS) {
                 case "transferStart":
                     sessionStorage.setItem(ssTransferCase, 'transferActive')
                     document.getElementById('new').click()
                     break
                 case "transferError":
                     document.querySelector('form#caseTransferDetail').insertAdjacentHTML('afterbegin', '<div class="error_alertbox_new"><img src="images/error_alert_small.png"><strong class="rederrortext">' + sessionStorage.getItem(ssError) + '</strong></div>')
-                    sessionStorage.removeItem(ssError) // no break
-                case "transferDone":
+                    sessionStorage.removeItem(ssError)
+                case "transferDone": // eslint-disable-line no-fallthrough
                     sessionStorage.removeItem(ssTransferCase)
                     parent.postMessage(['transferStatus', 'Success'], "https://mec2.childcare.dhs.state.mn.us")
                     break
-            } /* eslint-enable no-fallthrough */
+            }
         }
-        if (editMode && transferWorkerId && transferSS === "transferActive") {
-            doCaseTransfer()
-        }
+        if (editMode && transferWorkerId && transferSS === "transferActive") { doCaseTransfer() }
     };
     if (!iFramed) {
-        // document.getElementById('caseTransferFromType').addEventListener('change', (() => {
-        //     resetTabIndex()
-        //     setTimeout(() => {
-        //         tabIndxNegOne('#workerSearch')
-        //         document.querySelectorAll(':is(input, select).form-control[readonly]').forEach(e => { e.disabled = true })
-        //     }, 300)
-        // }))
+        document.getElementById('caseTransferFromType').addEventListener('blur', () => {
+            eleFocus( firstEmptyElement() )
+                setTimeout(() => {
+                    tabIndxNegOne('#workerSearch')
+                    let readOnly = [...document.querySelectorAll('form :is(input, select).form-control[readonly]')]
+                    readOnly.forEach(e => { e.disabled = true })
+                }, 300)
+        });
         document.getElementById('footer_links').insertAdjacentHTML('beforeend', '<span class="footer" tabindex="-1">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
     }
     if (!editMode && !iFramed) {
@@ -3327,12 +3330,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             + '<input type="text" class="form-control" style="width: var(--eightNumbers);" id="transferWorker" placeholder="Worker #" value=' + transferWorkerId + '></input>'
         + '</div>'
         secondaryActionArea.insertAdjacentHTML('beforeend', caseTransferButtons)
-        document.getElementById('transferWorker')?.addEventListener( 'blur', () => validateTransferWorkerId(this.value) )
+        document.getElementById('transferWorker')?.addEventListener( 'blur', blurEvent => { transferWorkerId = validateTransferWorkerId(blurEvent.target.value) })
         document.getElementById('closedTransfer')?.addEventListener('click', () => {
-            if (checkTransferWorkerId()) {
-                sessionStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferActive')
-                document.getElementById('new').click()
-            }
+            if (!transferWorkerId) { return };
+            sessionStorage.setItem('MECH2.caseTransfer.' + caseId, 'transferActive')
+            document.getElementById('new').click()
         })
         document.getElementById('sendMemo')?.addEventListener('click', () => {
             // todo: make into its own function so it can work on CaseList pages
@@ -3350,17 +3352,17 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         let firstErrorMessage = rederrortextContent?.length ? rederrortextContent[0] : 0
         if (!firstErrorMessage) { return };
         if (editMode) {
-            switch (firstErrorMessage) {/* eslint-disable no-fallthrough */
+            switch (firstErrorMessage) {
                 case "Transfer To Worker ID is not valid for Servicing Agency.":
                 case "Transfer To Worker ID is invalid.":
                     countyInfo.updateCountyInfoLS('closedCaseBank', "delete")
-                case "Transfer To Worker ID is missing.":
+                case "Transfer To Worker ID is missing.": // eslint-disable-line no-fallthrough
                 case "Transfer From Worker ID cannot be the same as Transfer To Worker ID.":
                     sessionStorage.setItem(ssTransferCase, 'transferError')
                     sessionStorage.setItem(ssError, firstErrorMessage)
                     document.getElementById('cancel').click()
                     break
-            }/* eslint-enable no-fallthrough */
+            }
         } else if (!editMode) {
             if (firstErrorMessage === "Case Number is missing.") { return }
             else if (firstErrorMessage.includes("CASE LOCKED")) {
@@ -3374,41 +3376,33 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         }
     }
     function startWorkerTransfer(transferCase) {
-        if (transferCase) {
-            sessionStorage.setItem('MECH2.caseTransfer.' + transferCase, 'transferStart')
-            window.open("/ChildCare/CaseTransfer.htm?parm2=" + transferCase, '_self')
-        }
+        if (!transferCase) { return };
+        sessionStorage.setItem('MECH2.caseTransfer.' + transferCase, 'transferStart')
+        window.open("/ChildCare/CaseTransfer.htm?parm2=" + transferCase, '_self')
     }
     function doCaseTransfer() {
         let caseTransferFromType = document.getElementById('caseTransferFromType')
-        if (caseTransferFromType.querySelector('option[value="Worker To Worker"]')) {
-            sessionStorage.setItem(ssTransferCase, 'transferDone')
-            caseTransferFromType.value = "Worker To Worker"
-            doEvent('#caseTransferFromType')
-            document.getElementById('caseTransferToWorkerId').value = transferWorkerId
-            doEvent('#caseTransferToWorkerId')
-            save.click() // disable while testing!
-        }
+        if (!caseTransferFromType.querySelector('option[value="Worker To Worker"]')) { return }
+        sessionStorage.setItem(ssTransferCase, 'transferDone')
+        caseTransferFromType.value = "Worker To Worker"
+        doEvent('#caseTransferFromType')
+        document.getElementById('caseTransferToWorkerId').value = transferWorkerId
+        doEvent('#caseTransferToWorkerId')
+        save.click() // disable for testing
     };
-    function checkTransferWorkerId() {
-        if (transferWorkerId) { return 1 }
-        else { eleFocus('#transferWorker'); flashRedBorder.animate(document.getElementById('transferWorker')); return 0 }
-    }
-    function validateTransferWorkerId(transferIdOfWorker) {
-        if ((/[a-z0-9]{7}/i).test(transferIdOfWorker)) {
-            if (transferWorkerId !== transferIdOfWorker) {
-                countyInfo.updateCountyInfoLS('closedCaseBank', transferIdOfWorker)
-                transferWorkerId = transferIdOfWorker
+    function validateTransferWorkerId(testedWorkerId) {
+        if ((/[a-z0-9]{7}/i).test(testedWorkerId)) {
+            if (transferWorkerId !== testedWorkerId) {
+                countyInfo.updateCountyInfoLS('closedCaseBank', testedWorkerId)
             }
-            return 1
         } else {
-            transferWorkerId = ''
+            testedWorkerId = ''
             countyInfo.updateCountyInfoLS('closedCaseBank', "delete")
             document.getElementById('transferWorker').placeholder = 'Invalid #'
             flashRedBorder.animate(document.getElementById('transferWorker'))
             eleFocus('#transferWorker')
-            return 0
         }
+        return testedWorkerId
     }
 }(); // SECTION_END Case_Transfer;
 !function CaseUnearnedIncome() {
@@ -3767,7 +3761,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     document.querySelector('h4').innerText = "Rates for " + providerType + " for " + maximumRatesPeriod.value
     let tableParentElement = maxRatesTable.parentElement
     let [ registrationFeeLabel, registrationFeeAmount ] = tableParentElement.querySelectorAll('.form-group > div')
-    doUnwrap(registrationFeeLabel)
+    // doUnwrap(registrationFeeLabel.parentElement)
     registrationFeeAmount ? registrationFeeAmount.outerHTML = '<span> ' + registrationFeeAmount.innerText + '</span>' : undefined
     document.getElementById('copyRates').addEventListener('click', () => {
         copyFormattedHTML({html: tableParentElement.innerHTML.replace(/(<span class="maxRates hidden".+?<\/span>)/g, ''), addTableStyle: true, removeStyles: true})
@@ -3930,7 +3924,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     }
                 })
                 noteStringText.addEventListener('keydown', keydownEvent => {
-                    if (keydownEvent.key !== "`") { return }
+                    if (!["`", 'Tab'].includes(keydownEvent.key)) { return }
                     keydownEvent.preventDefault()
                     insertTextAndMoveCursor("             ")
                 })
@@ -4307,9 +4301,10 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Duplicate_Form_Buttons_Above_Form;
 // ======================================================================================================================================================================================================
 // ////////////////////////////////////////////////////////////////////////// ELEMENT_FOCUS SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.panel-box-format .form-control:not(:disabled, [readonly])')].find( ele => values.includes(ele.value) )
 !function focusElement() {
     if (iFramed) { return };
-    function firstEmptyElement() { return [...document.querySelectorAll('.panel-box-format :is(input, select):not(:disabled, .form-button, [readonly], [type="hidden"], [type=checkbox])')].find( ele => ["No Verification Provided", 'No', 'Not Cooperating', ''].includes(ele.value) ) };
+    // function firstEmptyElement() { return [...document.querySelectorAll('.panel-box-format .form-control:not(:disabled, .form-button, [readonly], [type="hidden"], [type=checkbox])')].find( ele => ["No Verification Provided", 'No', 'Not Cooperating', ''].includes(ele.value) ) };
     !function autoFocusOnPageLoad() {
     try { //========== Auto_Focus_On_Page_Load Start =================
         if ( caseIdElement && !caseId ) { focusEle = caseIdElement; return; }
@@ -4358,7 +4353,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         : actualDate.dateField && !actualDate.dateField.disabled && !actualDate.dateField.value ? actualDate.dateField
                         : cseDetailsFormsCompleted?.value === "No" ? cseDetailsFormsCompleted
                         : cseDetailsCooperationStatus?.value === "Not Cooperating" ? cseDetailsCooperationStatus
-                        : firstEmptyElement()
+                        : firstEmptyElement(["No Verification Provided", 'No', 'Not Cooperating', ''])
                     }
                 };
                 if (("CaseChildProvider.htm").includes(thisPageNameHtm)) {
@@ -4378,7 +4373,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     else {
                         focusEle = document.getElementById('next')?.disabled === false ? '#next'
                         : !document.getElementById('memberReferenceNumber')?.value ? '#memberReferenceNumber'
-                        : firstEmptyElement()
+                        : firstEmptyElement(["No Verification Provided", 'No', 'Not Cooperating', ''])
                     }
                 }
                 if (("CaseMemberII.htm").includes(thisPageNameHtm)) {
@@ -4393,7 +4388,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                                 if (membRefNumNewMemb && !membRefNumNewMemb?.value) { focusEle = membRefNumNewMemb } // eslint-disable-line no-undef
                                 else if (actualDate.dateField?.value === '') { focusEle = actualDate.dateField }
                                 else if ( ['', 'No Verification Provided'].includes(membCitVer.value) ) { focusEle = membCitVer } // eslint-disable-line no-undef
-                                else { focusEle = firstEmptyElement() }
+                                else { focusEle = firstEmptyElement(["No Verification Provided", 'No', 'Not Cooperating', '']) }
                             }
                         }
                     }, 75)
@@ -4493,7 +4488,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 if (["CaseSpecialLetter.htm", "CaseMemo.htm"].includes(thisPageNameHtm)) { focusEle = !editMode ? '#newDB' : document.querySelector('#memberComments, #status') }
                 if (("CaseTransfer.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#newDB' : '#caseTransferFromType' }
                 if (["CaseCSIA.htm", "CaseCSIB.htm", "CaseCSIC.htm", "CaseCSID.htm"].includes(thisPageNameHtm)) {
-                    focusEle = !editMode ? '#newDB' : firstEmptyElement()
+                    focusEle = !editMode ? '#newDB' : firstEmptyElement(["No Verification Provided", 'No', 'Not Cooperating', ''])
                     tbodiesFocus('#newDB')
                 }
                 if (("CaseNotes.htm").includes(thisPageNameHtm)) {
@@ -4888,7 +4883,7 @@ function copyMailing() {
 }; // unused function, designed for provider addresses;
 function copy(clipText, sbText, sbTitle, sbAlign) {
     navigator.clipboard.writeText(clipText)
-    sbText?.length && snackBar(sbText ?? '', sbTitle ?? '', sbAlign ?? '')
+    sbText?.length > 0 && snackBar(sbText, sbTitle ?? 'notitle', sbAlign ?? 'left')
 };
 async function copyFormattedHTML({html, extraStyle='', addTableStyle=true, removeStyles=true} = {}) {
     let tableStyle = 'table { border: 2px solid green !important; font-size: 24px; white-space: nowrap; table-layout: fixed; } td, th { padding: 2px 20px; margin: auto; } thead td, thead th { font-weight: 700; background: #07416f; color: white; } table tbody td { color: black; background: white; } .hidden { display: none !important; }'
@@ -4898,6 +4893,15 @@ async function copyFormattedHTML({html, extraStyle='', addTableStyle=true, remov
     console.log(htmlBlob.text())
     const data = new ClipboardItem({ "text/html": htmlBlob, });
     await navigator.clipboard.write([data]);
+};
+//           show user text via popup (typical: copied text);
+function snackBar(sbText, title = "Copied!", textAlign = "left") {
+    document.getElementById('snackBarDiv')?.remove()
+    let snackBarTxt = [ '<div id="snackBarDiv">' ]
+    title !== "notitle" && snackBarTxt.push("<span class='snackBar-title'>" + title + "</span>")
+    sbText.split('\n').forEach( textLine => snackBarTxt.push("<span>" + textLine + "</span>") )
+    snackBarTxt.push('</div>')
+    document.body.insertAdjacentHTML('beforeend', snackBarTxt.join(''))
 };
 //           send value to sessionStorage;
 function storeSelectedTableRow(storeTable = 'table') {
@@ -5071,6 +5075,13 @@ function preventKeys(keyArray, ms=1500) {
             })
         })
     } catch (error) { console.trace(error) }; // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
+}();
+!function allowPasteInInputs() {
+    async function getClipboardText() { return await navigator.clipboard.readText() }
+    document.body.addEventListener('keydown', async keydownEvent => {
+        if (keydownEvent.target.nodeName !== "INPUT") { return };
+        if (keydownEvent.key === 'v' && keydownEvent.ctrlKey) { keydownEvent.target.value = await getClipboardText() }
+    })
 }();
 //           personal amusement;
 !function starFall() {
