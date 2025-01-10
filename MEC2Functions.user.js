@@ -5,12 +5,12 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.70
+// @version      0.5.71
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
 'use strict';
-// ("global strings list", "selectPeriodValue, userXnumber, editMode, iFramed, focusEle, caseId, providerId (provider pages), caseOrProviderId, reviewingEligibility, thisPageName, thisPageNameHtm, doNotDupe, ")
+// ("global strings list", "selectPeriodValue, editMode, iFramed, focusEle, caseId, providerId (provider pages), caseOrProviderId, reviewingEligibility, thisPageName, thisPageNameHtm, doNotDupe, ")
 // ("global object list", "countyInfo, userCountyObj, selectPeriodDates, stateData, actualDate, ")
 // ("global array list", "listPagesArray, ")
 //
@@ -58,7 +58,7 @@ const clearStorageItems = (storage = "both") => {
 };
 if ("Logout.htm".includes(thisPageNameHtm)) { clearStorageItems(); return; };
 if ( "Welcome.htm".includes(thisPageNameHtm) ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
-document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="/ChildCare/PrivacyAndSystemSecurity.htm?from=mec2functions" target="_blank" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>'
+document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="#" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>'
                                                     + '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>');
 document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
 const mec2functionFeatures = [
@@ -100,6 +100,8 @@ if (GM_info.script.name === "mec2functions") {
 //
 const newFeatureNotice = {
     newNoticesToUsers: [ // ["lsValue", [ "Description_of_setting. Default: On_Off" ], trueIsOn_falseIsOff_omitForNonSettingNotices],
+        ["navOnly", [ "Toggle mec2functions between 'Navigation Only' and 'Full Functionality.'","Limits mec2functions to Nav buttons, extra footer links, and period selector reversal/buttons.","Intended uses are to check if an issue is in MEC2 or mec2functions or during Help Desk calls while still retaining navigation. Default: Off" ], false],
+        //prior to 0.5.70
         ["workerRole", ["Notice: Worker Role can be changed via the mec2functions drop-down (in the upper right).", "Currently, switching roles only changes the button order for Primary Navigation's second row. Default: Financial Worker."],],
         ["eleFocus", ["On page load, auto-focus on a field. Default: On."], true],
         ["caseHistory", ["Case History (most recent 10 cases accessed, found in the 'Case #' field to the right of the navigation buttons. Default: On."], true],
@@ -187,7 +189,7 @@ const secondaryActionArea = document.getElementById('secondaryActionArea'), dupl
 //
 const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
 !function userSettingDivs() {
-    if (iFramed || editMode) { return }; // User_Settings_Divs // code to check for affirmative setting is 'if (userSettings.settingId)'
+    if (iFramed || editMode) { return }; // User_Settings_Divs // code to check for affirmative setting is 'if (countyInfo.userSettings.settingId)'
     try {
         let isNavOnly = GM_info.script.name === "mec2navigation" ? '<div>Notice: Some settings, while available to change here, only apply to the full version (mec2functions)</div>' : ''
         document.getElementById('Claim Establishment').parentElement.classList.add('sub_menu')
@@ -235,10 +237,11 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
             }
             mec2functionsSettingsDialog.close()
         })
+        let navOnlyText = countyInfo.info.navOnly ? "Full Functionality" : "Navigation Only"
         let mec2functionsSettingsHTML = ''
         + '<a href="#">mec2functions</a>'
         + '<ul class="sub_menu" style="width: fit-content;" id="mec2functionsSubMenu">'
-            + [{ id: "mec2functionsFinancialWorker", text: "Financial Worker" }, { id: "mec2functionsPaymentWorker", text: "Payment Worker" }, { id: "mec2functionsProviderWorker", text: "Provider Worker" }, { id: "mec2functionsOpenSettings", text: "Settings" }, ].map(({ id, text } = {}) => '<li><a href="#" id="' + id + '">' + text + '</a>').join('')
+            + [ { id: "navOnly", text: navOnlyText }, { id: "mec2functionsFinancialWorker", text: "Financial Worker" }, { id: "mec2functionsPaymentWorker", text: "Payment Worker" }, { id: "mec2functionsProviderWorker", text: "Provider Worker" }, { id: "mec2functionsOpenSettings", text: "Settings" }, ].map(({ id, text } = {}) => '<li><a href="#" id="' + id + '">' + text + '</a>').join('')
         + '</ul>'
         let mec2functionsDropdown = document.createElement('li')
         mec2functionsDropdown.id = "mec2functionsDropdown"
@@ -247,9 +250,9 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
         let mec2functionsSubMenu = document.getElementById('mec2functionsSubMenu')
         mec2functionsDropdown.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "A") { return }
-            mec2functionsSubMenu.style.visibility = "hidden"
-            if (clickEvent.target.id.indexOf("Worker") > -1) { countyInfo.updateCountyInfoLS('workerRole', clickEvent.target.id) }
-            if (clickEvent.target.id === "mec2functionsOpenSettings") {
+            if (clickEvent.target.id === "navOnly") { countyInfo.updateCountyInfoLS('navOnly', !countyInfo.info.navOnly); console.log('navOnly', !countyInfo.info.navOnly) }
+            else if (clickEvent.target.id.indexOf("Worker") > -1) { countyInfo.updateCountyInfoLS('workerRole', clickEvent.target.id) }
+            else if (clickEvent.target.id === "mec2functionsOpenSettings") {
                 let userSettingsInputs = [...document.querySelectorAll('#settingsInner input')]
                 userSettingsInputs.forEach(ele => { ele.checked = countyInfo.userSettings[ele.id] ?? false })
                 mec2functionsSettingsDialog.showModal()
@@ -738,12 +741,12 @@ docReady( document.body?.addEventListener('submit', () => { document.body.style.
 }();
 // ///////// SECTION_END CUSTOM_NAVIGATION  (THE MEC2NAVIGATION SCRIPT SHOULD MIMIC THE ABOVE) \\\\\\\\
 // ====================================================================================================
+if (countyInfo.info.navOnly) { return };
 function resetTabIndex(excludedListString) {
     const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
     if (nonResetPages.includes(thisPageNameHtm)) { return }
     document.querySelectorAll('.panel-box-format :is(.form-control, .form-button):not([type=hidden])').forEach(ele => ele.removeAttribute('tabindex'))
 };
-// setTimeout(() => resetTabIndex(), 400)
 const flashRedBorder = {
     animate(ele) { let saniEle = sanitize.query(ele); saniEle && saniEle.animate(this.redBorder, this.redBorderTiming) },
     redBorder: [{ borderColor: "red", borderWidth: "2px", }],
@@ -775,6 +778,7 @@ const dateFuncs = {
     },
     formatDate(date, format = "mmddyy") {
         date = date instanceof Date ? date : new Date(date)
+        if ( date === "12/31/1969" || isNaN(date) ) { return undefined }
         switch (format) {
             case "mmddyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" })
             case "mdyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" })
@@ -821,7 +825,6 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
     static getActive() { return this.instances }
 };
 //
-const userXnumber = countyInfo.info.userIdNumber ?? '';
 const userCountyObj = new Map([
         ["x101", { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] }],
         ["x102", { county: "Anoka", code: "102", neighbors: ["Sherburne", "Wright", "Hennepin", "Ramsey", "Washington", "Chisago", "Isanti"] }],
@@ -912,7 +915,7 @@ const userCountyObj = new Map([
         ["x187", { county: "Yellow Medicine", code: "187", neighbors: ["Lac Qui Parle", "Lincoln", "Lyon", "Redwood", "Renville", "Chippewa"], outOfState: [ 57000, 57299 ] }],
         ["x192", { county: "White Earth Nation", code: "192", neighbors: ["Polk", "Norman", "Becker", "Clearwater", "Mahnomen"] }],
         ["x194", { county: "Red Lake Nation", code: "194", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods", "Beltrami"] }],
-    ]).get(userXnumber?.slice(0, 4).toLowerCase());
+    ]).get(countyInfo.info.userIdNumber?.slice(0, 4).toLowerCase());
 //======================== Case_History Section_Start =================================
 !function caseHistoryDatalist() {
     if (iFramed || !newTabField || !countyInfo.userSettings.caseHistory) { return };
@@ -2457,7 +2460,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                 let ncpInfo = nameFuncs.commaNameObject(document.querySelector('#csePriTable .selected td:nth-child(3)').textContent)
                 let childList = {};
                 let createdList = [...document.querySelectorAll('#childrenTable tbody tr')].forEach( (row, index) => { childList["child" + index] = row.children[1].textContent } );
-                const formInfo = { pdfType: "csForms", xNumber: userXnumber, caseNumber: caseId, cpInfo, ncpInfo, ...childList };
+                const formInfo = { pdfType: "csForms", xNumber: countyInfo.info.userIdNumber, caseNumber: caseId, cpInfo, ncpInfo, ...childList };
                 window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank");
             });
         } // SUB_SECTION_END Fill_Child_Support_PDF_Forms
@@ -2847,7 +2850,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             let oCaseName = nameFuncs.commaNameObject(pageTitle)
             const formInfo = {
                 pdfType: "BillingForm",
-                xNumber: userXnumber,
+                xNumber: countyInfo.info.userIdNumber,
                 caseFirstName: oCaseName.first,
                 caseLastName: oCaseName.last,
                 caseName: oCaseName.full,
@@ -3709,13 +3712,13 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     let userId = document.getElementById('userId')
     if (rederrortextContent.find(arrItem => arrItem.indexOf("Password has expired.") > -1)) {
 	focusEle = "#password"
-	} else if (userXnumber.length && document.getElementById("terms")) {
-        userId.value = userXnumber;
+	} else if (countyInfo.info.userIdNumber.length && document.getElementById("terms")) {
+        userId.value = countyInfo.info.userIdNumber;
         document.getElementById("terms").click();
         document.getElementById("password").focus();
     } else {
         focusEle = userId
-        addEventListener('beforeunload', () => {
+        document.getElementById('submit').addEventListener('click', () => {
             if (userId.value !== '') { countyInfo.updateCountyInfoLS('userIdNumber', userId.value) };
         });
     }
@@ -3860,8 +3863,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             let storedNoteDetails = sanitize.JSON(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
             if (!storedNoteExists || storedNoteDetails?.noteSummary === noteSummary?.value) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
             if (!editMode) {
-                let storedNoteInfoHTML = storedNoteExists ? '<span style="margin-left: 10px;">Unsaved note exists for #' + storedNoteDetails.identifier + '</span>' : ''
+                let storedNoteInfoHTML = storedNoteExists ? '<div id="unsavedNoteDiv" style="display: flex; align-items: center; gap: 5px;"><span style="margin-left: 10px;" title="' + storedNoteDetails.noteSummary + '">Unsaved note exists for case</span><a target="_self" href="/ChildCare/CaseNotes.htm?parm2=' + storedNoteDetails.identifier + '">'+ storedNoteDetails.identifier +'</a><span id="deleteUnsaved" style="cursor: pointer; color: red !important; padding-bottom: 2px;">✖</span></div>' : ''
                 secondaryActionArea?.insertAdjacentHTML('beforeend', '<div class="db-container"><button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML + ' </div>')
+                document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.storedNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
                 document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
                 function copyNoteToLS() {
                     let selectedLength = document.getElementsByClassName('selected').length
@@ -3874,6 +3878,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             } else if (editMode) {
                 window.addEventListener('beforeunload', getDetailsStoreInLS)
                 function getDetailsStoreInLS() { if (!noteCategory?.value) { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
+                document.getElementById('cancel').addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
                 if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
                 let noteDetails = sanitize.JSON(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
                 if (!noteDetailsExists && !storedNoteExists) { return };
@@ -4630,7 +4635,11 @@ function closeDatePicker(dateInputElement=0) {
         let addHidden = datepickerFields?.forEach( ele2 => ele2.addEventListener('input', inputEvent => { if (inputEvent.data && parseInt(inputEvent.data) < 10) { datepickerDiv.classList.add('hidden') } }) )
         async function getClipboardText() { return await navigator.clipboard.readText() }
         let pasteDate = datepickerFields?.forEach( ele3 => ele3.addEventListener('keydown', async keydownEvent => {
-            if (keydownEvent.key === 'v' && keydownEvent.ctrlKey) { keydownEvent.target.value = await getClipboardText() }
+            if (keydownEvent.key === 'v' && keydownEvent.ctrlKey) {
+                let clipboardContents = await getClipboardText()
+                clipboardContents = dateFuncs.formatDate(clipboardContents.trim(), "mmddyyyy")
+                if (clipboardContents) { keydownEvent.target.value = clipboardContents }
+            }
         }) )
 }();
 function datePickerDateChanged(dateField) {
@@ -5008,13 +5017,14 @@ function listPageLinksAndList(...rowAndPageArrays) { // listPageLinksAndList([ta
 };
 function insertTextAndMoveCursor(textToInsert, activeEle) {
     activeEle = activeEle ? sanitize.query(activeEle) : document.activeElement
-    let cursorPosition = activeEle.selectionStart; // current position of the cursor
-    let currentText = activeEle.value
-    activeEle.value = currentText.slice(0, cursorPosition) + textToInsert + currentText.slice(cursorPosition) // setting the modified text in the text area
-    textSelect(activeEle, cursorPosition + textToInsert.length);
+    let cursorStart = activeEle.selectionStart; // current position of the cursor
+    let activeEleText = activeEle.value
+    let afterSelection = activeEleText.slice(activeEle.selectionEnd)
+    activeEle.value = activeEleText.slice(0, cursorStart) + textToInsert + afterSelection // setting the modified text in the text area
+    textSelect(activeEle, cursorStart + textToInsert.length);
     function textSelect(element, start, end) { //moves cursor to selected position (start) or selects text between (start) and (end);
         if (!element.setSelectionRange) { return };
-        end = end || start;
+        end ??= start;
         element.focus();
         element.setSelectionRange(start, end);
     };
@@ -5040,7 +5050,7 @@ function preventKeys(keyArray, ms=1500) {
 };
 !function keyboardHotkeys() {
     if (iFramed) { return };
-    window.addEventListener('keydown', keydownEvent => {
+    window.addEventListener('keydown', async keydownEvent => {
         if (keydownEvent.key === "Alt") { keydownEvent.preventDefault(); return; }; // alt pressed without additional key;
         if (keydownEvent.altKey) {
             if (["d", "s", "n", "c", "e", "r", "w", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { keydownEvent.preventDefault() } else { return };
@@ -5058,7 +5068,11 @@ function preventKeys(keyArray, ms=1500) {
                 default: break;
             }
         } else if (keydownEvent.ctrlKey) {
-            if (["w", "s", ].includes(keydownEvent.key)) { keydownEvent.preventDefault() } else { return };
+            if (["v"].includes(keydownEvent.key) && keydownEvent.target.nodeName === "INPUT" && !keydownEvent.target.classList.contains('hasDatepicker') && keydownEvent.target.closest('.panel-box-format')) {
+                keydownEvent.preventDefault();
+                let clipboardContents = await navigator.clipboard.readText()
+                insertTextAndMoveCursor(clipboardContents.trim(), keydownEvent.target) // Firefox: Pasting from outside causes user prompt. Disable by setting about:config: dom.events.testing.asyncClipboard = true;
+            } else if (!["w", "s", ].includes(keydownEvent.key)) { return } else { keydownEvent.preventDefault() };
             switch (keydownEvent.key) {
                 case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
                 case "w": { if (editMode || document.getElementById('wrapUp').disabled === false) { document.getElementById('wrapUp').click(); } break }
@@ -5083,13 +5097,6 @@ function preventKeys(keyArray, ms=1500) {
         })
     } catch (error) { console.trace(error) }; // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
 }();
-// !function allowPasteInInputs() {
-//     async function getClipboardText() { return await navigator.clipboard.readText() }
-//     document.body.addEventListener('keydown', async keydownEvent => {
-//         if (keydownEvent.target.nodeName !== "INPUT") { return };
-//         if (keydownEvent.key === 'v' && keydownEvent.ctrlKey) { keydownEvent.target.value = await getClipboardText() }
-//     })
-// }();
 //           personal amusement;
 !function starFall() {
     if (!countyInfo.userSettings.starFall) { return };
