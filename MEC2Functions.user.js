@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.71
+// @version      0.5.72
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -5068,11 +5068,12 @@ function preventKeys(keyArray, ms=1500) {
                 default: break;
             }
         } else if (keydownEvent.ctrlKey) {
-            if (["v"].includes(keydownEvent.key) && keydownEvent.target.nodeName === "INPUT" && !keydownEvent.target.classList.contains('hasDatepicker') && keydownEvent.target.closest('.panel-box-format')) {
-                keydownEvent.preventDefault();
-                let clipboardContents = await navigator.clipboard.readText()
-                insertTextAndMoveCursor(clipboardContents.trim(), keydownEvent.target) // Firefox: Pasting from outside causes user prompt. Disable by setting about:config: dom.events.testing.asyncClipboard = true;
-            } else if (!["w", "s", ].includes(keydownEvent.key)) { return } else { keydownEvent.preventDefault() };
+ //           if (["v"].includes(keydownEvent.key) && keydownEvent.target.nodeName === "INPUT" && !keydownEvent.target.classList.contains('hasDatepicker') && keydownEvent.target.closest('.panel-box-format')) {
+ //               keydownEvent.preventDefault();
+ //               let clipboardContents = await navigator.clipboard.readText()
+ //               insertTextAndMoveCursor(clipboardContents.trim(), keydownEvent.target) // Firefox: Pasting from outside causes user prompt. Disable by setting about:config: dom.events.testing.asyncClipboard = true;
+ //           } else 
+		    if (!["w", "s", ].includes(keydownEvent.key)) { return } else { keydownEvent.preventDefault() };
             switch (keydownEvent.key) {
                 case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
                 case "w": { if (editMode || document.getElementById('wrapUp').disabled === false) { document.getElementById('wrapUp').click(); } break }
