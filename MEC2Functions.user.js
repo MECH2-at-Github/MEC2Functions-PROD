@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.74
+// @version      0.5.75
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -818,7 +818,8 @@ const dateFuncs = {
     },
 };
 const convertLineBreakToSpace = (string) => string.replace(/([\S]) *\n([a-z])/g, '$1 $2');
-const eventChange = new Event('change'), doEvent = (element) => sanitize.query(element)?.dispatchEvent(eventChange);
+const eventChange = new Event('change'), doChange = (element) => sanitize.query(element)?.dispatchEvent(eventChange);
+const eventKeydown = new KeyboardEvent('keydown'), doKeydown = (element) => sanitize.query(element)?.dispatchEvent(eventKeydown);
 class TrackedMutationObserver extends MutationObserver { // https://stackoverflow.com/questions/63488834/how-to-get-all-active-mutation-observers-on-page // Replace MutationObserver with TrackedMutationObserver
     static instances = []
     constructor(...args) { super(...args); }
@@ -2119,7 +2120,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             clickEvent.preventDefault()
             let resetTarget = resetButtons[clickEvent.target.id]
             resetTarget.resetValueEles.forEach(ele => { ele.value = '' })
-            doEvent(resetTarget.focus)
+            doChange(resetTarget.focus)
         })
         ccpEle.providerId.addEventListener('change', () => {
             let mute = new MutationObserver(() => { providerTypeExists(); mute.disconnect(); })
@@ -2184,7 +2185,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                     function pasteStartData() {
                         if (!ccpEle.providerId?.value?.length) {
                             ccpEle.providerId.value = oProviderStart.providerId
-                            doEvent(ccpEle.providerId)
+                            doChange(ccpEle.providerId)
                         }
                         let setValues = ['primaryBeginDate', 'secondaryBeginDate', 'carePeriodBeginDate', 'hoursOfCareAuthorized', 'signedFormReceived', 'providerLivesWithChild', ].forEach(item => { ccpEle[item].value = oProviderStart[item] })
                         let setValuesBlank = ['primaryEndDate', 'secondaryEndDate', 'carePeriodEndDate', 'careEndReason', ].forEach(item => { ccpEle[item].value = '' })
@@ -2489,7 +2490,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     deceasedDateFormGroup.classList.add('hidden')
     if (editMode) {
         if (document.getElementById('lastName').value !== '') {
-            addValueClassDoEvent(document.getElementById('nameKnown'), 'Yes', 'red-outline', false)
+            addValueClassdoChange(document.getElementById('nameKnown'), 'Yes', 'red-outline', false)
             eleFocus(deceased)
         } else { eleFocus('#nameKnown') }
     }
@@ -2512,16 +2513,16 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         activityBegin.addEventListener('blur', () => {
             if (memberDescription.value === "PE" || memberDescription.value === "NP") { //extended elig
                 activityEnd.value = activityBegin.value
-                doEvent(activityEnd)
+                doChange(activityEnd)
                 eleFocus(save)
             }
         })
         let beforeFirst = rederrortextContent.find(arrItem => arrItem.indexOf('before the first day') > -1) && eleFocus(save)
         memberDescription.addEventListener('change', changeEvent => {
             const autofillValues = supportAutoFill.get(changeEvent.target.value)
-            addValueClassDoEvent(verification, autofillValues.verif, false, true)
-            addValueClassDoEvent(planRequired, autofillValues.plan, false, true)
-            autofillValues.plan === "Yes" && addValueClassDoEvent(planApproved, "Yes", false, true)
+            addValueClassdoChange(verification, autofillValues.verif, false, true)
+            addValueClassdoChange(planRequired, autofillValues.plan, false, true)
+            autofillValues.plan === "Yes" && addValueClassdoChange(planApproved, "Yes", false, true)
             activityBegin.value && autofillValues.focus && eleFocus(autofillValues.focus)
         })
         const supportAutoFill = new Map([
@@ -2530,7 +2531,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             [ "NP", { verif: "Other", plan: "No" } ],
             [ "PE", { verif: "Other", plan: "No" } ],
         ])
-        void doEvent(planRequired)
+        void doChange(planRequired)
     }(); // SECTION_END Case_Support_Activity;
     !function CaseJobSearchTracking() {
         if (!("CaseJobSearchTracking.htm").includes(thisPageNameHtm)) { return }
@@ -2624,13 +2625,11 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             let tempInelig = { type: document.getElementById('type').value, reason: document.getElementById('reason').value, start: document.getElementById('beginDate').value, end: document.getElementById('allowedExpirationDate').value }
             sessionStorage.setItem('MECH2.TI.' + caseId, JSON.stringify(tempInelig))
         })
-        $('#beginDate').on("input change", () => {
-            if (this.value.length < 10) { return false }
-            // let extEligPlus90 = dateFuncs.addDays(document.getElementById('beginDate').value, 90);
-            // extEligPlus90 = dateFuncs.formatDate(new Date(extEligPlus90), "ddmmyyyy")
+        $('#beginDate').on("input change", changeEvent => {
+            if (changeEvent.target.value.length < 10) { return false }
             let extEligPlus90 = dateFuncs.formatDate( dateFuncs.addDays(document.getElementById('beginDate').value, 90), "ddmmyyyy" )
             document.getElementById('allowedExpirationDate').value = extEligPlus90
-            doEvent('#allowedExpirationDate')
+            doChange('#allowedExpirationDate')
         })
     }
 }(); // SECTION_END Case_Eligibility_Result_Approval;
@@ -2703,7 +2702,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         ceiIncomeType.addEventListener('change', changeEvent => {
             checkEmploymentType()
             if ( changeEvent.target.value === "Self-employment") { return }
-            addValueClassDoEvent(ceiEmpCountry, 'USA', false, true)
+            addValueClassdoChange(ceiEmpCountry, 'USA', false, true)
         })
         ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', '#ceiPaymentEnd', '#ceiPaymentChange')
         let ceiGrossIncome = document.getElementById('ceiGrossIncome'), ceiGrossAllowExps = document.getElementById('ceiGrossAllowExps')
@@ -2713,7 +2712,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         ceiGrossIncome.addEventListener('input', () => { fiftyPercent.innerText = '50%: ' + (ceiGrossIncome.value * .5).toFixed(2) })
         document.getElementById('grossButton').addEventListener('click', () => {
             ceiGrossAllowExps.value = (ceiGrossIncome.value * .5).toFixed(2)
-            doEvent(ceiGrossAllowExps)
+            doChange(ceiGrossAllowExps)
             eleFocus(save)
         });
     } else if (!editMode) {
@@ -2770,7 +2769,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                 overrideReason.value = copayDist.overrideReason
                 eleFocus(save)
             } else {
-                addValueClassDoEvent(overrideReason, 'Copay Distribution Adjustment', 'red-outline', false)
+                addValueClassdoChange(overrideReason, 'Copay Distribution Adjustment', 'red-outline', false)
                 eleFocus(copay)
             }
             save.addEventListener("click", () => {
@@ -2965,25 +2964,25 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         membRefNum?.addEventListener('blur', fillMemberData)
         function fillMemberData() { //autofilling
             const memberFillData = {
-                memberSsnVerification: { id: "memberSsnVerification", value: "SSN Not Provided", class: "red-outline", doEvent: false, },
-                memberBirthDateVerification: { id: "memberBirthDateVerification", value: "No Verification Provided", class: "red-outline", doEvent: false, },
-                memberIdVerification: { id: "memberIdVerification", value: "No Verification Provided", class: "red-outline", doEvent: false, },
-                memberKnownRace: { id: "memberKnownRace", value: "No", class: "red-outline", doEvent: true, },
-                memberSpokenLanguage: { id: "memberSpokenLanguage", value: "English", class: "red-outline", doEvent: true, },
-                memberWrittenLanguage: { id: "memberWrittenLanguage", value: "English", class: "red-outline", doEvent: true, },
-                memberNeedsInterpreter: { id: "memberNeedsInterpreter", value: "No", class: "red-outline", doEvent: false, },
+                memberSsnVerification: { id: "memberSsnVerification", value: "SSN Not Provided", class: "red-outline", doChange: false, },
+                memberBirthDateVerification: { id: "memberBirthDateVerification", value: "No Verification Provided", class: "red-outline", doChange: false, },
+                memberIdVerification: { id: "memberIdVerification", value: "No Verification Provided", class: "red-outline", doChange: false, },
+                memberKnownRace: { id: "memberKnownRace", value: "No", class: "red-outline", doChange: true, },
+                memberSpokenLanguage: { id: "memberSpokenLanguage", value: "English", class: "red-outline", doChange: true, },
+                memberWrittenLanguage: { id: "memberWrittenLanguage", value: "English", class: "red-outline", doChange: true, },
+                memberNeedsInterpreter: { id: "memberNeedsInterpreter", value: "No", class: "red-outline", doChange: false, },
             }
             for (let memberData in memberFillData) {
                 let member = memberFillData[memberData];
                 let memberDataField = document.getElementById(member.id)
-                !memberDataField.value && addValueClassDoEvent(memberDataField, member.value, member.class, member.doEvent)
+                !memberDataField.value && addValueClassdoChange(memberDataField, member.value, member.class, member.doChange)
             }
             if (membRefNum.value > 2 && membRefNum.value < 11 && dateFuncs.getMonthDifference(today, document.getElementById('memberBirthDate').value) < 216) { // Younger than 18, within typical child member ref #s;
                 let memberRelationshipToApplicant = document.getElementById('memberRelationshipToApplicant')
-                if (!memberRelationshipToApplicant.value) { addValueClassDoEvent(memberRelationshipToApplicant, "Child", "red-outline", true) }
+                if (!memberRelationshipToApplicant.value) { addValueClassdoChange(memberRelationshipToApplicant, "Child", "red-outline", true) }
             }
             let arrivalDate = document.querySelector('#arrivalDate:not(:disabled)')
-            arrivalDate && addValueClassDoEvent(arrivalDate, "", 'red-outline', false)
+            arrivalDate && addValueClassdoChange(arrivalDate, "", 'red-outline', false)
         }
         fillMemberData()
     }
@@ -2997,15 +2996,15 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             let membRefNum = membRef.nodeName === "SELECT" ? parseInt(membRef.value) : parseInt(membRef.textContent)
             if ( isNaN(membRefNum) || membRefNum < 3 || membRefNum > 10 ) { return }
             const memberiiFillDataForChildren = {
-                memberMaritalStatus: { id: "memberMaritalStatus", value: "Never Married", class: 'red-outline', doEvent: true, },
-                memberLastGradeCompleted : { id: "memberLastGradeCompleted", value: "Pre-First Grade or Never Attended", class: 'red-outline', doEvent: false },
-                memberUSCitizen : { id: 'memberUSCitizen', value: "Yes", class: 'red-outline', doEvent: true },
-                memberCitizenshipVerification : { id: 'memberCitizenshipVerification', value: "No Verification Provided", class: 'red-outline', doEvent: false },
+                memberMaritalStatus: { id: "memberMaritalStatus", value: "Never Married", class: 'red-outline', doChange: true, },
+                memberLastGradeCompleted : { id: "memberLastGradeCompleted", value: "Pre-First Grade or Never Attended", class: 'red-outline', doChange: false },
+                memberUSCitizen : { id: 'memberUSCitizen', value: "Yes", class: 'red-outline', doChange: true },
+                memberCitizenshipVerification : { id: 'memberCitizenshipVerification', value: "No Verification Provided", class: 'red-outline', doChange: false },
             }
             for (let memberFillData in memberiiFillDataForChildren) {
                 let member = memberiiFillDataForChildren[memberFillData];
                 let memberDataField = document.getElementById(member.id);
-                !memberDataField.value && addValueClassDoEvent(memberDataField, member.value, member.class, member.doEvent);
+                !memberDataField.value && addValueClassdoChange(memberDataField, member.value, member.class, member.doChange);
             };
             memberSpouseReferenceNumber.tabIndex = '-1'
             eleFocus(memberCitizenshipVerification)
@@ -3192,7 +3191,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             suspendPlus45 = sanitize.JSON(suspendPlus45)
             if (caseId === suspendPlus45.id) {
                 redeterminationDueDate.value = suspendPlus45.delayDate
-                doEvent(redeterminationDueDate)
+                doChange(redeterminationDueDate)
                 sessionStorage.setItem('MECH2.suspendPlus45', 'needsWrapUp')
                 save.click()
             }
@@ -3386,9 +3385,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         if (!caseTransferFromType.querySelector('option[value="Worker To Worker"]')) { return }
         sessionStorage.setItem(ssTransferCase, 'transferDone')
         caseTransferFromType.value = "Worker To Worker"
-        doEvent('#caseTransferFromType')
+        doChange('#caseTransferFromType')
         document.getElementById('caseTransferToWorkerId').value = transferWorkerId
-        doEvent('#caseTransferToWorkerId')
+        doChange('#caseTransferToWorkerId')
         save.click() // disable for testing
     };
     function validateTransferWorkerId(testedWorkerId) {
@@ -3719,11 +3718,11 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     if (nonStandardRates.length === 0) {
         nonStandardTds.forEach(ele => ele.remove())
     }
-    if (maximumRatesCounty.value === "" && typeof userCountyObj !== undefined) { maximumRatesCounty.value = userCountyObj.county; doEvent('#maximumRatesCounty') }
-    if (providerType === '') { ratesProviderType.value = "Child Care Center"; doEvent(ratesProviderType) }
-    if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent(maximumRatesPeriod) }
-    ratesProviderType.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent(maximumRatesPeriod) })
-    maximumRatesCounty.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doEvent(maximumRatesPeriod) })
+    if (maximumRatesCounty.value === "" && typeof userCountyObj !== undefined) { maximumRatesCounty.value = userCountyObj.county; doChange('#maximumRatesCounty') }
+    if (providerType === '') { ratesProviderType.value = "Child Care Center"; doChange(ratesProviderType) }
+    if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) }
+    ratesProviderType.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) })
+    maximumRatesCounty.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) })
     if (providerType !== "Legal Non-licensed") {
         document.querySelectorAll('tbody > tr > th:nth-child(n+2):nth-child(-n+4)').forEach( ele => ele.insertAdjacentHTML('beforeend', '<span class="maxRates"> (15%, 20%)</span>') )
         let maxRatesTds = [...document.querySelectorAll('tbody > tr > td')].forEach(ele2 => {
@@ -3954,7 +3953,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         let status = document.getElementById('status')
         if (status) {
             status.value = "Application"
-            void doEvent(status)
+            void doChange(status)
             status.value = ""
         }
         document.querySelector('.panel-default.panel-box-format')?.addEventListener('click', clickEvent => { //click checkbox if clicking label
@@ -3973,7 +3972,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             let [, commentsText, caseStatus, checkBoxIds] = pastedText.split('SPLIT')
             if (status) {
                 status.value = caseStatus
-                void doEvent(status)
+                void doChange(status)
                 queueMicrotask(() => { checkBoxIds.split(',').forEach( ele => document.getElementById(ele).click() ) })
             }
             textbox.value = commentsText
@@ -4614,19 +4613,30 @@ function closeDatePicker(dateInputElement=0) {
     }
 };
 !function autoHideDatePicker() {
-        if (!countyInfo.userSettings.autoHideDatePicker || !datepickerDiv) { return }
-        datepickerDiv?.classList.add('hidden')
-        let datepickerFields = [...document.querySelectorAll('.hasDatepicker')]
-        let removeHidden = datepickerFields?.forEach(ele => ele.addEventListener('click', () => datepickerDiv.classList.remove('hidden') ))
-        let addHidden = datepickerFields?.forEach( ele2 => ele2.addEventListener('input', inputEvent => { if (inputEvent.data && parseInt(inputEvent.data) < 10) { datepickerDiv.classList.add('hidden') } }) )
-        async function getClipboardText() { return await navigator.clipboard.readText() }
-        let pasteDate = datepickerFields?.forEach( ele3 => ele3.addEventListener('keydown', async keydownEvent => {
-            if (keydownEvent.key === 'v' && keydownEvent.ctrlKey) {
-                let clipboardContents = await getClipboardText()
-                clipboardContents = dateFuncs.formatDate(clipboardContents.trim(), "mmddyyyy")
-                if (clipboardContents) { keydownEvent.target.value = clipboardContents }
+    if (!countyInfo.userSettings.autoHideDatePicker || !datepickerDiv) { return }
+    datepickerDiv?.classList.add('hidden')
+    let datepickerFields = [...document.querySelectorAll('.hasDatepicker')]
+    let removeHidden = datepickerFields?.forEach(ele => ele.addEventListener('click', () => datepickerDiv.classList.remove('hidden') ))
+    let addHidden = datepickerFields?.forEach( ele2 => ele2.addEventListener('input', inputEvent => { if (inputEvent.data && parseInt(inputEvent.data) < 10) { datepickerDiv.classList.add('hidden') } }) )
+    let pasteDate = datepickerFields?.forEach( ele3 => ele3.addEventListener('keydown', datepickerCtrlKeys) )
+    async function datepickerCtrlKeys(keydownEvent) {
+        if (keydownEvent.ctrlKey && ["a", "x", "c", "v"].includes(keydownEvent.key)) {
+            keydownEvent.preventDefault();
+            switch (keydownEvent.key) {
+                case 'x': navigator.clipboard.writeText(keydownEvent.target.value); keydownEvent.target.value = ""; break;
+                case 'a': keydownEvent.target.select(); break;
+                case 'c': navigator.clipboard.writeText(keydownEvent.target.value); break;
+                case 'v': {
+                    let clipboardContents = await getClipboardText()
+                    clipboardContents = dateFuncs.formatDate(clipboardContents.trim(), "mmddyyyy")
+                    if (clipboardContents) { keydownEvent.target.value = clipboardContents }
+                    doKeydown(keydownEvent.target)
+                    doChange(keydownEvent.target)
+                    return;
+                }
             }
-        }) )
+        }
+    }
 }();
 function datepickerDateChanged(dateField, fn) {
     dateField = sanitize.query(dateField)
@@ -4685,12 +4695,12 @@ function checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableCh
 		}
 	}
 };
-function addValueClassDoEvent(ele, addValue, addClass, event) {
+function addValueClassdoChange(ele, addValue, addClass, event) {
     ele = sanitize.query(ele)
     if (!ele) { return }
     addValue ? ele.value = addValue : 0
     addClass && ele.classList.add(addClass)
-    event && doEvent(ele)
+    event && doChange(ele)
 };
 //           add/change element styles;
 function cssStyle() {
@@ -4837,7 +4847,7 @@ function snackBar(sbText, title = "Copied!", textAlign = "left") {
     snackBarTxt.push('</div>')
     document.body.insertAdjacentHTML('beforeend', snackBarTxt.join(''))
 };
-//           send value to clipboard;
+//           clipboard functions;
 function copyMailing() {
     // let providerData = document.getElementById('providerData'), providerType = providerData.children[3].firstElementChild.childNodes[2].textContent.trim(), providerName = providerData.firstElementChild.childNodes[4].textContent.trim()
     // if ( ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) ) { providerName = nameFuncs.commaNameReorder(providerName) }
@@ -4857,7 +4867,7 @@ function copy(clipText, sbText, sbTitle, sbAlign) {
     navigator.clipboard.writeText(clipText)
     sbText?.length > 0 && snackBar(sbText, sbTitle ?? 'notitle', sbAlign ?? 'left')
 };
-async function copyFormattedHTML({html, extraStyle='', addTableStyle=true, removeStyles=true} = {}) {
+async function copyFormattedHTML({ html, extraStyle='', addTableStyle=true, removeStyles=true } = {}) {
     let tableStyle = 'table { border: 2px solid green !important; font-size: 24px; white-space: nowrap; table-layout: fixed; } td, th { padding: 2px 20px; margin: auto; } thead td, thead th { font-weight: 700; background: #07416f; color: white; } table tbody td { color: black; background: white; } .hidden { display: none !important; }'
     let style = ['<style>body { color: unset !important; background: unset !important; font-size: 24px; }', addTableStyle ? tableStyle : '', extraStyle, '</style>'].join(' ')
     html = ('<html><head>' + style + '</head><body>' + (removeStyles ? html.replace(/style=".+?"/ig, '') : html) + '</body>').replace(/\n|\t|&nbsp;|<br>/g, '')
@@ -4865,6 +4875,7 @@ async function copyFormattedHTML({html, extraStyle='', addTableStyle=true, remov
     const data = new ClipboardItem({ "text/html": htmlBlob, });
     await navigator.clipboard.write([data]);
 };
+async function getClipboardText() { return await navigator.clipboard.readText() }
 //           send value to sessionStorage;
 function storeSelectedTableRow({ storeTable = 'table', rowOrValue = 'row' } = {}) {
     storeTable = sanitize.query('div.dataTables_scrollBody > ' + storeTable)
@@ -5047,7 +5058,8 @@ function preventKeys(keyArray, ms=1500) {
         if (keydownEvent.key === "Alt") { keydownEvent.preventDefault(); return; }; // alt pressed without additional key;
         if (keydownEvent.key === "Tab" && keydownEvent.target.classList?.contains('hasDatepicker') && keydownEvent.target.value.length > 0 && keydownEvent.target.value.length < 10) { keydownEvent.preventDefault() }
         if (keydownEvent.altKey) {
-            if (["d", "s", "n", "c", "e", "r", "w", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { keydownEvent.preventDefault() } else { return };
+            if (!["d", "s", "n", "c", "e", "r", "w", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { return };
+            keydownEvent.preventDefault()
             switch (keydownEvent.key) {
                 case 'd': document.querySelector(':is(#done, #delete):not(:disabled)')?.click(); break;
                 case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
@@ -5061,23 +5073,22 @@ function preventKeys(keyArray, ms=1500) {
                 case 'ArrowRight': document.querySelector('#next:not(:disabled)')?.click(); break;
                 default: break;
             }
-        }
-        if (keydownEvent.ctrlKey) {
-            if (["v"].includes(keydownEvent.key) && keydownEvent.target.nodeName === "INPUT" && keydownEvent.target.closest('.panel-box-format')) {
-                let clipboardContents = await navigator.clipboard.readText()
+        } else if (keydownEvent.ctrlKey) {
+            if (keydownEvent.target.classList.contains('hasDatepicker') || ['ssnReq'].includes(keydownEvent.target.id) || !["v", "s", "w" ].includes(keydownEvent.key)) { return };
+            if (keydownEvent.target.nodeName === "INPUT" && keydownEvent.key === "v" && keydownEvent.target.closest('.panel-box-format')) {
+                keydownEvent.preventDefault()
+                let clipboardContents = await getClipboardText()
                 clipboardContents = clipboardContents.trim().replace(/(?<=\d),(?=\d)/g, '')
-                if (keydownEvent.target.classList.contains('hasDatepicker')) {
-                    clipboardContents = dateFuncs.formatDate(clipboardContents, "mmddyyyy")
-                    if (!clipboardContents) { return };
-                }
-                keydownEvent.preventDefault();
                 keydownEvent.target.value = clipboardContents
-                doEvent(keydownEvent.target)
-            } else
-                if (!["w", "s", ].includes(keydownEvent.key)) { return } else { keydownEvent.preventDefault() };
-            switch (keydownEvent.key) {
-                case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
-                case "w": { if (editMode || document.getElementById('wrapUp').disabled === false) { document.getElementById('wrapUp').click(); } break }
+                doKeydown(keydownEvent.target)
+                doChange(keydownEvent.target)
+            } else if ([ "s", "w" ].includes(keydownEvent.key)) {
+                keydownEvent.preventDefault()
+                switch (keydownEvent.key) {
+                    case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
+                    case 'w': { if (editMode || document.getElementById('wrapUp').disabled === false) { document.getElementById('wrapUp').click(); } break }
+                    default: break;
+                }
             }
         }
     })
