@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.72
+// @version      0.5.74
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -32,6 +32,7 @@ const sanitize = {
         };
     },
     string(text) { return String(text)?.replace(/[^a-z0-9áéíóúñü \.,'_-]/gim, '') },
+    number(num) { return Number.isNaN(num) ? undefined : Number(num) },
     html(text) { return new DOMParser().parseFromString(text, "text/html").documentElement.textContent },
     timeStamp(time) { return String(time)?.replace(/[^apm0-9:,\/ ]/gi, '') },
     date(inputDate, dateTypeNeeded = "date") {
@@ -58,9 +59,6 @@ const clearStorageItems = (storage = "both") => {
 };
 if ("Logout.htm".includes(thisPageNameHtm)) { clearStorageItems(); return; };
 if ( "Welcome.htm".includes(thisPageNameHtm) ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
-document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="#" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + '</a>'
-                                                    + '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>');
-document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
 const mec2functionFeatures = [
         { title: 'Primary Navigation', desc: 'Buttons added to replace the drop-down menus for navigating MEC2.', selector: '.primary-navigation' },
         { title: 'User Settings', desc: 'Settings menu for mec2functions.', selector: '#mec2functionsDropdown' },
@@ -76,31 +74,28 @@ const mec2functionFeatures = [
 //
 const countyInfo = {
     info: { ...sanitize.JSON( localStorage.getItem('MECH2.countyInfo') ) } ?? {},
-    userSettings: { ...sanitize.JSON( localStorage.getItem('MECH2.userSettings') ) } ?? {},
-    updateCountyInfoLS(countyInfoKey, countyInfoValue) { // keyName, newValue or "delete"
+    updateInfo(countyInfoKey, countyInfoValue) { // keyName, newValue or "delete"
         countyInfoValue === "delete" ? delete this.info[countyInfoKey] : this.info[countyInfoKey] = countyInfoValue
         localStorage.setItem( 'MECH2.countyInfo', JSON.stringify(this.info) )
     },
-    updateUserSettingsLS(userSettingsKey, userSettingsValue) {
+    countyInfoPrompt(questionString, countyInfoKey) {
+        let promptAnswer = sanitize.string( prompt(questionString, countyInfo.info[countyInfoKey] ?? "") )
+        if (typeof promptAnswer === "string") { this.updateInfo(countyInfoKey, ( promptAnswer.length ? sanitize.string(promptAnswer) : "delete") ) }
+        return promptAnswer
+    },
+    userSettings: { ...sanitize.JSON( localStorage.getItem('MECH2.userSettings') ) } ?? {},
+    updateUserSettings(userSettingsKey, userSettingsValue) {
         this.userSettings[userSettingsKey] = userSettingsValue
         localStorage.setItem( 'MECH2.userSettings', JSON.stringify(this.userSettings) )
     },
-    countyInfoPrompt(questionString, countyInfoKey) {
-        let promptAnswer = prompt(questionString, countyInfo.info[countyInfoKey] ?? "")
-        if (typeof promptAnswer === "string") { this.updateCountyInfoLS(countyInfoKey, ( promptAnswer.length ? promptAnswer : "delete") ) }
-        return promptAnswer
-    },
 }; // function_and_values
-// updating to new system, can remove after pushed to Prod
-if (GM_info.script.name === "mec2functions") {
-    if (localStorage.getItem('MECH2.userIdNumber')) { countyInfo.updateCountyInfoLS('userIdNumber', localStorage.getItem('MECH2.userIdNumber')); localStorage.removeItem('MECH2.userIdNumber') };
-    if (localStorage.getItem('MECH2.closedCaseBank')) { countyInfo.updateCountyInfoLS('closedCaseBank', localStorage.getItem('MECH2.closedCaseBank')); localStorage.removeItem('MECH2.closedCaseBank') };
-    if (localStorage.getItem('MECH2.userName')) { countyInfo.updateCountyInfoLS( 'userName', localStorage.getItem('MECH2.userName') ); localStorage.removeItem('MECH2.userName') };
-};
+document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="#" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info.navOnly ? " Nav Only" : "") + '</a>'
+                                                    + '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>');
+document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
 //
 const newFeatureNotice = {
     newNoticesToUsers: [ // ["lsValue", [ "Description_of_setting. Default: On_Off" ], trueIsOn_falseIsOff_omitForNonSettingNotices],
-        ["navOnly", [ "Toggle mec2functions between 'Navigation Only' and 'Full Functionality.'","Limits mec2functions to Nav buttons, extra footer links, and period selector reversal/buttons.","Intended uses are to check if an issue is in MEC2 or mec2functions or during Help Desk calls while still retaining navigation. Default: Off" ], false],
+        ["navOnly", [ "Toggle mec2functions between 'Navigation Only' and 'Full Functionality.'","Limits mec2functions to Nav buttons, extra footer links, and period selector reversal/buttons.","Intended uses are to check if an issue is in MEC2 or mec2functions, or during Help Desk calls while still retaining navigation. Default: Off" ], false],
         //prior to 0.5.70
         ["workerRole", ["Notice: Worker Role can be changed via the mec2functions drop-down (in the upper right).", "Currently, switching roles only changes the button order for Primary Navigation's second row. Default: Financial Worker."],],
         ["eleFocus", ["On page load, auto-focus on a field. Default: On."], true],
@@ -120,7 +115,7 @@ const newFeatureNotice = {
         if (!formElement) { return };
         const noticeHTML = this.newNoticesToUsers.map( ([lsValue, textArray, newUserSetting] = []) => {
             if (this.noticeToUsersLS.includes(lsValue)) { return }; // return if acknowledged;
-            countyInfo.updateUserSettingsLS(lsValue, newUserSetting) // add to stored settings if new;
+            countyInfo.updateUserSettings(lsValue, newUserSetting) // add to stored settings if new;
             return ['<div id="Notice', lsValue, '" class="error_alertbox_new mec2functions"><div>', textArray.map(item => '<p class="redcolortext mec2functions" style="display: block;">' + item + '</p>').join(''), '</div><span style="cursor: pointer; color: black !important;">✖</span></div>'].join('')
         }).join('');
         if (!noticeHTML) { return };
@@ -191,7 +186,7 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
 !function userSettingDivs() {
     if (iFramed || editMode) { return }; // User_Settings_Divs // code to check for affirmative setting is 'if (countyInfo.userSettings.settingId)'
     try {
-        let isNavOnly = GM_info.script.name === "mec2navigation" ? '<div>Notice: Some settings, while available to change here, only apply to the full version (mec2functions)</div>' : ''
+        let isNavOnlyScript = GM_info.script.name === "mec2navigation" ? '<div>Notice: Some settings, while available to change here, only apply to the full version (mec2functions)</div>' : ''
         document.getElementById('Claim Establishment').parentElement.classList.add('sub_menu')
         const settingsDivs = [
             { title: "Automatic field focus on page load", shortText: "Page Load Focus", id: "eleFocus" },
@@ -210,7 +205,7 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
         <div class="container">
           <dialog class="settingsOuter" id="mec2functionsSettings">
             <div class="settingsInner" id="settingsInner">`
-            + isNavOnly + settingsDivs
+            + isNavOnlyScript + settingsDivs
          + `</div>
             <div class="settingsButtons" id="mec2functionsSettingsButtonDiv">
               <button class="cButton" type="button" id="mec2functionsSave">Save</button> <button class="cButton" type="button" id="mec2functionsClose">Close</button>
@@ -232,16 +227,16 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
         document.getElementById('mec2functionsSettingsButtonDiv').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             if (clickEvent.target.id === "mec2functionsSave") {
-                let userSettingsInputs = [...document.querySelectorAll('#settingsInner input')].forEach(ele => countyInfo.updateUserSettingsLS(ele.id, ele.checked) )
+                let userSettingsInputs = [...document.querySelectorAll('#settingsInner input')].forEach(ele => countyInfo.updateUserSettings(ele.id, ele.checked) )
                 snackBar('Page must be reloaded before settings are applied.', 'Settings Saved!')
             }
             mec2functionsSettingsDialog.close()
         })
-        let navOnlyText = countyInfo.info.navOnly ? "Full Functionality" : "Navigation Only"
+        let navOnlyText = () => countyInfo.info.navOnly ? "Full Functionality" : "Navigation Only"
         let mec2functionsSettingsHTML = ''
         + '<a href="#">mec2functions</a>'
         + '<ul class="sub_menu" style="width: fit-content;" id="mec2functionsSubMenu">'
-            + [ { id: "navOnly", text: navOnlyText }, { id: "mec2functionsFinancialWorker", text: "Financial Worker" }, { id: "mec2functionsPaymentWorker", text: "Payment Worker" }, { id: "mec2functionsProviderWorker", text: "Provider Worker" }, { id: "mec2functionsOpenSettings", text: "Settings" }, ].map(({ id, text } = {}) => '<li><a href="#" id="' + id + '">' + text + '</a>').join('')
+            + [ { id: "navOnly", text: navOnlyText() }, { id: "mec2functionsFinancialWorker", text: "Financial Worker" }, { id: "mec2functionsPaymentWorker", text: "Payment Worker" }, { id: "mec2functionsProviderWorker", text: "Provider Worker" }, { id: "mec2functionsOpenSettings", text: "Settings" }, ].map(({ id, text } = {}) => '<li><a href="#" id="' + id + '">' + text + '</a>').join('')
         + '</ul>'
         let mec2functionsDropdown = document.createElement('li')
         mec2functionsDropdown.id = "mec2functionsDropdown"
@@ -250,8 +245,8 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
         let mec2functionsSubMenu = document.getElementById('mec2functionsSubMenu')
         mec2functionsDropdown.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "A") { return }
-            if (clickEvent.target.id === "navOnly") { countyInfo.updateCountyInfoLS('navOnly', !countyInfo.info.navOnly); console.log('navOnly', !countyInfo.info.navOnly) }
-            else if (clickEvent.target.id.indexOf("Worker") > -1) { countyInfo.updateCountyInfoLS('workerRole', clickEvent.target.id) }
+            if (clickEvent.target.id === "navOnly") { countyInfo.updateInfo('navOnly', !countyInfo.info.navOnly); document.getElementById('navOnly').textContent = navOnlyText(); snackBar('Page must be reloaded to apply setting.', 'notitle') }
+            else if (clickEvent.target.id.indexOf("Worker") > -1) { countyInfo.updateInfo('workerRole', clickEvent.target.id) }
             else if (clickEvent.target.id === "mec2functionsOpenSettings") {
                 let userSettingsInputs = [...document.querySelectorAll('#settingsInner input')]
                 userSettingsInputs.forEach(ele => { ele.checked = countyInfo.userSettings[ele.id] ?? false })
@@ -362,9 +357,9 @@ function docReady(fn) {
         })
     })
 }();
-// ====================================================================================================
-// /////////////////////////////////// SECTION_START CUSTOM_NAVIGATION \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ///////////////////////////// PRIMARY_NAVIGATION_BUTTONS SECTION_START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// ========================================================================================================================================================================================================
+// ///////////////////////////////////////////////////////////////////// SECTION_START CUSTOM_NAVIGATION \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// ///////////////////////////////////////////////////////////////// PRIMARY_NAVIGATION_BUTTONS SECTION_START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 !function primaryNavigation() {
     const searchIcon = "<span style='font-size: 80%; margin-left: 2px;'>🔍</span>";
     const navMaps = {
@@ -509,6 +504,7 @@ function docReady(fn) {
         ]),
         listPageList: [ "Alerts.htm", "ActiveCaseList.htm", "ClientSearch.htm", "InactiveCaseList.htm", "PendingCaseList.htm", "ProviderRegistrationList.htm", "ProviderSearch.htm", "ServicingAgencyIncomingTransfers.htm", "ServicingAgencyOutgoingTransfers.htm", "BillsList.htm", ],
         setWorkerRole() {
+            document.getElementById(workerRole)?.setAttribute('style', 'font-weight: 700;')
             switch (workerRole) {
                 case "mec2functionsFinancialWorker":
                     this.rowMap.set( "rowTwo", [ "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "CSI.btn", "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "Billing.btn", "Transfer.btn", "Claims.btn", ] )
@@ -654,7 +650,7 @@ function docReady(fn) {
         editMode && (document.querySelectorAll('#buttonPanelTwo, #buttonPanelThree').forEach(ele => ele.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
     } catch (error) { console.trace(error) }
 }();
-// ///////////////////////////// PRIMARY_NAVIGATION_BUTTONS SECTION_END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ PRIMARY_NAVIGATION_BUTTONS SECTION_END  //////////////////////////////////////////////////////////////////
 if (selectPeriod && countyInfo.userSettings.selectPeriodReversal && !editMode) { selectPeriodReversal() };
 function selectPeriodReversal(selectPeriodEleToReverse = selectPeriod, startPos=0) { // don't iife
     selectPeriodEleToReverse = sanitize.query(selectPeriodEleToReverse)
@@ -668,7 +664,7 @@ function selectPeriodReversal(selectPeriodEleToReverse = selectPeriod, startPos=
         if (!editMode) {
             if (reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || submitButton?.disabled) { return }
             let selectPeriodReversed = countyInfo.userSettings.selectPeriodReversal
-            let lastAvailablePeriod = selectPeriod.children[0].value
+            let lastAvailablePeriod = selectPeriod.firstElementChild.value
             let prevPeriodButtons = '<span id="prevButtons"><button id="backGoSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Go" class="npp-button">«</button><button id="backSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Stay" class="npp-button">‹</button></span>',
                 nextPeriodButtons = '<span id="nextButtons"><button id="forwardSelect" tabindex="-1" type="button" data--next-or-prev="Next" data--stay-or-go="Stay" class="npp-button">›</button><button id="forwardGoSelect" tabindex="-1" type="button" data--next-or-prev="Next" data--stay-or-go="Go" class="npp-button">»</button></span>'
             selectPeriod.insertAdjacentHTML('beforebegin', prevPeriodButtons)
@@ -703,7 +699,7 @@ function selectPeriodReversal(selectPeriodEleToReverse = selectPeriod, startPos=
     } catch (error) { console.trace("nextPrevPeriodButtons", error) }
 }();
 docReady( document.body?.addEventListener('submit', () => { document.body.style.opacity = ".8" }) ); // Dim_Page_On_Submit
-// docReady (document.querySelectorAll('input:read-write').forEach(ele => { ele.spellcheck = false }) )
+// docReady (document.querySelectorAll('form input.form-control:read-write').forEach(ele => { ele.spellcheck = false }) )
 !function footerLinks() {
     if (iFramed) { return }
     try {
@@ -739,13 +735,13 @@ docReady( document.body?.addEventListener('submit', () => { document.body.style.
         }
     } catch (error) { console.trace(error) }
 }();
-// ///////// SECTION_END CUSTOM_NAVIGATION  (THE MEC2NAVIGATION SCRIPT SHOULD MIMIC THE ABOVE) \\\\\\\\
-// ====================================================================================================
+// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ SECTION_END CUSTOM_NAVIGATION  (THE MEC2NAVIGATION SCRIPT SHOULD MIMIC THE ABOVE) ////////////////////////////////////////////////////////////
+// ========================================================================================================================================================================================================
 if (countyInfo.info.navOnly) { return };
 function resetTabIndex(excludedListString) {
     const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
     if (nonResetPages.includes(thisPageNameHtm)) { return }
-    document.querySelectorAll('.panel-box-format :is(.form-control, .form-button):not([type=hidden])').forEach(ele => ele.removeAttribute('tabindex'))
+    document.querySelectorAll('form :is(.form-control, .form-button):not([type=hidden])').forEach(ele => ele.removeAttribute('tabindex'))
 };
 const flashRedBorder = {
     animate(ele) { let saniEle = sanitize.query(ele); saniEle && saniEle.animate(this.redBorder, this.redBorderTiming) },
@@ -767,14 +763,25 @@ const nameFuncs = {
     toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
     LastFirstToFirstL(name) { return !name ? undefined : this.commaNameReorder(name).replace(/(\s\w)\w+/, '$1') },
 };
+// Date.prototype.addDays = function(days) {
+//     let date = sanitize.date(this.valueOf(), 'date');
+//     date.setDate(date.getDate() + days);
+//     return date;
+// }
 const dateFuncs = {
     dayInMs: 86400000,
-    addDays(date, days) { return sanitize.date(date, "number") + (days * this.dayInMs) },
+    addDays(date, days) {
+        date = sanitize.date(date, 'date');
+        date.setDate(date.getDate() + days);
+        return date;
+    },
     dateDiffInDays(a, b) {
         if (!a) { return }
-        a = sanitize.date(a, "number")
-        b = b === undefined ? Date.now() : sanitize.date(b, "number")
-        return Math.abs(Math.floor((b - a) / this.dayInMs))
+        a = sanitize.date(a, "date")
+        b = b === undefined ? new Date() : sanitize.date(b, "date")
+        const utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+        const utc2 = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+        return Math.floor((utc2 - utc1) / this.dayInMs);
     },
     formatDate(date, format = "mmddyy") {
         date = date instanceof Date ? date : new Date(date)
@@ -784,6 +791,7 @@ const dateFuncs = {
             case "mdyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" })
             case "mmddyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
             case "mmddhm": return date.toLocaleDateString('en-US', { hour: "numeric", minute: "2-digit", month: "2-digit", day: "2-digit" })
+            case "utc": return Date.UTC()
             default: return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
         }
     },
@@ -1007,7 +1015,6 @@ const actualDate = {
     },
     _setActualDate({ adCaseNum, adDate } = {}) {
         sessionStorage.setItem('actualDateSS', '{"adCaseNum":"' + adCaseNum + '", "adDate":"' + adDate + '"}' )
-        // sessionStorage.setItem('actualDateSSChange', ['pageName: ' + thisPageName, 'caseNumber: ' + adCaseNum, 'dateField: ' + this.dateField.id, 'changeTime: ' + dateFuncs.formatDate(new Date(), "mmddhm")].join(', ') )
     },
     _actualDateMatches({ adDate, adCaseNum } = {}) {
         let quit = document.getElementById('quit')
@@ -1038,8 +1045,8 @@ const actualDate = {
     },
     _dateStorage() {
         let actualDateMatch = this._actualDateMatch()
-        if (actualDateMatch && typeof actualDateMatch === "object") { this._actualDateMatches(actualDateMatch) }
-        if ( actualDateMatch || !editMode || !this.dateField || this.dateField?.disabled || this.dateField.value ) { return }
+        if (actualDateMatch) { this._actualDateMatches(actualDateMatch) }
+        if ( actualDateMatch || !editMode || !this.dateField || !actualDateMatch instanceof HTMLInputElement || this.dateField.disabled || this.dateField.value ) { return }
         if ( !"CaseApplicationInitiation.htm".includes(thisPageNameHtm) ) {
             let inCurrentPeriod = this._inCurrentBWP()
             if (inCurrentPeriod) { this.dateField.value = inCurrentPeriod }
@@ -1085,20 +1092,21 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         // { title: "TITLE", desc: "DESCRIPTION", selector: "OPTIONAL" },
         // { title: "TITLE", desc: "DESCRIPTION", selector: "OPTIONAL" },
     )
+    const openCaseLists = { active: [], suspended: [], reinstated: [], tempInelig: [] }
     !function caseListTypeCount() {
-        let caseLength = { reinstatedCases: 0, activeCases: 0, suspendedCases: 0, tempIneligCases: 0 }
-        document.querySelectorAll('tbody > tr > td:nth-child(3)').forEach(ele => {
-            switch (ele.textContent) {
-                case "Active": { caseLength.activeCases++; break; }
-                case "Suspended": { caseLength.suspendedCases++; break; }
-                case "Reinstated": { caseLength.reinstatedCases++; break; }
-                case "Temporarily Ineligible": { caseLength.tempIneligCases++; break; }
+        document.querySelectorAll('tbody > tr').forEach(ele => {
+            ele.children[4].insertAdjacentHTML('beforeend', '<span class="ACLaddedSpan float-right-imp tableAmend"></span>')
+            switch (ele.children[2].textContent) {
+                case "Active": { openCaseLists.active.push(ele); break; }
+                case "Suspended": { openCaseLists.suspended.push(ele); break; }
+                case "Reinstated": { openCaseLists.reinstated.push(ele); break; }
+                case "Temporarily Ineligible": { openCaseLists.tempInelig.push(ele); break; }
             }
         })
-        document.querySelector('h5').insertAdjacentHTML( 'beforeend', " " + [caseLength.activeCases, "active,", caseLength.suspendedCases, "suspended,", caseLength.tempIneligCases, "temp inelig. "].join(" ") + (caseLength.reinstatedCases ? caseLength.reinstatedCases + " reinstated but not approved." : "") )
+        document.querySelector('h5').insertAdjacentHTML( 'beforeend', " " + [openCaseLists.active.length, "active,", openCaseLists.suspended.length, "suspended,", openCaseLists.tempInelig.length, "temp inelig. "].join(" ") + (openCaseLists.reinstated.length ? openCaseLists.reinstated.length + " reinstated but not approved." : "") )
         document.getElementById('resultHeaderMsg').addEventListener('click', () => {
-            let copyText = [caseLength.activeCases, caseLength.suspendedCases, caseLength.tempIneligCases].join('\n')
-            copy(copyText, copyText, 'Copied!', )
+            let copyText = [openCaseLists.active.length, openCaseLists.suspended.length, openCaseLists.tempInelig.length].join('\n')
+            copy(copyText, copyText, 'Copied!')
         })
     }();
     // query idea: CaseEditSummary, inhibiting errors. Object.case#.0.editType ("Warning Error", "Inhibiting Error"), .currentPeriod/.selectPeriod/.selectPeriodSelected (all have the same BWP)
@@ -1215,48 +1223,39 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     async function redetDateVsSuspendDate() {
         let today = Date.now()
         aclTbody.addEventListener('click', clickEvent => { if ( clickEvent.target.classList.contains("cSpan") ) { redetTbodyEvent(clickEvent.target) } })
-        let suspendedTrs = [...document.querySelectorAll('tr.suspended')]
-        const suspendedCaseListArray = suspendedTrs.map(ele => {
-            // let trSuspendedChildren = ele.children
-            // let tdSuspendedDate = ele.children[4]
-            // let tdSuspendedSpan = ele.children[3]
-            let [ ,,, tdSuspendedSpan, tdSuspendedDate] = ele.children
-            tdSuspendedSpan.insertAdjacentHTML('beforeend', '<span class="ACLaddedSpan float-right-imp tableAmend"></span>')
-            tdSuspendedDate.classList.add('suspendedDate')
-            let redetDateNumber = sanitize.date(tdSuspendedDate.textContent, "number")
-            let dateDiff = (redetDateNumber - today) / dateFuncs.dayInMs
-            if (redetDateNumber <= today) { tdSuspendedSpan.children[0].textContent = "Closing" }
-            else if (dateDiff < 46) { tdSuspendedSpan.children[0].textContent = "Mailed" }
-            else if (dateDiff > 180) { tdSuspendedSpan.children[0].textContent = "Redet 6+ months out" }
-            else { return ele.children[0].textContent }
-        })
+        const suspendedCaseListArray = openCaseLists.suspended.slice.map(ele => {
+            let tdRedetDate = ele.children[4], tRowTdSpan = tdRedetDate.firstElementChild, redetDateNumber = sanitize.date(tdRedetDate.textContent, "number"), dateDiff = (redetDateNumber - today) / dateFuncs.dayInMs
+            if (redetDateNumber <= today) { tRowTdSpan.textContent = "Closing" }
+            else if (dateDiff < 46) { tRowTdSpan.textContent = "Mailed" }
+            else if (dateDiff > 180) { tRowTdSpan.textContent = "6+ months out" }
+            else { return ele.id }
+        }).filter(ele => ele)
         forAwaitMultiCaseEval(suspendedCaseListArray, "CaseOverview").then(result => {
             for (let caseNum in result) {
-                let tRow = document.getElementById(caseNum), tRowTdSpan = tRow.children[3].children[0]
-                let redetDateNumber = sanitize.date(tRow.children[4].textContent, "number")
-                let caseStatus = result[caseNum][0][0].programStatusHistory, suspendDate = getOneYearSuspended(caseStatus)
+                let tdRedetDate = document.getElementById(caseNum).children[4], tRowTdSpan = tdRedetDate.firstElementChild, redetDateNumber = sanitize.date(tdRedetDate.textContent, "number")
+                let caseStatus = result[caseNum][0][0]?.programStatusHistory
+                let suspendDate = (function() {
+                    if (caseStatus === "Inactive") { tRowTdSpan.textContent = "Closing"; return undefined }
+                    else if (caseStatus === "Suspend") { return result[caseNum][0][0].programBeginDateHistory }
+                    else { return undefined }
+                }());
                 if (!suspendDate) { tRowTdSpan.textContent = "Status Issue"; continue }
-                let suspendDateNumber = sanitize.date(suspendDate, "number"), suspendDatePlus = dateFuncs.formatDate( dateFuncs.addDays( suspendDateNumber, 416) , "mmddyyyy" )
+                let suspendDateNumber = sanitize.date(suspendDate, "number"), suspendDatePlus = dateFuncs.formatDate( dateFuncs.addDays( suspendDateNumber, 416), "mmddyyyy" )
                 let suspendToRedetDiff = Math.floor( (redetDateNumber - suspendDateNumber) / dateFuncs.dayInMs )
                 if (suspendToRedetDiff < 335) { tRowTdSpan.textContent = "Suspended " + suspendDate; continue }
+                if (suspendToRedetDiff > 415) { tRowTdSpan.textContent = "Closes before Redet"; continue }
                 if (inRange(suspendToRedetDiff, 334, 415)) {
                     tRowTdSpan.classList.add('cSpan')
                     tRowTdSpan.textContent = "est. suspend " + suspendToRedetDiff + " days"
                     tRowTdSpan.title = 'Set new Redet date to ' + suspendDatePlus
                     tRowTdSpan.dataset.delayDate = suspendDatePlus
-                    continue
                 }
-                if (suspendToRedetDiff > 415) { tRowTdSpan.textContent = "Closes before Redet"; continue }
-            }
-            function getOneYearSuspended(currentStatus) {
-                try { return currentStatus.programStatusHistory === "Suspend" ? currentStatus.programBeginDateHistory : undefined }
-                catch(err) { console.trace(err) }
             }
         })
         async function redetTbodyEvent(eventSpan) {
             footer_links.insertAdjacentHTML('beforebegin', '<div id="iframeContainer" style="height: 400px;"><iframe id="redetiframe" name="redetiframe" style="width: 100%; height: 100%;"></iframe></div>')
             let redetiframe = document.getElementById('redetiframe'), iframeContainer = document.getElementById('iframeContainer')
-            let eventCaseId = eventSpan.parentElement.parentElement.id, delayDateObj = JSON.stringify({ id: eventCaseId, delayDate: eventSpan.dataset.delayDate })
+            let eventCaseId = eventSpan.closest('tr').id, delayDateObj = JSON.stringify({ id: eventCaseId, delayDate: eventSpan.dataset.delayDate })
             sessionStorage.setItem('MECH2.suspendPlus45', delayDateObj)
             delayRedetDate(eventSpan, eventCaseId, redetiframe).then(eventSpan => {
                 window.onstorage = null
@@ -1343,7 +1342,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         let outputImport = sanitize.JSON(sessionStorage.getItem("outputDataObjSS"))
         outputDataObj = outputImport ?? {}
         // Object.hasOwn(outputDataObj, [e.target.value]) ? document.getElementById('exportLoadedData').disabled = false : document.getElementById('exportLoadedData').disabled = true
-        document.getElementById('exportLoadedData').disabled = ([changeEvent.target.value] in outputDataObj) ? false : true
+        document.getElementById('exportLoadedData').disabled = ([changeEvent.target.value] in outputDataObj)
     })
     document.getElementById('exportLoadedData').addEventListener('click', () => { copy(excelifyData(outputDataObj), "Excel Data", "notitle") })
 }(); // SECTION_END Active_Case_List;
@@ -1360,14 +1359,14 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     document.querySelectorAll('#inActiveCaseTable > tbody > tr > td:nth-of-type(4)').forEach(thisTd => {
         let closedDatePlus46 = sanitize.date(thisTd.textContent, "number") + fortySixDays
         if (closedDatePlus46 < todayDate) {
-            let closedDate = thisTd.textContent
+            let closedDate = thisTd.textContent, thisTr = thisTd.closest('tr')
             thisTd.textContent = ''
-            thisTd.insertAdjacentHTML('beforeend', '<a href="CaseTransfer.htm?parm2=' + thisTd.parentElement.firstChild.textContent + '", target="_blank">' + closedDate + '</a>')
-            thisTd.parentElement.classList.add('oldClosed')
+            thisTd.insertAdjacentHTML('beforeend', '<a href="CaseTransfer.htm?parm2=' + thisTr.firstElementChild.textContent + '", target="_blank">' + closedDate + '</a>')
+            thisTr.classList.add('oldClosed')
             if (closedCaseBank) { thisTd.insertAdjacentHTML('beforeend', '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>') }
         };
     })
-    document.getElementById('workerSearch').parentElement.parentElement.insertAdjacentHTML('beforeend',
+    document.getElementById('inActiveCaseSearchPanelData').firstElementChild.insertAdjacentHTML('beforeend',
     `<div style="vertical-align: middle;" class="float-right-imp">
         <button type="button" class="cButton" tabindex="-1" id="closedTransferAll">Transfer closed \>45 days to:</button>
         <input type="text" class="form-control" style="display: inline-block; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
@@ -1383,14 +1382,14 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     function checkClosedCaseBank(eventValue) {
         if ((/[a-z0-9]{7}/i).test(eventValue)) {
             if (eventValue === countyInfo.info.closedCaseBank) { return };
-            countyInfo.updateCountyInfoLS('closedCaseBank', eventValue)
+            countyInfo.updateInfo('closedCaseBank', eventValue)
             closedCaseBank = eventValue
             closedCaseBankLastThree = closedCaseBank.slice(4)
             addTableButtons()
         } else {
             closedCaseBank = ''
             closedCaseBankLastThree = ''
-            countyInfo.updateCountyInfoLS('closedCaseBank', "delete")
+            countyInfo.updateInfo('closedCaseBank', "delete")
             transferWorker.value = ''
             removeTableButtons()
             flashRedBorder.animate(transferWorker)
@@ -1400,7 +1399,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         if (clickEvent.target.nodeName === "SPAN") {
             let closestSpanASibling = clickEvent.target.previousElementSibling
             if (checkForClosedCaseBank() && closestSpanASibling?.nodeName === 'A') {
-                transferSingleClosed(clickEvent.target.parentElement.id)
+                transferSingleClosed(clickEvent.target.closest('tr').id)
             }
         }
     })
@@ -1520,11 +1519,8 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     addDateControls("month", "#inputEffectiveDate")
     !async function storeWorkerName() {
         if (document.referrer !== "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") { return };
-        await intervalCheckForValue({element: workerName, interval: 400, iterations: 3}).then(workerNameValue => { countyInfo.updateCountyInfoLS( 'userName', nameFuncs.LastFirstToFirstL(workerNameValue) ) })
+        await intervalCheckForValue({element: workerName, interval: 400, iterations: 3}).then(workerNameValue => { countyInfo.updateInfo( 'userName', nameFuncs.LastFirstToFirstL(workerNameValue) ) })
     }();
-    let storeNumberTask = [submitButton, createButton].forEach(ele => ele.addEventListener('click', () => {
-        if (caseOrProviderAlertTotal.value > 0) { sessionStorage.setItem('MECH2.preWorkerAlertCase', JSON.stringify({ numberId: alertGroupId.value, worker: inputWorkerId.value }) )}
-    }) )
     //alertsByCategories reduction code, untested.
     //minify code: .replace(/(?:\n {20})(\w)/g, " $1").replace(/(?:\n {16})(},\n)/g, " $1")
     //unminify code: .replace(/(?:{)( \w+: )g, "\n                   $1").replace(/(: {|",|\/,) (\w+: )/g, "$1\n                    $2").replace(/, },\n/g, ",\n                },")
@@ -1586,7 +1582,6 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             childRemoved: { textIncludes: /Child\'s Reference Number has been removed|Parent window has been added/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseParent", "CaseRemoveMember"], },
             childCseRemoved: { textIncludes: /Child Ref Nbr \d{2} has been removed/, noteCategory: "Other", omniPageButtons: ["CaseCSE", "CaseRemoveMember"], },
             dateOfDeath: { textIncludes: /Date of Death/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseMember"], },
-            remoPanelAdded: { textIncludes: /Remo Panel has been added/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
             schoolPanelAdded: { textIncludes: /SCHL Panel|School Type/, noteCategory: "Other", omniPageButtons: ["CaseNotes", "CaseSchool", "CaseEducationActivity"], },
             livingSituation: { textIncludes: /Living Situation has been/, noteCategory: "Other", omniPageButtons: ["delete"], },
             disabilityStart: { textIncludes: /Disability start date/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["delete", "CaseDisability"], },
@@ -1642,6 +1637,9 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             case "Provider": return { page: "ProviderNotes.htm", type: "Provider", numberId: 'providerId', numberId: document.getElementById('providerId').value, parameters: getListAndAlertTableParameters.provider() };
         }
     }
+    let storeNumberTask = [submitButton, createButton, document.getElementById('Alerts.htm')].forEach(ele => ele.addEventListener('click', () => {
+        storeSelectedTableRow({ rowOrValue: alertGroupId.value })
+    }) )
     evalData().then(( { 0: tableOneAlerts, 1: tableTwoAlerts } = {} ) => {
         if (!tableOneAlerts) { return }
         caseOrProviderAlertsTableTbody.addEventListener( 'click', clickEvent => {
@@ -1658,7 +1656,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             identifyAlertAndDoOmnibuttons( getTableRow(clickEvent.target) )
         })
         waitForElmHeight("#caseOrProviderAlertsTable > tbody > tr").then(() => {
-            if (caseOrProviderAlertsTableTbody.children[0].textContent === "No records found" && alertTotal.value > 0) { doClick(submitButton); return; }; // reloads the page if it incorrectly shows 0 alerts;
+            if (caseOrProviderAlertsTableTbody.firstElementChild.textContent === "No records found" && alertTotal.value > 0) { doClick(submitButton); return; }; // reloads the page if it incorrectly shows 0 alerts;
             let caseOrProviderAlertsTableTbodyChildren = caseOrProviderAlertsTableTbody.children
             !function checkForDelayMfipAlerts() {
                 const checkCashArray = []
@@ -1708,13 +1706,8 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             }();
             !function preWorkerAlertClick() {
                 setTimeout(() => {
-                    let preWorkerAlertCaseSS = sanitize.JSON(sessionStorage.getItem('MECH2.preWorkerAlertCase'))
-                    let matchedCaseOrProvIdRow = (preWorkerAlertCaseSS && typeof preWorkerAlertCaseSS === "object" && preWorkerAlertCaseSS.worker === inputWorkerId.value) ? tableOneAlerts.find(item => item.caseNumberOrProviderId.indexOf(preWorkerAlertCaseSS.numberId) > 0)?.rowIndex : 0
-                    let selectedCase = caseOrProviderAlertsTableTbodyChildren[matchedCaseOrProvIdRow]
-                    selectedCase?.click()
-                    selectedCase?.scrollIntoView({ behavior: "smooth", block: "center" })
-                    if (!findSelected()) { setTimeout(() => { console.log('Clicking due to no alert being selected'); doClick(caseOrProviderAlertsTableTbodyChildren[0]) }, 500) }
-                    sessionStorage.removeItem('MECH2.preWorkerAlertCase')
+                    reselectSelectedTableRow('table', 1);
+                    setTimeout(() => { if (!findSelected()) { console.log('Clicking due to no alert being selected'); doClick(caseOrProviderAlertsTableTbodyChildren[0]) } }, 500)
                 }, 600)
             }();
         });
@@ -1871,6 +1864,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             let oWhatAlertType = whatAlertType(caseOrProviderType.value)
             let [ , effectiveDate, selectedRowName ] = foundAlert.selectedAlertTableRow.children
             let dateRange = undefined // not yet implemented
+            if ("intendedPerson" in foundAlert) { foundAlert.intendedPerson = nameFuncs.commaNameObject(selectedRowName.textContent).first }
             if ("noteSummary" in foundAlert) {
                 if (foundAlert.noteSummary === "doFunction") { foundAlert.noteSummary = noteSummaryFunction({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, effectiveDate, selectedRowName }) }
                 else if (typeof foundAlert.noteSummary === "object") { foundAlert.noteSummary = await noteSummaryReplacement(foundAlert.noteSummary, foundAlert.noteMessage, foundAlert.intendedPerson) }
@@ -1893,7 +1887,6 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                     foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, noteMessage: foundAlert.noteMessage, fetchedDataArray: textFetchedData, alertTableSelectedRow: foundAlert.selectedAlertTableRow}) ?? foundAlert.noteMessage
                 } else { foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, alertTableSelectedRow: foundAlert.selectedAlertTableRow }) ?? foundAlert.noteMessage }
             }
-            if ("intendedPerson" in foundAlert) { foundAlert.intendedPerson = nameFuncs.commaNameObject(selectedRowName.textContent).first }
             // currently unused and untested // if ("dateRange" in foundAlert) { //     if (Number.isNaN(foundAlert.dateRange)) { return } //     let startDate = document.getElementById('periodBeginDate').value, endDate = document.getElementById('periodEndDate').value //     foundAlert.dateRange = foundAlert.dateRange !== 0 ? foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') : 0 //     if (foundAlert.dateRange !== 0) { foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') } // }
             let shortWorkerName = nameFuncs.LastFirstToFirstL(workerName.value)
             foundAlert.worker = shortWorkerName
@@ -1904,7 +1897,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             return foundAlert
             function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) {
                 switch (alertByCategory) {
-                    case "childsupport.csCSES": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('CSES') )
+                    case "childsupport.csCSES": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('CSES') )
                     case "childsupport.ncpAddress": {
                         let parentAndNCPAddress = foundAlert.noteSummary + "\n-\nCase Address: " + fetchedDataArray[0]
                         if ((noteMessage).includes(fetchedDataArray[0].slice(0, 12))) {
@@ -1913,11 +1906,11 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                         }
                         return parentAndNCPAddress
                     }
-                    case "eligibility.unpaidCopay": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Failure') )
-                    case "maxis.gcReviewDate": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
-                    case "maxis.genGoodCauseChanged": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
+                    case "eligibility.unpaidCopay": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('Failure') )
+                    case "maxis.gcReviewDate": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
+                    case "maxis.genGoodCauseChanged": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
                     case "maxis.mailingAddress": return fetchedDataArray[0].length ? foundAlert.noteMessage + "\n-\nMailing Address: " + fetchedDataArray[0] + " " + fetchedDataArray[1] + " " + fetchedDataArray[2] : foundAlert.noteMessage + "\n-\nMailing address removed."
-                    case "maxis.marriage": return tableTwoAlertsGrouped[childOrRowIndex(alertTableSelectedRow)].filter( item => ['Marriag','Marital','Designa'].includes(item.slice(0, 7)) )
+                    case "maxis.marriage": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => ['Marriag','Marital','Designa'].includes(item.slice(0, 7)) )
                     case "maxis.residenceAddress": return foundAlert.noteMessage + "\n-\nResidence Address: " + fetchedDataArray[0]
                 }
             }
@@ -2050,10 +2043,10 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     if (!("CaseAddress.htm").includes(thisPageNameHtm)) { return };
     if (!editMode) {
         let mailingStreet1 = document.getElementById('mailingStreet1'), edit = document.getElementById('edit'), caseName = nameFuncs.commaNameReorder(pageTitle), mailFields = [...document.querySelectorAll('#mailingAddressPanelData > div > div')]
-        secondaryActionArea.insertAdjacentHTML('beforeend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mail Address</button>');
+        secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container"><button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mail Address</button></div>');
         evalData().then(results => {
             document.getElementById('copyMailing').addEventListener('click', () => {
-                let addressTableRow = childOrRowIndex(document.querySelector('.selected')), addressData = results[0][addressTableRow]
+                let addressTableRow = getChildNum(document.querySelector('.selected')), addressData = results[0][addressTableRow]
                 let mailingData = addressData.mailingStreet1 ? {
                         streetData: [addressData.mailingStreet1, addressData.mailingStreet2].join(' '),
                         cityData: addressData.mailingCity,
@@ -2069,8 +2062,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                 navigator.clipboard.writeText(copyText);
                 snackBar(copyText);
             })
-            let phone2 = document.getElementById('phone2'); !phone2.value && phone2.parentElement.parentElement.classList.add('hidden')
-            let phone3 = document.getElementById('phone3'); !phone3.value && [...phone3.parentElement.parentElement.children].forEach(ele => { if (ele.classList.contains('form-group')) { return }; ele.classList.add('hidden') })
+            let phone2 = document.getElementById('phone2'); !phone2?.value && phone2.closest('.form-group').classList.add('hidden')
+            let phone3 = document.getElementById('phone3'); !phone3?.value && [...phone3.closest('.form-group').children].forEach(ele => { if (ele.classList.contains('form-group')) { return }; ele.classList.add('hidden') })
             checkMailingAddress()
             function checkMailingAddress() { document.getElementById('mailingCountry').value ? h4objects.mailingaddress.siblings.forEach(ele => { ele.style.visibility = "visible" }) : h4objects.mailingaddress.siblings.forEach(ele => { ele.style.visibility = "hidden" }) };
             document.getElementById('caseAddressTable').addEventListener( 'click', () => checkMailingAddress() );
@@ -2085,8 +2078,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                                        'careInHomeOfChildBeginDate', 'careInHomeOfChildEndDate', 'childCareMatchesEmployer' ].map(item => [item, document.getElementById(item)]) )
     let childProviderTableTbodyRows = [...document.querySelector('#childProviderTable > tbody').children]
     secondaryActionArea.style.justifyContent = "flex-start"
-    secondaryActionArea.insertAdjacentHTML('beforeend', '<div id="childProviderSaaButtons" class="db-container"></div>')
-    let childProviderSaaButtons = document.getElementById('childProviderSaaButtons')
+    secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container">')
+    let childProviderSaaButtons = document.getElementById('tertiaryActionArea')
     document.getElementById('reporterType').disabled = true
     if (!editMode) {
         !function providerPagesButtons() {
@@ -2102,13 +2095,17 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         evalData().then(({ 0: childProvidersData} = {}) => {
             if (!childProvidersData) { return };
             childProvidersData.forEach(providerData => {
-                childProviderTableTbodyRows[providerData.rowIndex].children[2].innerHTML = '<a href="https://mec2.childcare.dhs.state.mn.us/ChildCare/ProviderOverview.htm?providerId=' + providerData.providerId + '" target="_blank">' + sanitize.evalText(providerData.providerName) + '</a>'
+                childProviderTableTbodyRows[providerData.rowIndex].children[2].innerHTML = '<span>' + sanitize.evalText(providerData.providerName) + ' </span><a href="https://mec2.childcare.dhs.state.mn.us/ChildCare/ProviderOverview.htm?providerId=' + providerData.providerId + '" target="_blank">(' + providerData.providerId + ')</a>'
                 let endDate = childProviderTableTbodyRows[providerData.rowIndex].children[4]?.textContent
                 if ( Date.parse(endDate) < Date.parse(selectPeriodDates.start) ) { childProviderTableTbodyRows[providerData.rowIndex].classList.add('disabledRow')}
             })
         }).catch(err => { console.trace(err) })
     } else if (editMode) {
-        resetTabIndex()
+        setTimeout(() => {
+            resetTabIndex()
+            !ccpEle.providerLivesWithChild?.value && ccpEle.providerLivesWithChild?.setAttribute('tabIndex', '-1')
+            document.querySelectorAll('.borderless').forEach(ele => { ele.disabled = true})
+        }, 200)
         h4objects.providerdesignation.h4.insertAdjacentHTML('afterend','<div id="resetButtonsDiv" class="float-right-imp h4-line" style="display: flex; gap: 10px;">'
                                                             + '<button type="button" class="cButton" tabindex="-1" id="resetCCPForm">Clear Dates & Hours</button>'
                                                             + '<button type="button" class="cButton" tabindex="-1" id="unendSACCPForm">Clear End Dates & Reason</button>'
@@ -2124,7 +2121,6 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             resetTarget.resetValueEles.forEach(ele => { ele.value = '' })
             doEvent(resetTarget.focus)
         })
-        tabIndxNegOne(ccpEle.providerLivesWithChild)
         ccpEle.providerId.addEventListener('change', () => {
             let mute = new MutationObserver(() => { providerTypeExists(); mute.disconnect(); })
             mute.observe(ccpEle.formSent, { attributes: true })
@@ -2207,21 +2203,15 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         //[ ccpEle.providerLivesWithChild, ccpEle.careInHome, ccpEle.relatedToChild, ccpEle.exemptionReason, ccpEle.exemptionPeriodBeginDate, ccpEle.formSent, ccpEle.signedFormReceived, ccpEle.providerLivesWithChildBeginDate, ccpEle.providerLivesWithChildEndDate, ccpEle.careInHomeOfChildBeginDate, ccpEle.careInHomeOfChildEndDate ]
     // SECTION_END Open provider information page from Child's Provider page
     function childProviderPage() {
-        resetTabIndex()
+        // resetTabIndex()
         if (!ccpEle.providerType.value) { return };
-        const beginEndFields = {
-            primary: { start: ccpEle.primaryBeginDate, end: ccpEle.primaryEndDate },
-            secondary: { start: ccpEle.secondaryBeginDate, end: ccpEle.secondaryEndDate },
-            carePeriod: { start: ccpEle.carePeriodBeginDate, end: ccpEle.carePeriodEndDate },
-        }
-        for (let fields in beginEndFields) { !beginEndFields[fields].start?.value && beginEndFields[fields].end?.setAttribute('tabindex', '-1') }
         if (ccpEle.providerType.value !== "Legal Non-licensed") {
             document.querySelector('.lnlData')?.setAttribute('style', 'display: none;')
             if (editMode) {//not LNL
             // evalData(ccpProviderId.value, 'ProviderParentAware', undefined, '0.parentAwareType', 'provider').then( result => {}) BLORG
                 evalData({ caseProviderNumber: ccpEle.providerId.value, pageName: 'ProviderParentAware', evalString: '0.0', caseOrProvider: 'provider', }).then(parentAwareResult => {
                     if (!parentAwareResult || Date.parse(parentAwareResult.parentAwarePeriodEnd) < Date.parse(selectPeriodDates.start) ) { return };
-                    ccpEle.hoursOfCareAuthorized.parentElement.parentElement.parentElement.insertAdjacentHTML('beforeend', `
+                    ccpEle.hoursOfCareAuthorized.closest('.row').insertAdjacentHTML('beforeend', `
                     <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 textInherit">
                       <label for="parentAwareRating" class="control-label textInherit col-md-4 col-lg-4 textR">Parent Aware: </label>
                       <div class="col-lg-3 col-md-3 textInherit">
@@ -2230,36 +2220,33 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                     document.getElementById('parentAwareRating').value = parentAwareResult.parentAwareType
                 })
                 let checkBoxes = [...document.getElementById('reporterTypeCheckboxes').children];
-                let boxesChecked = [...checkBoxes].filter(ele => ele.checked).forEach(ele2 => { ele2.tabindex = '-1' });
+                let boxesChecked = [...checkBoxes].filter(ele => ele.checked).forEach(ele2 => { ele2.setAttribute('tabIndex', '-1') });
             }
-            lnlOnlyElements.forEach(element => {
-                ccpEle[element].parentElement.parentElement.style.opacity = "0.3"
-                if (!editMode) { return }
-                ccpEle[element].tabindex = '-1'
-                if (lnlOnlyElementsToNo.includes(element) ) { ccpEle[element].value = "N" }
-            })
-            licensedOnlyElements.forEach(element => {
-                ccpEle[element].parentElement.parentElement.style.opacity = "1"
-                if (!editMode) { return }
-                ccpEle[element].removeAttribute('tabIndex')
-            })
+            activateDeactivate(licensedOnlyElements, lnlOnlyElements, true)
             // evalData(ccpProviderId.value, 'ProviderAccreditation', undefined, '0', 'provider').then(result => {})
             // evalData({ caseProviderNumber: '', pageName: '', dateRange: '', evalString: '', caseOrProvider: '', })
         } else if (ccpEle.providerType.value === "Legal Non-licensed") {//is LNL
             document.querySelector('.lnlData')?.setAttribute('style', 'display: block;')
             document.querySelector('#reporterTypeCheckboxes > input[value="LNL Provider Used"]').checked = true
             document.querySelector('#reporterTypeCheckboxes > input[value="Not Applicable"]').checked = false
-            lnlOnlyElements.forEach(element => {
+            activateDeactivate(lnlOnlyElements, licensedOnlyElements)
+            lnlTrainingCheck()
+        }
+        const beginEndFields = { primary: { start: ccpEle.primaryBeginDate, end: ccpEle.primaryEndDate }, secondary: { start: ccpEle.secondaryBeginDate, end: ccpEle.secondaryEndDate }, carePeriod: { start: ccpEle.carePeriodBeginDate, end: ccpEle.carePeriodEndDate } }
+        for (let fields in beginEndFields) { if (!beginEndFields[fields].start?.value) { setTimeout(() => beginEndFields[fields].end?.setAttribute('tabIndex', '-1'), 500) } }
+        function activateDeactivate(activate, deactivate, setToNo) {
+            activate.forEach(element => {
                 ccpEle[element].parentElement.parentElement.style.opacity = "1"
                 if (!editMode) { return }
+                if (element.indexOf('End')) { if (!ccpEle[ (element.replace("End", "Begin")) ].value) { return; } }
                 ccpEle[element].removeAttribute('tabIndex')
             })
-            licensedOnlyElements.forEach(element => {
+            deactivate.forEach(element => {
                 ccpEle[element].parentElement.parentElement.style.opacity = "0.3"
                 if (!editMode) { return }
-                ccpEle[element].tabindex = '-1'
+                ccpEle[element].setAttribute('tabIndex', '-1')
+                if (setToNo && lnlOnlyElementsToNo.includes(element) ) { ccpEle[element].value = "N" }
             })
-            lnlTrainingCheck()
         }
     };
     async function lnlTrainingCheck() {
@@ -2412,8 +2399,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     if (!("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) { return };
     if ( rederrortextContent.includes('Results successfully submitted.') ) {
         doNotDupe.pages.push(thisPageNameHtm)
-        document.getElementById('caseCERDetail').insertAdjacentHTML('beforeend', '<button type="button" id="eligibilityResults" class="form-button center-vertical">Eligibility Results</button>')
-        document.getElementById('eligibilityResults').addEventListener('click', clickEvent => { clickEvent.preventDefault(); document.getElementById(`Eligibility Results Selection`).children[0].click() })
+        secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea" class="db-container"><button type="button" id="eligibilityResults" class="form-button center-vertical">Eligibility Results</button></div>')
+        document.getElementById('eligibilityResults').addEventListener('click', () => window.open('/ChildCare/CaseEligibilityResultSelection.htm?parm2=' + caseId, '_self' ))
         eleFocus('#eligibilityResults')
     } else { focusEle = '#createDB' }
 }(); // SECTION_END Case_Create_Eligibility_Results;
@@ -2425,13 +2412,14 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             [ "goSAOverview", { page: "CaseServiceAuthorizationOverview", name: "SA Overview" }],
             [ "goSAApproval", { page: "CaseServiceAuthorizationApproval", name: "SA Approval" }],
         ])
-        secondaryActionArea.insertAdjacentHTML('afterbegin', '<div id="postWrapUpButtons" style="display: flex; gap: 10px;">' + postWrapButtons() + '</div>')
+        secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea" class="db-container">' + postWrapButtons() + '</div>')
         function postWrapButtons() { return [...postWrap].map( ([key, item] = []) => '<button class="form-button" type="button" id="'+ key +'">'+ item.name +'</button>').join('') }
-        document.getElementById('postWrapUpButtons').addEventListener('click', clickEvent => {
+        eleFocus('#CaseServiceAuthorizationApproval')
+        document.getElementById('tertiaryActionArea').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             window.open('/ChildCare/' + postWrap.get(clickEvent.target.id).page + '.htm?parm2=' + caseId + '&parm3=' + selectPeriodDates.parm3, '_self')
         })
-    }
+    } else { focusEle = '#createDB' }
 }();
 !function CaseCSE() {
     if (!("CaseCSE.htm").includes(thisPageNameHtm)) { return };
@@ -2490,14 +2478,9 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     }).catch(err => { console.trace(err) })
 }(); // SECTION_END Case_CSE;
 !function CaseCSIA() {
-    if (!("CaseCSIA.htm").includes(thisPageNameHtm)) { return };//jquery
-    let csiahidden = ['middleInitial', 'birthDate', 'ssn', 'gender'].map(item => document.getElementById(item).parentElement)
-    // let countyName = userCountyObj?.county ?? ''
-    // let birthplaceStateOrProvince = document.getElementById('birthplaceStateOrProvince')
-    // let birthplaceCountry = document.getElementById('birthplaceCountry')
-    // let birthplaceCounty = document.getElementById('birthplaceCounty')
-    let deceasedDateFormGroup = document.getElementById('deceasedDate').parentElement
-    // countyName = countyName.replace(/\W/g, '')
+    if (!("CaseCSIA.htm").includes(thisPageNameHtm)) { return };
+    let csiahidden = ['middleInitial', 'birthDate', 'ssn', 'gender'].map(itemId => document.getElementById(itemId).parentElement.parentElement)
+    let deceased = document.getElementById('deceased'), deceasedDateFormGroup = document.getElementById('deceasedDate').parentElement.parentElement
     let toggleAbsentParentName = createSlider({ label: "Show extra info", title: "Toggle displaying some name fields", id: "toggleAbsentParentNameSlider", defaultOn: false, classes: "h4-line float-right-imp", })
     h4objects.absentparent.h4.insertAdjacentHTML('afterend', toggleAbsentParentName)
     document.getElementById('toggleAbsentParentNameSlider').addEventListener( 'click', ele => unhideElement(csiahidden, ele.target.checked) )
@@ -2507,56 +2490,13 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     if (editMode) {
         if (document.getElementById('lastName').value !== '') {
             addValueClassDoEvent(document.getElementById('nameKnown'), 'Yes', 'red-outline', false)
-            eleFocus('#deceased')
+            eleFocus(deceased)
         } else { eleFocus('#nameKnown') }
     }
-    document.getElementById('deceased').addEventListener('change', changeEvent => {
-        changeEvent.value === "Yes" ? deceasedDateFormGroup.classList.remove('hidden') : deceasedDateFormGroup.classList.add('hidden')
+    deceased.addEventListener('change', changeEvent => {
+        changeEvent.target.value === "Yes" ? deceasedDateFormGroup.classList.remove('hidden') : deceasedDateFormGroup.classList.add('hidden')
     })
 }(); // SECTION_END Case_CSIA;
-!function CaseEarnedIncome() {
-    if (!("CaseEarnedIncome.htm").includes(thisPageNameHtm)) { return };
-    let ceiIncomeType = document.getElementById('ceiIncomeType'), ceiEmpCountry = document.getElementById('ceiEmpCountry')
-    let ceiAddressLabels = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.querySelector('label[for=' + ele + ']'))
-    let ceiAddressLabelsAndDivs = [...ceiAddressLabels, ...ceiAddressLabels.map(ele => ele.nextElementSibling) ]
-    h4objects.actualincome.h4.click();
-    tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome')
-    function checkEmploymentType() {
-        let ceiIncomeTypeValue = ceiIncomeType?.value
-        if (ceiIncomeTypeValue === "Self-employment") {
-            unhideElement(h4objects.annualselfemploymentcalculation.siblings, true)
-            unhideElement(h4objects.incomeprojection.siblings, false)
-        } else if (ceiIncomeTypeValue !== "Self-employment" || (!editMode && !document.getElementById('ceiTotalIncome')?.value)) {//move second check outside of this if statement to its own?
-            unhideElement(h4objects.annualselfemploymentcalculation.siblings, false)
-            unhideElement(h4objects.incomeprojection.siblings, true)
-        }
-    };
-    checkEmploymentType()
-    let toggleEmployerAddress = createSlider({ label: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", defaultOn: false, classes: "float-right-imp h4-line", })
-    h4objects.details.h4.insertAdjacentHTML('afterend', toggleEmployerAddress)
-    document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressLabelsAndDivs, ele.target.checked) )
-    unhideElement(ceiAddressLabelsAndDivs, false)
-    if (editMode) {
-        ceiIncomeType.addEventListener('change', changeEvent => {
-            checkEmploymentType()
-            if ( changeEvent.target.value === "Self-employment") { return }
-            addValueClassDoEvent(ceiEmpCountry, 'USA', false, true)
-        })
-        ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', '#ceiPaymentEnd', '#ceiPaymentChange')
-        let ceiGrossIncome = document.getElementById('ceiGrossIncome'), ceiGrossAllowExps = document.getElementById('ceiGrossAllowExps')
-        ceiGrossIncome.parentElement.insertAdjacentHTML('afterend', '<div id="autoFiftyPercent"><div id="fiftyPercent"></div><button type="button" id="grossButton" class="cButton">Use 50%</button></div>');
-        let fiftyPercent = document.getElementById('fiftyPercent')
-        fiftyPercent.innerText = '50%: ' + (ceiGrossIncome.value * .5).toFixed(2)
-        ceiGrossIncome.addEventListener('input', () => { fiftyPercent.innerText = '50%: ' + (ceiGrossIncome.value * .5).toFixed(2) })
-        document.getElementById('grossButton').addEventListener('click', () => {
-            ceiGrossAllowExps.value = (ceiGrossIncome.value * .5).toFixed(2)
-            doEvent(ceiGrossAllowExps)
-            eleFocus(save)
-        });
-    } else if (!editMode) {
-        document.getElementById('earnedIncomeMemberTable').addEventListener('click', () => checkEmploymentType() );
-    }
-}(); // SECTION_END Case_Earned_Income;
 !function _Case_Activity_Pages() {
     if ( !["CaseEmploymentActivity.htm", "CaseEducationActivity.htm", "CaseSupportActivity.htm"].includes(thisPageNameHtm) ) { return };
     if (!editMode) { return };
@@ -2565,8 +2505,10 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     if (document.querySelector('#tempLeavePeriodBegin, #leaveDetailTemporaryLeavePeriodFrom')?.value === "") { tabIndxNegOne('#tempLeavePeriodEnd, #leaveDetailTemporaryLeavePeriodTo') }
     !function __CaseSupportActivity() {
         if (!("CaseSupportActivity.htm").includes(thisPageNameHtm)) { return }
+        selectPeriod.disabled = true
         let doNotReset = [ "#tempLeavePeriodBegin", "#tempLeavePeriodEnd", "#activityEnd" ]
-        let memberDescription = document.getElementById('memberDescription'), verification = document.getElementById('verification'), planRequired = document.getElementById('planRequired'), activityEnd = document.getElementById('activityEnd'), activityBegin = document.getElementById('activityBegin')
+        let memberDescription = document.getElementById('memberDescription'), verification = document.getElementById('verification'), planRequired = document.getElementById('planRequired'), planApproved = document.getElementById('planApproved')
+        let activityEnd = document.getElementById('activityEnd'), activityBegin = document.getElementById('activityBegin')
         activityBegin.addEventListener('blur', () => {
             if (memberDescription.value === "PE" || memberDescription.value === "NP") { //extended elig
                 activityEnd.value = activityBegin.value
@@ -2576,19 +2518,30 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         })
         let beforeFirst = rederrortextContent.find(arrItem => arrItem.indexOf('before the first day') > -1) && eleFocus(save)
         memberDescription.addEventListener('change', changeEvent => {
-            const autoflllValues = supportAutoFill.get(changeEvent.target.value)
-            addValueClassDoEvent(verification, autoflllValues.verif, false, true)
-            addValueClassDoEvent(planRequired, autoflllValues.plan, false, true)
-            autoflllValues.focus && eleFocus(autoflllValues.focus)
+            const autofillValues = supportAutoFill.get(changeEvent.target.value)
+            addValueClassDoEvent(verification, autofillValues.verif, false, true)
+            addValueClassDoEvent(planRequired, autofillValues.plan, false, true)
+            autofillValues.plan === "Yes" && addValueClassDoEvent(planApproved, "Yes", false, true)
+            activityBegin.value && autofillValues.focus && eleFocus(autofillValues.focus)
         })
         const supportAutoFill = new Map([
             [ "JS", { verif: "Other", plan: "No", focus: "#hoursPerWeek" } ],
-            [ "ES", { verif: "Employment Plan", plan: "Yes", focus: "#planApproved" } ],
+            [ "ES", { verif: "Employment Plan", plan: "Yes" } ],
             [ "NP", { verif: "Other", plan: "No" } ],
             [ "PE", { verif: "Other", plan: "No" } ],
         ])
         void doEvent(planRequired)
     }(); // SECTION_END Case_Support_Activity;
+    !function CaseJobSearchTracking() {
+        if (!("CaseJobSearchTracking.htm").includes(thisPageNameHtm)) { return }
+        document.getElementById('hoursUsed').addEventListener('keydown', keydownEvent => {
+            if (!['Enter', 'Tab'].includes(keydownEvent.key) ) { return }
+            keydownEvent.preventDefault()
+            keydownEvent.stopPropagation()
+            keydownEvent.stopImmediatePropagation()
+            save.click()
+        })
+    }(); // SECTION_END Case_Job_Search_Tracking;
 }(); // SECTION_END _Case_Activity_Pages;
 !function _Case_Eligibility_Pages() {
 if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
@@ -2614,7 +2567,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     }
     let eligTableArrayMatch = eligTableArray[thisPageName]
     let tableRows = [...document.querySelectorAll('table > tbody > tr')]
-    let setTrIds = tableRows?.forEach(ele => { ele.id = "ref" + (ele.children[0].innerText) })
+    let setTrIds = tableRows?.forEach(ele => { ele.id = "ref" + (ele.firstElementChild.innerText) })
     function eligHighlight() {
         document.querySelectorAll('select, input:is(.eligibility-highlight)').forEach(ele => { ele.classList.remove('eligibility-highlight', 'ineligible') })
         let selectInputFail = [...document.querySelectorAll('.panel-box-format :is(select, input')].filter(ele => (/\bF\b|\bFail\b/).test(ele.value) ).forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible'));
@@ -2692,7 +2645,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     const eligibilityResults = {}
     function arrayCreatePush(arr, value) { !Array.isArray(arr) ? arr = [value] : arr.unshift(value); return arr }
     eligibilityTableRows.forEach(ele => {
-        let [version, ofVersion] = ele.children[0]?.textContent.split(" of ")
+        let [version, ofVersion] = ele.firstElementChild?.textContent.split(" of ")
         if (version === ofVersion) {
             ele.classList.add("current"); eligibilityResults.current = arrayCreatePush(eligibilityResults.current, ele)
             if (ele.children[5].textContent === "Unapproved") { ele.classList.add("unapproved"); eligibilityResults.unapproved = arrayCreatePush(eligibilityResults.unapproved, ele) }
@@ -2723,6 +2676,86 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     document.getElementById('eligibilityPeriodStart').nextSibling.replaceWith(toLabel)
 }(); // SECTION_END Case_Eligibility_Result_Person;
 }(); // SECTION_END _Case_Eligibility_Pages;
+!function _Case_Income_Expense_Pages() {
+!function __CaseEarnedIncome() {
+    if (!("CaseEarnedIncome.htm").includes(thisPageNameHtm)) { return };
+    let ceiIncomeType = document.getElementById('ceiIncomeType'), ceiEmpCountry = document.getElementById('ceiEmpCountry')
+    let ceiAddressLabels = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.querySelector('label[for=' + ele + ']'))
+    let ceiAddressLabelsAndDivs = [...ceiAddressLabels, ...ceiAddressLabels.map(ele => ele.nextElementSibling) ]
+    h4objects.actualincome.h4.click();
+    tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome')
+    function checkEmploymentType() {
+        let ceiIncomeTypeValue = ceiIncomeType?.value
+        if (ceiIncomeTypeValue === "Self-employment") {
+            unhideElement(h4objects.annualselfemploymentcalculation.siblings, true)
+            unhideElement(h4objects.incomeprojection.siblings, false)
+        } else if (ceiIncomeTypeValue !== "Self-employment" || (!editMode && !document.getElementById('ceiTotalIncome')?.value)) {//move second check outside of this if statement to its own?
+            unhideElement(h4objects.annualselfemploymentcalculation.siblings, false)
+            unhideElement(h4objects.incomeprojection.siblings, true)
+        }
+    };
+    checkEmploymentType()
+    let toggleEmployerAddress = createSlider({ label: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", defaultOn: false, classes: "float-right-imp h4-line", })
+    h4objects.details.h4.insertAdjacentHTML('afterend', toggleEmployerAddress)
+    document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressLabelsAndDivs, ele.target.checked) )
+    unhideElement(ceiAddressLabelsAndDivs, false)
+    if (editMode) {
+        ceiIncomeType.addEventListener('change', changeEvent => {
+            checkEmploymentType()
+            if ( changeEvent.target.value === "Self-employment") { return }
+            addValueClassDoEvent(ceiEmpCountry, 'USA', false, true)
+        })
+        ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', '#ceiPaymentEnd', '#ceiPaymentChange')
+        let ceiGrossIncome = document.getElementById('ceiGrossIncome'), ceiGrossAllowExps = document.getElementById('ceiGrossAllowExps')
+        ceiGrossIncome.parentElement.insertAdjacentHTML('afterend', '<div id="autoFiftyPercent"><div id="fiftyPercent"></div><button type="button" id="grossButton" class="cButton">Use 50%</button></div>');
+        let fiftyPercent = document.getElementById('fiftyPercent')
+        fiftyPercent.innerText = '50%: ' + (ceiGrossIncome.value * .5).toFixed(2)
+        ceiGrossIncome.addEventListener('input', () => { fiftyPercent.innerText = '50%: ' + (ceiGrossIncome.value * .5).toFixed(2) })
+        document.getElementById('grossButton').addEventListener('click', () => {
+            ceiGrossAllowExps.value = (ceiGrossIncome.value * .5).toFixed(2)
+            doEvent(ceiGrossAllowExps)
+            eleFocus(save)
+        });
+    } else if (!editMode) {
+        document.getElementById('earnedIncomeMemberTable').addEventListener('click', () => checkEmploymentType() );
+    }
+}(); // SECTION_END Case_Earned_Income;
+!function __CaseExpense() {
+    if (!("CaseExpense.htm").includes(thisPageNameHtm)) { return };
+    h4objects.actualexpense.h4.click();
+    if (editMode) {
+        let paymentEndDate = document.getElementById('paymentEndDate')
+        ifNoPersonUntabEndAndDisableChange('#refPersonName', paymentEndDate, '#paymentChangeDate')
+        paymentEndDate.addEventListener('keydown', keydownEvent => {
+            if (keydownEvent.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
+        })
+        tempIncomes('#temporaryExpense', paymentEndDate)
+    }
+}(); // SECTION_END Case_Expense;
+!function __CaseUnearnedIncome() {
+    if (!("CaseUnearnedIncome.htm").includes(thisPageNameHtm)) { return };
+    h4objects.actualincome.h4.click();
+    h4objects.studentincome.h4.click();
+    if (editMode) {
+        let paymentEndDate = document.getElementById('paymentEndDate'), tempIncome = document.getElementById('tempIncome')
+        ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', paymentEndDate, '#paymentChangeDate')
+        paymentEndDate.addEventListener('keydown', keydownEvent => {
+            if (keydownEvent.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
+        }, { once: true } )
+        document.getElementById('incomeType').addEventListener('blur', blurEvent => {
+            if (blurEvent.target.value === "Unemployment Insurance") {
+                document.getElementById('tempIncome').value = "Yes"
+                paymentEndDate.tabIndex = 0
+            }
+        })
+        tempIncomes(tempIncome, paymentEndDate)
+    }
+    // if (!editMode) {
+    //     evalData().then(({ 0: unearnedData } = {}) => {
+    //     }).catch(err => { console.trace(err) });
+    // }
+}(); // SECTION_END Unearned_Income;
+}(); // SECTION_END _Case_Income_Expense_Pages;
 !function _Case_ServiceAuthorization_Copay_Pages() {
 !function __CaseCopayDistribution() {
     if (!("CaseCopayDistribution.htm").includes(thisPageNameHtm)) { return };
@@ -2881,43 +2914,14 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     }
 }(); // SECTION_END Case SA_Overview Fill_manual_Billing_Forms;
 }();
-!function CaseExpense() {
-    if (!("CaseExpense.htm").includes(thisPageNameHtm)) { return };
-    h4objects.actualexpense.h4.click();
-    if (editMode) {
-        let paymentEndDate = document.getElementById('paymentEndDate')
-        ifNoPersonUntabEndAndDisableChange('#refPersonName', paymentEndDate, '#paymentChangeDate')
-        paymentEndDate.addEventListener('keydown', keydownEvent => {
-            if (keydownEvent.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
-        })
-        tempIncomes('temporaryExpense', 'paymentEndDate')
-    }
-}(); // SECTION_END Case_Expense;
-!function CaseJobSearchTracking() {
-    if (!("CaseJobSearchTracking.htm").includes(thisPageNameHtm)) { return }
-    document.getElementById('hoursUsed').addEventListener('keydown', keydownEvent => {
-        if (!['Enter', 'Tab'].includes(keydownEvent.key) ) { return }
-        keydownEvent.preventDefault()
-        keydownEvent.stopPropagation()
-        keydownEvent.stopImmediatePropagation()
-        save.click()
-    })
-}(); // SECTION_END Case_Job_Search_Tracking;
 !function CaseMember() {
     if (!("CaseMember.htm").includes(thisPageNameHtm)) { return }
     document.querySelector('label[for="memberReferenceNumber"]').onclick = () => void window.open('/ChildCare/CaseMemberHistory.htm?parm2=' + caseId, '_blank')
     document.getElementById('memberBirthDate')?.insertAdjacentHTML('afterend', '<div style="display: inline-block; margin-left: 15px;" id="birthMonths">')
-    let today = new Date(), birthMonths = document.getElementById('birthMonths'), memberBirthDate = document.getElementById('memberBirthDate')
+    let today = new Date(), firstDateOfPeriod = new Date(selectPeriodDates.start), birthMonths = document.getElementById('birthMonths'), memberBirthDate = document.getElementById('memberBirthDate')
     let caseMemberTable = document.getElementById('caseMemberTable'), caseMemberTableChildren = caseMemberTable?.children[1]?.children
-    function calculateCurrAge(birthDate) {
-        let monthsAge = dateFuncs.getMonthDifference(today, birthDate)
-        let age = { years: ~~(monthsAge / 12), months: monthsAge % 12 }
-        let birthMonthsText = monthsAge < 48 ? age.years + 'y ' + age.months + 'm (' + monthsAge + 'm)' : age.years + 'y ' + age.months + 'm'
-        if (monthsAge < 13) { birthMonthsText = monthsAge + (monthsAge === 1 ? ' month' : ' months') }
-        return birthMonthsText
-    }
-    function determineChildAge(determinationDate, memberAge, birthDate) {
-        let plusAge = memberAge.includes("+") ? '+' : ''
+    function determineAge({ determinationDate, memberAge, birthDate } = {}) {
+        let plusAge = memberAge?.includes("+") ? '+' : ''
         let monthsAge = dateFuncs.getMonthDifference(determinationDate, birthDate)
         let age = { years: ~~(monthsAge / 12), months: monthsAge % 12 }
         let birthMonthsText = monthsAge < 48 ? age.years + 'y ' + age.months + 'm' + plusAge + ' (' + monthsAge + 'm)' : age.years + 'y ' + age.months + 'm' + plusAge
@@ -2937,9 +2941,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             let memberAge = memberData[member].memberAge
             if (parseInt(memberAge) > 5) { continue }
             let memberTableAgeCell = caseMemberTableChildren[member].children[2]
-            let birthDate = new Date(memberData[member].memberBirthDate)
-            memberTableAgeCell.textContent = determineChildAge(new Date(selectPeriodDates.start), memberAge, birthDate)
-            memberObject[memberData[member].memberReferenceNumber] = calculateCurrAge(birthDate)
+            let birthDate = memberData[member].memberBirthDate
+            memberTableAgeCell.textContent = determineAge({ determinationDate: firstDateOfPeriod, memberAge, birthDate})
+            memberObject[memberData[member].memberReferenceNumber] = determineAge({ determinationDate: today, birthDate })
         }
         document.querySelector('table > thead > tr > td:nth-child(3)').textContent = "Age (in BWP)"
         caseMemberTable?.addEventListener('click', () => {
@@ -2974,7 +2978,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 let memberDataField = document.getElementById(member.id)
                 !memberDataField.value && addValueClassDoEvent(memberDataField, member.value, member.class, member.doEvent)
             }
-            if (membRefNum.value > 2 && membRefNum.value < 11) {
+            if (membRefNum.value > 2 && membRefNum.value < 11 && dateFuncs.getMonthDifference(today, document.getElementById('memberBirthDate').value) < 216) { // Younger than 18, within typical child member ref #s;
                 let memberRelationshipToApplicant = document.getElementById('memberRelationshipToApplicant')
                 if (!memberRelationshipToApplicant.value) { addValueClassDoEvent(memberRelationshipToApplicant, "Child", "red-outline", true) }
             }
@@ -3012,7 +3016,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     evalData().then(({ 0: memberData } = {}) => {
         let caseMemberTableChildren = document.querySelector('#memberIITable > tbody').children
         let memberDataObject = {
-            memberUSCitizen: { label: 'Cit', keywords: ["", "Unknown", ], requiredFunc(membObj) { return Number(membObj.memberAge) < 15 }},
+            memberUSCitizen: { label: 'Cit/Imm', keywords: ["", "Unknown", ], requiredFunc(membObj) { return Number(membObj.memberAge) < 15 }},
             memberCitizenshipVerification: { label: 'Cit Ver', keywords: ["No Verification Provided", "", ], requiredFunc(membObj) { return Number(membObj.memberAge) < 15 }},
             memberMaritalStatus: { label: 'Marr', keywords: [""], },
         }
@@ -3096,7 +3100,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 return memberDataArray.map( memberDataItem => { if ( (memberDataItem.keywords).includes(child[memberDataItem.key]) ) { return child.childReferenceNumber } })//.filter(item => item)
             }).flat().filter(item => item).join(', ')
             if (noResponses) {
-                caseMemberTableChildren[member.rowIndex].children[0].insertAdjacentHTML('beforeend', '<span class="float-right-imp" style="color: var(--textColorNegative);">' + noResponses + '</span>')
+                caseMemberTableChildren[member.rowIndex].firstElementChild.insertAdjacentHTML('beforeend', '<span class="float-right-imp" style="color: var(--textColorNegative);">' + noResponses + '</span>')
             }
         })
     }).catch(err => { console.trace(err) })
@@ -3107,10 +3111,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         ele.innerHTML = '<td><a href="FinancialBilling.htm?parm2=' + caseId + '&parm3=' + ele.innerText.replace(/ - |\//g, "") + '", target="_blank">' + ele.innerText + '</a></td>'
     });
     let providerTableList = new Set(), childTableList = new Set()
-    let getPaymentHTML = '<div style="display: flex; gap: 10px;" id="paymentFilterDiv"><select style="width: fit-content;" class="form-control" id="filterProvider"><option value>Provider Filter...</option></select>'
+    let getPaymentHTML = '<div id="tertiaryActionArea" class="db-container">'
+    + '<select style="width: fit-content;" class="form-control" id="filterProvider"><option value>Provider Filter...</option></select>'
     + '<select style="width: fit-content;" class="form-control" id="filterChild"><option value>Child Filter...</option></select>'
     + '<button class="cButton" type="button" id="sendPaymentInfoToCB">Copy Payments</button></div>'
-    secondaryActionArea.insertAdjacentHTML('beforeend', getPaymentHTML)
+    secondaryActionArea?.insertAdjacentHTML('beforeend', getPaymentHTML)
     let paymentPeriodBegin = document.getElementById('paymentPeriodBegin'), paymentPeriodEnd = document.getElementById('paymentPeriodEnd'), selectionProvider = document.getElementById('filterProvider'), selectionChild = document.getElementById('filterChild')
     addDateControls("month", paymentPeriodBegin, paymentPeriodEnd)
     evalData().then(({ 0: providerResult, 1: childResult } = {}) => {
@@ -3192,10 +3197,12 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 save.click()
             }
         }
-    } else {
+    } else if (editMode) {
         sessionStorage.removeItem('MECH2.suspendPlus45')
-        $('#receiveDate').on('input change', () => { //jQuery
-            if ($(this).val().length === 10 && Math.abs(new Date().getFullYear() - $(this).val().slice(6)) < 2) {
+        let today = Date.now()
+        $('#receiveDate').on('keyup change', event => { //jQuery
+            if (!event.target.value || event.target.value.length !== 10) { return }
+            if (today - Date.parse(event.target.value) < 31536000000) {
                 preventKeys(["Tab"])
                 eleFocus(save)
                 $('.hasDatepicker').datepicker("hide")
@@ -3207,9 +3214,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     if (!("CaseReinstate.htm").includes(thisPageNameHtm)) { return };
     let redText = rederrortextContent.find(arrItem => arrItem.indexOf('This case can only be reinstated in the period') > -1)
     if (redText) {
-        let [, redTextSplit ] = redText.textContent.split(': ')
+        let [, redTextSplit ] = redText.split(': ')
         let reinstatePeriod = redTextSplit.replace(/[\/\- ]/g, '')
-        redText.innerHTML = '<a href="/ChildCare/CaseReinstate.htm?parm2=' + caseId + '&parm3=' + reinstatePeriod + '" target="_self" style="color: #CC0000 !important; text-decoration: underline;">' + redText.textContent + '</a>'
+        document.querySelector('div.error_alertbox_new > strong.rederrortext').innerHTML = '<a href="/ChildCare/CaseReinstate.htm?parm2=' + caseId + '&parm3=' + reinstatePeriod + '" target="_self" style="color: #CC0000 !important; text-decoration: underline;">' + redText + '</a>'
     }
 }(); // SECTION_END Case_Reinstate;
 !function CaseSchool() {
@@ -3247,7 +3254,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     let schoolMemberTableSelected = document.querySelectorAll('#schoolMemberTable > tbody > tr.selected')
     if (schoolMemberTableSelected.length === 1) {
         evalData({ pageName: 'CaseMember', evalString: '0', }).then(memberArray => {
-            let memberNumber = schoolMemberTableSelected[0].children[0].textContent
+            let memberNumber = schoolMemberTableSelected[0].firstElementChild.textContent
             if (Number(memberNumber) > 2) { kindergartenStartDate(memberArray, memberNumber) }
         }).catch(err => { console.trace(err) })
     }
@@ -3278,13 +3285,13 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     transferWorkerId = validateTransferWorkerId(transferWorkerId)
     let transferSS = sessionStorage.getItem(ssTransferCase) ?? ''
     if (!editMode && !iFramed) {
-        let caseTransferButtons = '<div style="display: flex; gap: 10px; padding-right: 20px;">'
+        let caseTransferButtons = '<div id="tertiaryActionArea" class="db-container" style="padding-right: 15px;">'
             // + '<button type="button" class="cButton" tabindex="-1" style="margin-right: 10px; padding: 3px 6px;" id="sendMemo">Memo</button>'
             // + '<button type="button" class="cButton" tabindex="-1" style="margin-right: 30px; padding: 3px 6px;" id="sendMemo">Reset</button>'
             + '<button type="button" class="cButton" tabindex="-1" id="closedTransfer">Transfer to:</button>'
             + '<input type="text" class="form-control" style="width: var(--eightNumbers);" id="transferWorker" placeholder="Worker #" value=' + transferWorkerId + '></input>'
         + '</div>'
-        secondaryActionArea.insertAdjacentHTML('beforeend', caseTransferButtons)
+        secondaryActionArea?.insertAdjacentHTML('beforeend', caseTransferButtons)
         document.getElementById('transferWorker')?.addEventListener( 'blur', blurEvent => { transferWorkerId = validateTransferWorkerId(blurEvent.target.value) })
         document.getElementById('closedTransfer')?.addEventListener('click', () => {
             if (!transferWorkerId) { return };
@@ -3349,7 +3356,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             switch (firstErrorMessage) {
                 case "Transfer To Worker ID is not valid for Servicing Agency.":
                 case "Transfer To Worker ID is invalid.":
-                    countyInfo.updateCountyInfoLS('closedCaseBank', "delete")
+                    countyInfo.updateInfo('closedCaseBank', "delete")
                 case "Transfer To Worker ID is missing.": // eslint-disable-line no-fallthrough
                 case "Transfer From Worker ID cannot be the same as Transfer To Worker ID.":
                     sessionStorage.setItem(ssTransferCase, 'transferError')
@@ -3387,11 +3394,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     function validateTransferWorkerId(testedWorkerId) {
         if ((/[a-z0-9]{7}/i).test(testedWorkerId)) {
             if (transferWorkerId !== testedWorkerId) {
-                countyInfo.updateCountyInfoLS('closedCaseBank', testedWorkerId)
+                countyInfo.updateInfo('closedCaseBank', testedWorkerId)
             }
         } else {
             testedWorkerId = ''
-            countyInfo.updateCountyInfoLS('closedCaseBank', "delete")
+            countyInfo.updateInfo('closedCaseBank', "delete")
             document.getElementById('transferWorker').placeholder = 'Invalid #'
             flashRedBorder.animate(document.getElementById('transferWorker'))
             eleFocus('#transferWorker')
@@ -3399,29 +3406,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         return testedWorkerId
     }
 }(); // SECTION_END Case_Transfer;
-!function CaseUnearnedIncome() {
-    if (!("CaseUnearnedIncome.htm").includes(thisPageNameHtm)) { return };
-    h4objects.actualincome.h4.click();
-    h4objects.studentincome.h4.click();
-    if (editMode) {
-        let paymentEndDate = document.getElementById('paymentEndDate')
-        ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', paymentEndDate, '#paymentChangeDate')
-        paymentEndDate.addEventListener('keydown', keydownEvent => {
-            if (keydownEvent.key === "2") { document.getElementById('paymentChangeDate').tabIndex = -1 }
-        }, { once: true } )
-        document.getElementById('incomeType').addEventListener('blur', blurEvent => {
-            if (blurEvent.target.value === "Unemployment Insurance") {
-                document.getElementById('tempIncome').value = "Yes"
-                paymentEndDate.tabIndex = 0
-            }
-        })
-        tempIncomes('tempIncome', 'paymentEndDate')
-    }
-    // if (!editMode) {
-    //     evalData().then(({ 0: unearnedData } = {}) => {
-    //     }).catch(err => { console.trace(err) });
-    // }
-}(); // SECTION_END Unearned_Income;
 !function CaseWrapUp() {
     if (!("CaseWrapUp.htm").includes(thisPageNameHtm)) { return };
     const done = document.getElementById('done')
@@ -3450,9 +3434,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             [ "goSpecialLetter", { page: "CaseSpecialLetter", name: "Special Letter" }],
             [ "goCaseTransfer", { page: "CaseTransfer", name: "Case Transfer" }],
         ])
-        secondaryActionArea.insertAdjacentHTML('afterbegin', '<div id="postWrapUpButtons" style="display: flex; gap: 10px;">' + postWrapButtons() + '</div>')
+        secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea" class="db-container">' + postWrapButtons() + '</div>')
         function postWrapButtons() { return [...postWrap].map( ([key, item] = []) => '<button class="form-button" type="button" id="'+ key +'">'+ item.name +'</button>').join('') }
-        document.getElementById('postWrapUpButtons').addEventListener('click', clickEvent => {
+        document.getElementById('tertiaryActionArea').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             window.open('/ChildCare/' + postWrap.get(clickEvent.target.id).page + '.htm?parm2=' + caseId + '&parm3=' + selectPeriodDates.parm3, '_self')
         })
@@ -3522,9 +3506,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 //         waitForTableCells('#clientSearchProgramResults').then(() => {
 //             [...resultTable.children[1].children].forEach(tr => {
 //                 let td = tr.children
-//                 if (["MFIP/DWP Child Care", "Basic Sliding Fee", "Transition Year", "Transition Year Extension"].includes(td[2].textContent)) { td[1].classList.add('match'); td[0].children[0].classList.add('match') }
-//                 if ( ['Current', 'PEND'].includes(td[2].textContent.split(' ')[1]) ) { td[2].classList.add('match'); td[0].children[0].classList.add('match') }
-//                 if ( ['Current', 'PEND'].includes(td[3].textContent.split(' ')[1]) ) { td[3].classList.add('match'); td[0].children[0].classList.add('match') }
+//                 if (["MFIP/DWP Child Care", "Basic Sliding Fee", "Transition Year", "Transition Year Extension"].includes(td[2].textContent)) { td[1].classList.add('match'); td[0].firstElementChild.classList.add('match') }
+//                 if ( ['Current', 'PEND'].includes(td[2].textContent.split(' ')[1]) ) { td[2].classList.add('match'); td[0].firstElementChild.classList.add('match') }
+//                 if ( ['Current', 'PEND'].includes(td[3].textContent.split(' ')[1]) ) { td[3].classList.add('match'); td[0].firstElementChild.classList.add('match') }
 //             })
 //             // resultTable.querySelectorAll('tbody > tr > td:nth-child(2)').forEach(e => {
 //             //     if (["MFIP/DWP Child Care", "Basic Sliding Fee", "Transition Year", "Transition Year Extension"].includes(e.innerText)) { e.classList.add('match') }
@@ -3569,18 +3553,18 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }
     if ( programBtn ) {
         reselectSelectedTableRow();
-        programBtn.addEventListener( 'click', () => storeSelectedTableRow() )
+        programBtn.addEventListener('click', storeSelectedTableRow)
     }
 }(); // SECTION_END Client_Search;
 !function ContactInformation() {
     if (!"ContactInformation.htm".includes(thisPageNameHtm)) { return };
     [...document.querySelector('.content_40pad').querySelectorAll('br')].forEach(ele => { if (ele.previousSibling?.nodeType === 3) { doWrap(ele.previousSibling) } })
 }(); // SECTION_END Contact Information;
-!function ElectronicBills() {
+!function _Financial_Billing_Pages() {
+!function __ElectronicBills() {
     if (!"ElectronicBills.htm".includes(thisPageNameHtm)) { return };
     selectPeriodReversal(document.getElementById('searchDateRange'), 1)
 }(); // SECTION_END Electronic_Bills;
-!function _Financial_Pages() {
     if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
 !function __FinancialBilling() {
     if (!("FinancialBilling.htm").includes(thisPageNameHtm) || !caseId) { return };
@@ -3657,13 +3641,13 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }).catch(err => { console.trace(err) })
     }
     let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody')
-    secondaryActionArea.insertAdjacentHTML('beforeend', '<div id="copyBillingInfoButtons" style="display: flex; gap: 10px;"><button class="cButton" id="copy2WkBillingInfo">Billing Info</button></div>') //<button class="cButton" id="copy4WkBillingInfo">4 Week Billing Info</button>
+    secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container"><button class="cButton" id="copy2WkBillingInfo">2-Week Billing Info</button><button class="cButton" id="copy4WkBillingInfo">4-Week Billing Info</button></div>')
     let typeAndNameColumns = {
         FinancialBilling: { type: 1, name: 0 },
         FinancialBillingApproval: { type: 2, name: 1 },
     }
     let thisPageTypeAndNameColumns = typeAndNameColumns[thisPageName]
-    document.getElementById('copyBillingInfoButtons').addEventListener( 'click', clickEvent => copyBillingInfoForEmails(thisPageTypeAndNameColumns.type, thisPageTypeAndNameColumns.name, clickEvent.target.id) )
+    document.getElementById('tertiaryActionArea').addEventListener( 'click', clickEvent => copyBillingInfoForEmails(thisPageTypeAndNameColumns.type, thisPageTypeAndNameColumns.name, clickEvent.target.id) )
     function copyBillingInfoForEmails(typeChild, nameChild, clickedButton) {
         let selectedTRowChildren = billingProviderTableTbody.querySelector('tr.selected').children
         let selectedProviderType = selectedTRowChildren[typeChild].textContent
@@ -3672,20 +3656,20 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         : selectedProviderName.indexOf(",") > -1 ? nameFuncs.commaNameReorder(selectedProviderName)
         : reorderFamilyProviderName(selectedProviderName)
         let caseName = nameFuncs.commaNameReorder(pageTitle)
-        let currentPeriodIsFourWeekStart = fourWeekStart(selectPeriodDates.start)
-        // console.log(currentPeriodIsFourWeekStart, currentPeriodIsFourWeekStart ? dateFuncs.formatDate(selectPeriodDates.start, "mdyy") : dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.start, -14), "mdyy"),currentPeriodIsFourWeekStart ? dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.end, 14), "mdyy") : dateFuncs.formatDate(selectPeriodDates.end, "mdyy"),)
         let billingFormDates = {
-            start: clickedButton === "copy2WkBillingInfo" ? dateFuncs.formatDate(selectPeriodDates.start, "mdyy") : currentPeriodIsFourWeekStart ? dateFuncs.formatDate(selectPeriodDates.start, "mdyy") : dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.start, -14), "mdyy"),
-            end: clickedButton === "copy2WkBillingInfo" ? dateFuncs.formatDate(selectPeriodDates.end, "mdyy") : currentPeriodIsFourWeekStart ? dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.end, 14), "mdyy") : dateFuncs.formatDate(selectPeriodDates.end, "mdyy"),
+            start: dateFuncs.formatDate(selectPeriodDates.start, "mdyy"), end: dateFuncs.formatDate(selectPeriodDates.end, "mdyy"),
+        }
+        if (clickedButton === "copy4WkBillingInfo") {
+            fourWeekStart(selectPeriodDates.start) === 0.5 ? billingFormDates.start = dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.start, -14), "mdyy") : billingFormDates.end = dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.end, 14), "mdyy")
         }
         let copyString = selectedProviderName + '  Case: ' + caseId + ', ' + caseName + '  ' + billingFormDates.start + '-' + billingFormDates.end
         copy(copyString, copyString, "Copied!")
     };
     function fourWeekStart(date) {
-        let baseParseDate = 1703484000000
-        let num = ( (Date.parse(date) - baseParseDate) / 2438400000)//.toFixed(3)
-        // console.log(( num - Math.floor(num) ) )//.toFixed(3))
-        return ( num - Math.floor(num) ).toFixed(3) === "0.652"
+        let [ month, day, year ] = date.split('/')
+        let baseParseDate = 1706140800000 // Date.UTC(2023, 12, 25)
+        let num = ( (Date.UTC(year, month, day) - baseParseDate) / 2419200000)
+        return ( num - Math.floor(num) )
     }
     function reorderFamilyProviderName(misorderedName) {
         misorderedName = misorderedName.split(" ")
@@ -3709,18 +3693,20 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Funding_Availability;
 !function Login_ChangePassword() {
     if (!["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm) && !("/ChildCare/").includes(thisPageName)) { return }; // Looks dumb, but catches if there's no Page.htm, which can only happen for logging in.
-    let userId = document.getElementById('userId')
+    let userId = document.getElementById('userId'), terms = document.getElementById('terms'), password = document.getElementById('password')
     if (rederrortextContent.find(arrItem => arrItem.indexOf("Password has expired.") > -1)) {
-	focusEle = "#password"
-	} else if (countyInfo.info.userIdNumber.length && document.getElementById("terms")) {
-        userId.value = countyInfo.info.userIdNumber;
-        document.getElementById("terms").click();
-        document.getElementById("password").focus();
+        focusEle = password
+        return;
+    };
+    document.getElementById('submit')?.addEventListener('click', () => {
+        if (userId.value) { countyInfo.updateInfo('userIdNumber', userId?.value) };
+    });
+    if (countyInfo.info?.userIdNumber && terms) {
+        userId.value = countyInfo.info?.userIdNumber;
+        terms.click();
+        focusEle = password
     } else {
         focusEle = userId
-        document.getElementById('submit').addEventListener('click', () => {
-            if (userId.value !== '') { countyInfo.updateCountyInfoLS('userIdNumber', userId.value) };
-        });
     }
 }(); // SECTION_END Log_in;
 !function MaximumRates() {
@@ -3753,8 +3739,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         })
     }
     let toggleDifferentialRates = createSlider({ label: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", defaultOn: true, classes: "float-right-imp", })
-    secondaryActionArea.insertAdjacentHTML('beforeend', ''
-    + '<div class="db-container">'
+    secondaryActionArea?.insertAdjacentHTML('beforeend', ''
+    + '<div id="tertiaryActionArea" class="db-container">'
         + '<button type="button" class="cButton" id="copyRates">Copy Rates</button>'
         + toggleDifferentialRates
     + '</div>')
@@ -3778,7 +3764,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     if (!["CaseNotes.htm", "ProviderNotes.htm"].includes(thisPageNameHtm)) { return };
     doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
-    let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.children[0].textContent === "No records found" ? 1 : 0
+    let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     if (editMode) {
         save?.addEventListener('click', saveEvent => maxRowColumnCheck({ textbox: noteStringText, maxColumns: 100, maxRows: 30, saveEvent }) )
     }
@@ -3864,7 +3850,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             if (!storedNoteExists || storedNoteDetails?.noteSummary === noteSummary?.value) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
             if (!editMode) {
                 let storedNoteInfoHTML = storedNoteExists ? '<div id="unsavedNoteDiv" style="display: flex; align-items: center; gap: 5px;"><span style="margin-left: 10px;" title="' + storedNoteDetails.noteSummary + '">Unsaved note exists for case</span><a target="_self" href="/ChildCare/CaseNotes.htm?parm2=' + storedNoteDetails.identifier + '">'+ storedNoteDetails.identifier +'</a><span id="deleteUnsaved" style="cursor: pointer; color: red !important; padding-bottom: 2px;">✖</span></div>' : ''
-                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div class="db-container"><button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML + ' </div>')
+                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container"><button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML + ' </div>')
                 document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.storedNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
                 document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
                 function copyNoteToLS() {
@@ -3877,7 +3863,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 }
             } else if (editMode) {
                 window.addEventListener('beforeunload', getDetailsStoreInLS)
-                function getDetailsStoreInLS() { if (!noteCategory?.value) { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
+                function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
                 document.getElementById('cancel').addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
                 if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
                 let noteDetails = sanitize.JSON(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
@@ -3885,9 +3871,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 //
                 if (noteDetailsExists && ["Application", "Redetermination"].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = noteDetails.noteCategory + " update" }
                 let autofillButton = noteDetailsExists ? '<button type="button" id="autofill" class="form-button">Autofill</button>' : '', storedNoteButton = storedNoteExists ? '<button type="button" id="storedNote" class="form-button">Stored Note</button>' : ''
-                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div class="db-container">' + autofillButton + storedNoteButton + '</div>')
-                secondaryActionArea?.addEventListener('click', clickEvent => {
-                    if (clickEvent.target.nodeName !== "BUTTON" || noteCategory?.value.length) { return };
+                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container">' + autofillButton + storedNoteButton + '</div>')
+                document.getElementById('tertiaryActionArea')?.addEventListener('click', clickEvent => {
+                    if (clickEvent.target.nodeName !== "BUTTON" || noteCategory?.value) { return };
                     let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : storedNoteDetails
                     fillNoteDetails(selectedNoteDetails)
                 })
@@ -4027,7 +4013,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             !function addTextareaButtons() {
                 if (!textbox) { return };
                 let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
-                : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').children[0]
+                : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').firstElementChild
                 : textbox.closest('.col-lg-12')
                 targetDiv?.insertAdjacentHTML('beforeend', textareaButtonsDivHTML)
                 document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
@@ -4037,9 +4023,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             }();
         }
     }
+    if (!["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) { return };
+    if (!editMode) { addDateControls("month", '#selectionBeginDate', '#selectionEndDate') }
     !function Notices_PdfExport() {
-        if (!["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) { return };
-        if (!editMode) { addDateControls("month", '#selectionBeginDate', '#selectionEndDate') }
         let textbox1 = document.getElementById('textbox1'), textbox2 = document.getElementById('textbox2')
         if ( textbox2?.disabled ) {
             function dynamicallyLoadScript(url) {
@@ -4096,16 +4082,16 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     // SECTION_START ProviderAddress Copy Provider mailto Address
     if (!editMode) {
         let mailingStreet1 = document.getElementById('mailingStreet1'), edit = document.getElementById('edit'), addrBillFormDisplay = document.getElementById('addrBillFormDisplay')
-        let providerType = document.getElementById('providerData').children[3].children[0].childNodes[2].textContent.trim()
+        let providerType = document.getElementById('providerData').children[3].firstElementChild.childNodes[2].textContent.trim()
         let providerName = ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) ? nameFuncs.commaNameReorder(pageTitle) : pageTitle
-        secondaryActionArea.insertAdjacentHTML('beforeend', ''
-                                               + '<div id="copyAddresses" style="display: flex; gap: 5px;">'
+        secondaryActionArea?.insertAdjacentHTML('beforeend', ''
+                                               + '<div id="tertiaryActionArea" class="db-container">>'
                                                + '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copySiteHome">Copy Site/Home Address</button>'
                                                + '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mailing Address</button>'
                                                + '</div>');
         evalData().then(({ 0: addressData } = {}) => {
             function copyAddress(addressType) {
-                let addressTableRow = childOrRowIndex(document.querySelector('.selected'))
+                let addressTableRow = getChildNum(document.querySelector('.selected'))
                 addressData = addressData[addressTableRow]
                 const mailingDataCheck = () => {
                     switch(addressType) {
@@ -4131,7 +4117,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 let copyText = providerName + "\n" + mailingData.streetData + "\n" + mailingData.cityData + ", " + mailingData.stateData + " " + mailingData.zipData;
                 copy(copyText, copyText)
             }
-            document.getElementById('copyAddresses').addEventListener('click', clickEvent => {
+            document.getElementById('tertiaryActionArea').addEventListener('click', clickEvent => {
                 if (clickEvent.target.nodeName !== "BUTTON") { return }
                 copyAddress(clickEvent.target.id)
             })
@@ -4155,12 +4141,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     if (!("ProviderNotices.htm").includes(thisPageNameHtm)) { return };
     let removeButton = document.getElementById('remove'), cancelButton = document.getElementById('cancel'), resendButton = document.getElementById('resend')
     let providerNoticesTableTbody = document.querySelector('#providerNoticesSearchData > tbody')
-    if (removeButton && providerNoticesTableTbody.children[0].textContent !== "No records found") {
+    if (removeButton && providerNoticesTableTbody.firstElementChild.textContent !== "No records found") {
         function addRemDisabled(target) {
             if (!cancelButton.disabled && target.nodeName === "TR" && target.children[5].textContent.indexOf("Waiting") > -1) { cancelButton.disabled = false; resendButton.disabled = true }//says waiting, cancel is disabled: disable resend, remove disable cancel;
             else if (resendButton.disabled && target.nodeName === "TR" && target.children[5].textContent.indexOf("Waiting") < 0) { resendButton.disabled = false; cancelButton.disabled = true }//doesn't say waiting, disable cancel, remove disable resend;
         }
-        waitForTableCells('#providerNoticesSearchData').then( () => addRemDisabled( providerNoticesTableTbody.children[0] ) )
+        waitForTableCells('#providerNoticesSearchData').then( () => addRemDisabled( providerNoticesTableTbody.firstElementChild ) )
         providerNoticesTableTbody.addEventListener('click', clickEvent => { addRemDisabled( getTableRow(clickEvent.target) ) })
     }
 }(); // SECTION_END Provider_Notices;
@@ -4461,7 +4447,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                     !function checkIfBackground() {
                         let proceedButton = document.querySelector('#approveDB, #selectDB')
                         setTimeout(() => { // eleFocus due to timeout;
-                            if (rederrortextContent.includes("Background transaction in process.")) {
+                            if (rederrortextContent.find(arrItem => arrItem.indexOf("Background transaction") > -1 || arrItem.indexOf("	No results for case") > -1) ) {
                                 document.querySelector('#approve, #select').disabled = true
                                 proceedButton.disabled = true
                                 eleFocus(submitButton)
@@ -4481,7 +4467,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                     tbodiesFocus('#confirmDB')
                     focusEle = '#confirmDB'
                 }
-                if (["CaseCreateEligibilityResults.htm", "CaseCreateServiceAuthorizationResults.htm"].includes(thisPageNameHtm) && !editMode) { focusEle = !rederrortextContent.includes("Results successfully submitted.") ? '#createDB' : '#postWrapUpButtons > button' }
+                // if (["CaseCreateEligibilityResults.htm", "CaseCreateServiceAuthorizationResults.htm"].includes(thisPageNameHtm) && !editMode) { focusEle = !rederrortextContent.includes("Results successfully submitted.") ? '#createDB' : '#postWrapUpButtons > button' }
                 if (["CaseServiceAuthorizationOverview.htm", "CaseCopayDistribution.htm"].includes(thisPageNameHtm) && !editMode && !noResultsForCase) { focusEle = '#nextDB' }
             }();
             !function case_other_pages() {
@@ -4528,7 +4514,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
             }();
             // Billing_Pages
             !function financial_tab_pages() {
-                if (("FinancialBilling.htm").includes(thisPageNameHtm)) { !editMode ? focusEle = '#editDB' : setTimeout(() => { focusEle = '#billedTimeType' }, 1000) }
+                if (("FinancialBilling.htm").includes(thisPageNameHtm)) { !editMode ? focusEle = '#editDB' : setTimeout(() => { eleFocus('#billedTimeType') }, 1000) }
                 if (("FinancialBillingApproval.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#approveBillingDB' : '#remittanceComments' }
                 if (("FinancialBillingRegistrationFeeTracking.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#addDB' : '#caseTransferFromType' }
                 if (("FinancialAbsentDayHolidayTracking.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#addDB' : '#caseTransferFromType' }
@@ -4642,12 +4628,13 @@ function closeDatePicker(dateInputElement=0) {
             }
         }) )
 }();
-function datePickerDateChanged(dateField) {
+function datepickerDateChanged(dateField, fn) {
+    dateField = sanitize.query(dateField)
 //     // dateField.addEventListener('keyup', )
 //     // dateField.addEventListener('blur', )
 //     const datepicker = document.getElementById('ui-datepicker-div')
 //     if (!datepicker) { return }
-//     const datepickerObserver = new MutationObserver(m => {
+//     const datepickerObserver = new MutationObserver(() => {
 //         if (!datepicker.style.opacity && datepicker.style.display === "none") {
 //         }
 //     })
@@ -4669,14 +4656,17 @@ function addDateControls(increment, ...eles) {
             if (increment === "month") {
                 if (prevOrNext === "prev") { datePickerElement.value = dateFuncs.formatDate( new Date(controlDate.setMonth(controlDate.getMonth() - 1)), "mmddyyyy" ) }
                 else if (prevOrNext === "next") { datePickerElement.value = dateFuncs.formatDate( new Date(controlDate.setMonth(controlDate.getMonth() + 1)), "mmddyyyy" ) }
-            } else if (increment === "day") {}
+            } else if (increment === "day") {
+                if (prevOrNext === "prev") { datePickerElement.value = dateFuncs.formatDate( dateFuncs.addDays(controlDate, -1), "mmddyyyy" ) }
+                else if (prevOrNext === "next") { datePickerElement.value = dateFuncs.formatDate( dateFuncs.addDays(controlDate, 1), "mmddyyyy" ) }
+            }
         })
     })
 };
 //           highly specific operations;
 function ifNoPersonUntabEndAndDisableChange(member, end, change) {
     if (member = sanitize.query(member)) {
-        sanitize.query(end).tabindex = "-1"
+        sanitize.query(end).tabIndex = "-1"
         sanitize.query(change).disabled = true
     }
 };
@@ -4806,14 +4796,14 @@ function waitForTableCells(tableStr = 'table') { // table = 'table' or '#tableId
     if (typeof tableStr !== "string") { return };
     return new Promise(resolve => {
         let waitForTable = document.querySelector('div.dataTables_scrollBody > ' + tableStr)
-        if (waitForTable?.children[1]?.children[0]?.children) {
-            let recordsFound = waitForTable?.children[1]?.children[0]?.children.length
+        if (waitForTable?.children[1]?.firstElementChild?.children) {
+            let recordsFound = waitForTable?.children[1]?.firstElementChild?.children.length
             return resolve(waitForTable, recordsFound);
         };
         const observer = new MutationObserver(mutations => {
             waitForTable = document.querySelector('div.dataTables_scrollBody > ' + tableStr)
-            if (waitForTable?.children[1]?.children[0]?.children) {
-                let recordsFound = waitForTable?.children[1]?.children[0]?.children.length
+            if (waitForTable?.children[1]?.firstElementChild?.children) {
+                let recordsFound = waitForTable?.children[1]?.firstElementChild?.children.length
                 observer.disconnect();
                 resolve(waitForTable, recordsFound);
             };
@@ -4838,6 +4828,51 @@ function waitForElmHeight(selectorStr) { // selector must be string;
         observer.observe(document.body, { attributes: true, childList: true, subtree: true });
     });
 }; //based on https://stackoverflow.com/a/61511955 ;
+//           show user text via popup (typical: copied text);
+function snackBar(sbText, title = "Copied!", textAlign = "left") {
+    document.getElementById('snackBarDiv')?.remove()
+    let snackBarTxt = [ '<div id="snackBarDiv">' ]
+    title !== "notitle" && snackBarTxt.push("<span class='snackBar-title'>" + title + "</span>")
+    sbText.split('\n').forEach( textLine => snackBarTxt.push("<span>" + textLine + "</span>") )
+    snackBarTxt.push('</div>')
+    document.body.insertAdjacentHTML('beforeend', snackBarTxt.join(''))
+};
+//           send value to clipboard;
+function copyMailing() {
+    // let providerData = document.getElementById('providerData'), providerType = providerData.children[3].firstElementChild.childNodes[2].textContent.trim(), providerName = providerData.firstElementChild.childNodes[4].textContent.trim()
+    // if ( ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) ) { providerName = nameFuncs.commaNameReorder(providerName) }
+    // if (document.getElementById('addrBillFormDisplay').value === "Site/Home") {
+    //     let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingSiteHomeState').value)
+    //     let copyText = providerName + "\n" + document.getElementById('mailingSiteHomeStreet1').value + " " + document.getElementById('mailingSiteHomeStreet2').value + "\n" + document.getElementById('mailingSiteHomeCity').value + ", " + state + " " + document.getElementById('mailingSiteHomeZipCode').value
+    //     navigator.clipboard.writeText(copyText);
+    //     snackBar(copyText);
+    // } else {
+    //     let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingState').value)
+    //     let copyText = providerName + "\n" + document.getElementById('mailingStreet1').value + " " + document.getElementById('mailingStreet2').value + "\n" + document.getElementById('mailingCity').value + ", " + state + " " + document.getElementById('mailingZipCode').value
+    //     navigator.clipboard.writeText(copyText);
+    //     snackBar(copyText);
+    // };
+}; // unused function, designed for provider addresses;
+function copy(clipText, sbText, sbTitle, sbAlign) {
+    navigator.clipboard.writeText(clipText)
+    sbText?.length > 0 && snackBar(sbText, sbTitle ?? 'notitle', sbAlign ?? 'left')
+};
+async function copyFormattedHTML({html, extraStyle='', addTableStyle=true, removeStyles=true} = {}) {
+    let tableStyle = 'table { border: 2px solid green !important; font-size: 24px; white-space: nowrap; table-layout: fixed; } td, th { padding: 2px 20px; margin: auto; } thead td, thead th { font-weight: 700; background: #07416f; color: white; } table tbody td { color: black; background: white; } .hidden { display: none !important; }'
+    let style = ['<style>body { color: unset !important; background: unset !important; font-size: 24px; }', addTableStyle ? tableStyle : '', extraStyle, '</style>'].join(' ')
+    html = ('<html><head>' + style + '</head><body>' + (removeStyles ? html.replace(/style=".+?"/ig, '') : html) + '</body>').replace(/\n|\t|&nbsp;|<br>/g, '')
+    const htmlBlob = new Blob([html], { type: "text/html" });
+    const data = new ClipboardItem({ "text/html": htmlBlob, });
+    await navigator.clipboard.write([data]);
+};
+//           send value to sessionStorage;
+function storeSelectedTableRow({ storeTable = 'table', rowOrValue = 'row' } = {}) {
+    storeTable = sanitize.query('div.dataTables_scrollBody > ' + storeTable)
+    if (!storeTable) { return };
+    let storeTableRow = rowOrValue === "row" ? getChildNum([...storeTable.children[1].children].find(ele => ele.classList.contains('selected'))) : rowOrValue
+    if (!storeTableRow) { return };
+    sessionStorage.setItem( 'selectedTableRow', (storeTableRow ? storeTableRow : 0) )
+};
 //           return value, no page changes;
 const stateDataSwap = {
     stateNamesAndLetters: {
@@ -4853,8 +4888,8 @@ const stateDataSwap = {
     swapStateNameAndAcronym(stateInfo) { return Object.keys(this.stateNamesAndLetters).find(key => this.stateNamesAndLetters[key] === stateInfo) ?? this.stateNamesAndLetters[stateInfo] },
 };
 function inRange(x, min, max) { return typeof x === "string" ? undefined : x >= min && x <= max };
-function childOrRowIndex(childEle) { return childEle.nodeName === "TR" ? (childEle.rowIndex -1) : [...childEle.parentElement.children].indexOf(childEle) };
-function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 }) {
+function getChildNum(childEle) { return childEle.nodeName === "TR" ? (childEle.rowIndex -1) : [...childEle.parentElement.children].indexOf(childEle) };
+function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) {
     if (textbox.value.indexOf('\n') === -1 && textbox.value.length <= maxColumns) { return 1 }
     const splitStringArray = textbox.value.split('\n').map( item => doStringSplitAtBoundary(item) )
     let totalRows = splitStringArray.length
@@ -4881,50 +4916,6 @@ function maxRowColumnCheck({ textbox, maxColumns=60, maxRows=30, saveEvent } = {
             textbox.addEventListener('keydown', () => { document.getElementById('maxRowsExceeded')?.remove(); }, { once: true })
         }
     }
-}
-//           send value to clipboard;
-function copyMailing() {
-    // let providerData = document.getElementById('providerData'), providerType = providerData.children[3].children[0].childNodes[2].textContent.trim(), providerName = providerData.children[0].childNodes[4].textContent.trim()
-    // if ( ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) ) { providerName = nameFuncs.commaNameReorder(providerName) }
-    // if (document.getElementById('addrBillFormDisplay').value === "Site/Home") {
-    //     let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingSiteHomeState').value)
-    //     let copyText = providerName + "\n" + document.getElementById('mailingSiteHomeStreet1').value + " " + document.getElementById('mailingSiteHomeStreet2').value + "\n" + document.getElementById('mailingSiteHomeCity').value + ", " + state + " " + document.getElementById('mailingSiteHomeZipCode').value
-    //     navigator.clipboard.writeText(copyText);
-    //     snackBar(copyText);
-    // } else {
-    //     let state = stateDataSwap.swapStateNameAndAcronym(document.getElementById('mailingState').value)
-    //     let copyText = providerName + "\n" + document.getElementById('mailingStreet1').value + " " + document.getElementById('mailingStreet2').value + "\n" + document.getElementById('mailingCity').value + ", " + state + " " + document.getElementById('mailingZipCode').value
-    //     navigator.clipboard.writeText(copyText);
-    //     snackBar(copyText);
-    // };
-}; // unused function, designed for provider addresses;
-function copy(clipText, sbText, sbTitle, sbAlign) {
-    navigator.clipboard.writeText(clipText)
-    sbText?.length > 0 && snackBar(sbText, sbTitle ?? 'notitle', sbAlign ?? 'left')
-};
-async function copyFormattedHTML({html, extraStyle='', addTableStyle=true, removeStyles=true} = {}) {
-    let tableStyle = 'table { border: 2px solid green !important; font-size: 24px; white-space: nowrap; table-layout: fixed; } td, th { padding: 2px 20px; margin: auto; } thead td, thead th { font-weight: 700; background: #07416f; color: white; } table tbody td { color: black; background: white; } .hidden { display: none !important; }'
-    let style = ['<style>body { color: unset !important; background: unset !important; font-size: 24px; }', addTableStyle ? tableStyle : '', extraStyle, '</style>'].join(' ')
-    html = ('<html><head>' + style + '</head><body>' + (removeStyles ? html.replace(/style=".+?"/ig, '') : html) + '</body>').replace(/\n|\t|&nbsp;|<br>/g, '')
-    const htmlBlob = new Blob([html], { type: "text/html" });
-    const data = new ClipboardItem({ "text/html": htmlBlob, });
-    await navigator.clipboard.write([data]);
-};
-//           show user text via popup (typical: copied text);
-function snackBar(sbText, title = "Copied!", textAlign = "left") {
-    document.getElementById('snackBarDiv')?.remove()
-    let snackBarTxt = [ '<div id="snackBarDiv">' ]
-    title !== "notitle" && snackBarTxt.push("<span class='snackBar-title'>" + title + "</span>")
-    sbText.split('\n').forEach( textLine => snackBarTxt.push("<span>" + textLine + "</span>") )
-    snackBarTxt.push('</div>')
-    document.body.insertAdjacentHTML('beforeend', snackBarTxt.join(''))
-};
-//           send value to sessionStorage;
-function storeSelectedTableRow(storeTable = 'table') {
-    storeTable = sanitize.query('div.dataTables_scrollBody > ' + storeTable)
-    if (!storeTable) { return };
-    let storeTableRow = [...storeTable.children[1].children].find(ele => ele.classList.contains('selected'))
-    storeTableRow && sessionStorage.setItem( 'selectedTableRow', (storeTableRow ? childOrRowIndex(storeTableRow) : 0) )
 };
 //           return value to operate on page;
 function createSlider({ label, title, id: sliderId, defaultOn: isChecked, font: sliderFontSize, classes: extraClasses, styles: extraStyles} = {}) {
@@ -4982,16 +4973,18 @@ function tbodyFocusNextEdit() {
         next?.disabled === false ? eleFocus(next) : eleFocus(wrapUpDB)
     })
 };
-function reselectSelectedTableRow( reselectObj = {} ) {
-    waitForTableCells(reselectObj.storeTable ?? 'table').then((storeTable, recordsFound) => {
+function reselectSelectedTableRow(storedTable = 'table', scroll=0) {
+    waitForTableCells(storedTable).then((storeTable, recordsFound) => {
         if (!storeTable || recordsFound < 2) { return };
-        let rowOrValue = reselectObj.rowOrValue ?? "row"
-        let storedTableRow = Number( sessionStorage.getItem('selectedTableRow') ?? 0 )
-        if (Number.isNaN(storedTableRow)) { return };
-        storedTableRow = rowOrValue === "row" ? storedTableRow : childOrRowIndex([...storeTable.children[1].children].find(row => row.textContent.indexOf(rowOrValue) > -1))
-        // "OrValue" not yet implemented. Intention: store the textContent of the <tr> or <td> to search for. Need to modify storeSelectedTableRow to store this data (as an object/array) and then modify reselectSelectedTableRow() to retrieve/structure this data.
-        storeTable.children[1].children[storedTableRow ?? 0].click()
+        let storedTableRow = sanitize.string(sessionStorage.getItem('selectedTableRow') ?? 0)
         sessionStorage.removeItem('selectedTableRow')
+        let foundRow = storedTableRow < 999 ? storeTable.children[1].children[storedTableRow ?? 0] : [...storeTable.children[1].children].find(row => row.textContent.indexOf(storedTableRow) > -1)
+        foundRow.click()
+        let tableParams = storeTable.parentElement.getBoundingClientRect()
+        let rowParams = foundRow.getBoundingClientRect()
+        if (rowParams.top < tableParams.top || rowParams.bottom > tableParams.bottom) {
+            foundRow.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
     })
 };
 function listPageLinksAndList(...rowAndPageArrays) { // listPageLinksAndList([table#OnPage, "PageToLinkTo", columnIfNot0], [etc])
@@ -5029,7 +5022,7 @@ function insertTextAndMoveCursor(textToInsert, activeEle) {
         element.setSelectionRange(start, end);
     };
 };
-function tabIndxNegOne(elementStringList) { queueMicrotask(() => { [...sanitize.query(elementStringList, true)].forEach(ele => { ele.tabindex = '-1' }) }) };
+function tabIndxNegOne(elementStringList) { queueMicrotask(() => { [...sanitize.query(elementStringList, true)].forEach(ele => { ele.tabIndex = '-1' }) }) };
 function tempIncomes(tempIncomeEle, endDateEle) {
     tempIncomeEle = sanitize.query(tempIncomeEle)
     endDateEle = sanitize.query(endDateEle)
@@ -5052,6 +5045,7 @@ function preventKeys(keyArray, ms=1500) {
     if (iFramed) { return };
     window.addEventListener('keydown', async keydownEvent => {
         if (keydownEvent.key === "Alt") { keydownEvent.preventDefault(); return; }; // alt pressed without additional key;
+        if (keydownEvent.key === "Tab" && keydownEvent.target.classList?.contains('hasDatepicker') && keydownEvent.target.value.length > 0 && keydownEvent.target.value.length < 10) { keydownEvent.preventDefault() }
         if (keydownEvent.altKey) {
             if (["d", "s", "n", "c", "e", "r", "w", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { keydownEvent.preventDefault() } else { return };
             switch (keydownEvent.key) {
@@ -5060,20 +5054,27 @@ function preventKeys(keyArray, ms=1500) {
                 case 'n': document.querySelector('#new:not(:disabled)')?.click(); break;
                 case 'c': document.querySelector(':is(#Cancel, #cancel, #cancelnotice, #revert, #exit):not(:disabled)')?.click(); break;
                 case 'e': document.querySelector('#edit:not(:disabled)')?.click(); break;
-                case 'r': document.querySelector(':is(#resend, #return):not(:disabled)')?.click(); break;
+                case 'r': document.querySelector(':is(#resend, #return, #removecancel):not(:disabled)')?.click(); break;
                 case 'w': document.querySelector('#wrapUp:not(:disabled)')?.click(); break;
                 case 'a': document.querySelector('#add:not(:disabled)')?.click(); break;
                 case 'ArrowLeft': document.querySelector('#previous:not(:disabled)')?.click(); break;
                 case 'ArrowRight': document.querySelector('#next:not(:disabled)')?.click(); break;
                 default: break;
             }
-        } else if (keydownEvent.ctrlKey) {
- //           if (["v"].includes(keydownEvent.key) && keydownEvent.target.nodeName === "INPUT" && !keydownEvent.target.classList.contains('hasDatepicker') && keydownEvent.target.closest('.panel-box-format')) {
- //               keydownEvent.preventDefault();
- //               let clipboardContents = await navigator.clipboard.readText()
- //               insertTextAndMoveCursor(clipboardContents.trim(), keydownEvent.target) // Firefox: Pasting from outside causes user prompt. Disable by setting about:config: dom.events.testing.asyncClipboard = true;
- //           } else 
-		    if (!["w", "s", ].includes(keydownEvent.key)) { return } else { keydownEvent.preventDefault() };
+        }
+        if (keydownEvent.ctrlKey) {
+            if (["v"].includes(keydownEvent.key) && keydownEvent.target.nodeName === "INPUT" && keydownEvent.target.closest('.panel-box-format')) {
+                let clipboardContents = await navigator.clipboard.readText()
+                clipboardContents = clipboardContents.trim().replace(/(?<=\d),(?=\d)/g, '')
+                if (keydownEvent.target.classList.contains('hasDatepicker')) {
+                    clipboardContents = dateFuncs.formatDate(clipboardContents, "mmddyyyy")
+                    if (!clipboardContents) { return };
+                }
+                keydownEvent.preventDefault();
+                keydownEvent.target.value = clipboardContents
+                doEvent(keydownEvent.target)
+            } else
+                if (!["w", "s", ].includes(keydownEvent.key)) { return } else { keydownEvent.preventDefault() };
             switch (keydownEvent.key) {
                 case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
                 case "w": { if (editMode || document.getElementById('wrapUp').disabled === false) { document.getElementById('wrapUp').click(); } break }
@@ -5187,7 +5188,7 @@ function mec2enhancements() {
 !function postLoadChanges() {
     !function fixToLabels() {
         [...document.querySelectorAll('div.col-md-2 + label.col-lg-1:has(+ div.col-md-2)')].forEach(label => {
-            if ( (["DIV", "INPUT"].includes(label.nextElementSibling.nodeName) && label.nextElementSibling.children[0]?.type === "text") ) {
+            if ( (["DIV", "INPUT"].includes(label.nextElementSibling.nodeName) && label.nextElementSibling.firstElementChild?.type === "text") ) {
                 label.previousElementSibling.classList.add('to-next')
                 label.nextElementSibling.classList.add('to-next')
             }
@@ -5200,7 +5201,7 @@ function mec2enhancements() {
         !countyInfo.userSettings.userAccessibility && tabIndxNegOne(document.querySelectorAll('table>thead>tr>td'))
         tabIndxNegOne(document.querySelectorAll('.borderless'))
     })
-    if (!editMode) { document.getElementById('Report\ a\ Problem')?.children[0]?.setAttribute('target', '_blank'); document.getElementById('Maximum\ Rates')?.children[0]?.setAttribute('target', '_blank'); }; //change_to_open_in_new_tab
+    if (!editMode) { document.getElementById('Report\ a\ Problem')?.firstElementChild?.setAttribute('target', '_blank'); document.getElementById('Maximum\ Rates')?.firstElementChild?.setAttribute('target', '_blank'); }; //change_to_open_in_new_tab
     document.querySelector('h1')?.closest('div.row')?.classList.add('h1-parent-row');
 }();
 console.timeEnd('mec2functions load time');
