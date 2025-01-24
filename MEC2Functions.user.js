@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.75
+// @version      0.5.76
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -763,11 +763,6 @@ const nameFuncs = {
     toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
     LastFirstToFirstL(name) { return !name ? undefined : this.commaNameReorder(name).replace(/(\s\w)\w+/, '$1') },
 };
-// Date.prototype.addDays = function(days) {
-//     let date = sanitize.date(this.valueOf(), 'date');
-//     date.setDate(date.getDate() + days);
-//     return date;
-// }
 const dateFuncs = {
     dayInMs: 86400000,
     addDays(date, days) {
@@ -3982,23 +3977,21 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         save?.addEventListener('click', saveEvent => maxRowColumnCheck({ textbox, maxColumns: 60, maxRows: 30, saveEvent }) )
         if ( ["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) ) { // || ("CaseNotices.htm".includes(thisPageNameHtm) && document.getElementById('textbox2')?.disabled === false) ) {
             let textareaButtonText = {
-                jsHoursUsed: 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
-                + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.',
-                extEligEnds: 'Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,'
-                + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.',
+                jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
+                + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+                extEligEnds() { return 'Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,'
+                + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
                 abpsInHh() {
                     let abpsInput = prompt("What is the absent parent's name?")
                     return 'I have been notified that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is now residing in your household, please submit the following verifications:'
                         + '\n1. Verification of ' + abpsInput + '\'s work schedule, which must include the days of the week and start/end times\n2. Most recent 30 days income for ' + abpsInput + '\n3. ID for ' + abpsInput + '\n'
-                        + 'If this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days.'
-                },
+                        + 'If this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days.' },
                 lnlSfsTraining() {
                     const providerWorkerPhone = countyInfo.info.pwPhone ?? countyInfo.countyInfoPrompt("What is the phone number for provider registrations?", 'pwPhone'), providerWorkerPhoneText = providerWorkerPhone ? ' at ' + providerWorkerPhone : ''
                     return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. Visit:\n https://app.developtoolmn.org/v7/trainings/search\n'
-                        + 'and search for Course Title:\n "Supervising for Safety Legally Nonlicensed"\nContact the Provider Worker' + providerWorkerPhoneText + ' to answer questions about trainings and registration.'
-                },
-                deniedOpen: 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.',
-                fosterChildCcap: 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)',
+                        + 'and search for Course Title:\n "Supervising for Safety Legally Nonlicensed"\nContact the Provider Worker' + providerWorkerPhoneText + ' to answer questions about trainings and registration.' },
+                deniedOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.' },
+                fosterChildCcap() { return 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)' },
             }
             let textareaButtonsDivHTML = ''
             + '<div class="float-right-imp" id="textareaButtonsDiv" style="display: flex; flex-direction: column; gap: 8px;">'
@@ -4017,7 +4010,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 targetDiv?.insertAdjacentHTML('beforeend', textareaButtonsDivHTML)
                 document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
                     if (clickEvent.target.nodeName !== "BUTTON") { return }
-                    insertTextAndMoveCursor( (textbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id], textbox )
+                    insertTextAndMoveCursor( (textbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), textbox )
                 })
             }();
         }
