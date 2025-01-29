@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.76
+// @version      0.5.77
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2022,6 +2022,9 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
 }();
 !function BillsList() {
     if (!"BillsList.htm".includes(thisPageNameHtm)) { return };
+    document.querySelectorAll('#billsTable_wrapper thead tr td:nth-child(3)').forEach(ele => { ele.textContent = "PID" })
+    document.querySelectorAll('#billsTable_wrapper thead tr td:nth-child(7)').forEach(ele => { ele.textContent = "E-Bill" })
+    document.querySelectorAll('#billsTable_wrapper thead tr td:nth-child(8)').forEach(ele => { ele.textContent = "Manual" })
     listPageLinksAndList([0, "FinancialBilling", 4], [2, "ProviderInformation"])
     addDateControls("day", document.getElementById('searchStartDate'))
 }(); // SECTION_END Bills_List;
@@ -3101,6 +3104,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Case_Parent;
 !function CasePaymentHistory() {
     if (!("CasePaymentHistory.htm").includes(thisPageNameHtm)) { return };
+    document.querySelectorAll('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(3)').forEach(ele => { ele.textContent = "Transact ID" })
+    document.querySelectorAll('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(8)').forEach(ele => { ele.textContent = "Payment" })
+    document.querySelectorAll('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(9)').forEach(ele => { ele.textContent = "Type" })
     document.querySelectorAll('#paymentHistoryTable > tbody > tr > td:nth-of-type(3)').forEach(ele => {
         ele.innerHTML = '<td><a href="FinancialBilling.htm?parm2=' + caseId + '&parm3=' + ele.innerText.replace(/ - |\//g, "") + '", target="_blank">' + ele.innerText + '</a></td>'
     });
@@ -3661,8 +3667,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     };
     function fourWeekStart(date) {
         let [ month, day, year ] = date.split('/')
-        let baseParseDate = 1706140800000 // Date.UTC(2023, 12, 25)
-        let num = ( (Date.UTC(year, month, day) - baseParseDate) / 2419200000)
+        let baseParseDate = 1702252800000 // Date.UTC(2023, 12-1, 11); // month is -1 indexed;
+        let num = ( (Date.UTC(year, month-1, day) - baseParseDate) / 2419200000)
         return ( num - Math.floor(num) )
     }
     function reorderFamilyProviderName(misorderedName) {
@@ -3988,8 +3994,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         + 'If this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days.' },
                 lnlSfsTraining() {
                     const providerWorkerPhone = countyInfo.info.pwPhone ?? countyInfo.countyInfoPrompt("What is the phone number for provider registrations?", 'pwPhone'), providerWorkerPhoneText = providerWorkerPhone ? ' at ' + providerWorkerPhone : ''
-                    return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. Visit:\n https://app.developtoolmn.org/v7/trainings/search\n'
-                        + 'and search for Course Title:\n "Supervising for Safety Legally Nonlicensed"\nContact the Provider Worker' + providerWorkerPhoneText + ' to answer questions about trainings and registration.' },
+                    return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n'
+                        + 'and search for Course Title:\n "Supervising for Safety Legally Nonlicensed"\nContact the Provider Worker' + providerWorkerPhoneText + ' with questions about trainings and your registration.' },
                 deniedOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.' },
                 fosterChildCcap() { return 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)' },
             }
