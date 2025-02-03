@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.77
+// @version      0.5.78
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -1720,7 +1720,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         deleteTopButton.addEventListener( 'click', () => doClick(deleteButton) )
 
         // SECTION_START Delete_all_alerts
-        doWrap(h4objects.caseproviderlist.h4)
+        doWrap({ ele: h4objects.caseproviderlist.h4 })
         h4objects.caseproviderlist.h4.insertAdjacentHTML('afterend', '<h4 class="float-right-imp" style="display:inline-flex;" id="alertMessageh4"></h4>')
         let alertMessageh4 = document.getElementById('alertMessageh4')
         let manualHaltDeleting = 0
@@ -1852,7 +1852,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                 return { messageCategory: messageCategory.toLowerCase().replace(/\W/g, ""), noteMessage, noteCategory: 'Other', }
             }
         }
-        doWrap(h4objects.alertdetail.h4)
+        doWrap({ ele: h4objects.alertdetail.h4 })
         h4objects.alertdetail.h4.parentElement.style.display = "inline-block"
         h4objects.alertdetail.h4.parentElement.insertAdjacentHTML('afterend', '<div style="display: inline-flex; gap: 10px; margin-left: 10px;" id="alertDetailRow"><button type="button" class="cButton" tabindex="-1" id="autonoteButton">Automated Note</button></div>')
         let alertDetailRow = document.getElementById('alertDetailRow')
@@ -3558,7 +3558,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Client_Search;
 !function ContactInformation() {
     if (!"ContactInformation.htm".includes(thisPageNameHtm)) { return };
-    [...document.querySelector('.content_40pad').querySelectorAll('br')].forEach(ele => { if (ele.previousSibling?.nodeType === 3) { doWrap(ele.previousSibling) } })
+    [...document.querySelector('.content_40pad').querySelectorAll('br')].forEach(ele => { if (ele.previousSibling?.nodeType === 3) { doWrap({ ele: ele.previousSibling }) } })
 }(); // SECTION_END Contact Information;
 !function _Financial_Billing_Pages() {
 !function __ElectronicBills() {
@@ -4065,21 +4065,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     if ( thisPageNameHtm.indexOf("Provider") !== 0 ) { return; }
 !function __ProviderAddress() {
     if (!("ProviderAddress.htm").includes(thisPageNameHtm)) { return };
-    let mailingCountry = document.getElementById('mailingCountry')
-    if (editMode) {
-        if (!document.getElementById('mailingSiteHomeCountry').value) {
-            document.getElementById('mailingSiteHomeCountry').value = 'USA'
-            document.getElementById('mailingSiteHomeState').value = 'Minnesota'
-            typeof userCountyObj !== undefined && (document.getElementById('mailingSiteHomeCounty').value = userCountyObj.county)
-        }
-        mailingCountry.addEventListener('input', () => {
-            if (!document.getElementById('mailingState').value) { document.getElementById('mailingState').value = 'Minnesota' }
-        })
-    }
-    // SECTION_END ProviderAddress Default values for Country, State, County
     // SECTION_START ProviderAddress Copy Provider mailto Address
     if (!editMode) {
-        let mailingStreet1 = document.getElementById('mailingStreet1'), edit = document.getElementById('edit'), addrBillFormDisplay = document.getElementById('addrBillFormDisplay')
+        let mailingStreet1 = document.getElementById('mailingStreet1'), edit = document.getElementById('edit'), addrBillFormDisplay = document.getElementById('addrBillFormDisplay'), mailingCountry = document.getElementById('mailingCountry')
         let providerType = document.getElementById('providerData').children[3].firstElementChild.childNodes[2].textContent.trim()
         let providerName = ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) ? nameFuncs.commaNameReorder(pageTitle) : pageTitle
         secondaryActionArea?.insertAdjacentHTML('beforeend', ''
@@ -4126,7 +4114,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 if (clickEvent.target.nodeName !== "SELECT") { return }
                 copyAddress(clickEvent.target.value === "Mailing" ? "copyMailing" : "copySiteHome")
             })
-            !mailingStreet1?.value && !edit.disabled && (checkMailingAddress())//Removes visibility of mailing address fields if blank
+            !mailingStreet1?.value && !edit.disabled && (checkMailingAddress()) // Collapses mailing address fields if blank;
             checkMailingAddress()
             function checkMailingAddress() {
                 mailingCountry.value ? h4objects.mailingaddress.siblings.forEach(ele => ele.classList.remove('hidden')) : h4objects.mailingaddress.siblings.forEach(ele => ele.classList.add('hidden'))
@@ -4655,7 +4643,7 @@ function addDateControls(increment, ...eles) {
         dateControl = sanitize.query(dateControl)
         if (!dateControl) { return }
         let dateControlParent = dateControl.parentElement
-        if (dateControlParent.nodeName !== "DIV") { doWrap(dateControl); dateControlParent = dateControl.parentElement }
+        if (dateControlParent.nodeName !== "DIV") { doWrap({ ele: dateControl }); dateControlParent = dateControl.parentElement }
         dateControlParent.classList.add('has-controls')
         dateControl.insertAdjacentHTML('beforebegin', '<button type="button" class="controls prev-control" id="prev.' + dateControl.id + '">-</button>')
         dateControl.insertAdjacentHTML('afterend', '<button type="button" class="controls next-control" id="next.' + dateControl.id + '">+</button>')
@@ -4944,10 +4932,11 @@ function doClick(ele) {
     let clickEvent = new MouseEvent('click')
     ele.dispatchEvent(clickEvent);
 };
-function doWrap(ele, type='div') {
+function doWrap({ ele, type='div', classList} = {}) {
     ele = sanitize.query(ele)
     if (!ele) { return }
     const wrappingElement = document.createElement(type);
+    classList !== '' && wrappingElement.setAttribute('class', classList)
     ele.replaceWith(wrappingElement);
     wrappingElement.append(ele);
 };
@@ -5196,6 +5185,10 @@ function mec2enhancements() {
     };
 };
 !function postLoadChanges() {
+    !function wrapTextareas() {
+        let ele = [...document.querySelectorAll('textarea')].findLast(ele => ele)
+        doWrap({ ele, classList: "textarea_wrapper" })
+    }();
     !function fixToLabels() {
         [...document.querySelectorAll('div.col-md-2 + label.col-lg-1:has(+ div.col-md-2)')].forEach(label => {
             if ( (["DIV", "INPUT"].includes(label.nextElementSibling.nodeName) && label.nextElementSibling.firstElementChild?.type === "text") ) {
