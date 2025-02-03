@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.78
+// @version      0.5.79
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -51,7 +51,7 @@ const sanitize = {
                 break
         }
     },
-    JSON(obj) { try { return JSON.parse(obj) } catch (err) { return undefined } },
+    json(obj) { try { return JSON.parse(obj) } catch (err) { return undefined } },
 };
 const clearStorageItems = (storage = "both") => {
     if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
@@ -73,7 +73,7 @@ const mec2functionFeatures = [
 ];
 //
 const countyInfo = {
-    info: { ...sanitize.JSON( localStorage.getItem('MECH2.countyInfo') ) } ?? {},
+    info: { ...sanitize.json( localStorage.getItem('MECH2.countyInfo') ) } ?? {},
     updateInfo(countyInfoKey, countyInfoValue) { // keyName, newValue or "delete"
         countyInfoValue === "delete" ? delete this.info[countyInfoKey] : this.info[countyInfoKey] = countyInfoValue
         localStorage.setItem( 'MECH2.countyInfo', JSON.stringify(this.info) )
@@ -83,7 +83,7 @@ const countyInfo = {
         if (typeof promptAnswer === "string") { this.updateInfo(countyInfoKey, ( promptAnswer.length ? sanitize.string(promptAnswer) : "delete") ) }
         return promptAnswer
     },
-    userSettings: { ...sanitize.JSON( localStorage.getItem('MECH2.userSettings') ) } ?? {},
+    userSettings: { ...sanitize.json( localStorage.getItem('MECH2.userSettings') ) } ?? {},
     updateUserSettings(userSettingsKey, userSettingsValue) {
         this.userSettings[userSettingsKey] = userSettingsValue
         localStorage.setItem( 'MECH2.userSettings', JSON.stringify(this.userSettings) )
@@ -109,7 +109,7 @@ const newFeatureNotice = {
         ["starFall", ["Starfall. Note: MECH2 is not liable for lost work time or for your computer melting due to usage of Starfall. Default: Off."], false],
         ["promptUserNameTitle", ["Add a user-input title to the Automated Case Note signature.", "If your name was 'Worker N' you can add ', Hennepin County' as your title and your signature would be 'Worker N, Hennepin County'. Default: Off."], false ],
     ],
-    noticeToUsersLS: (() => sanitize.JSON( localStorage.getItem('MECH2.noticeToUsersArrayLS') ) ?? [] )(),
+    noticeToUsersLS: (() => sanitize.json( localStorage.getItem('MECH2.noticeToUsersArrayLS') ) ?? [] )(),
     noticeToUsersBuildHTML() {
         let formElement = document.querySelector('div.container:has(form)')
         if (!formElement) { return };
@@ -144,8 +144,9 @@ const gbl = {
 }
 const rederrortextContent = [...document.querySelectorAll('strong.rederrortext'), ...document.querySelectorAll('.error_alertbox_new > strong')].map(ele => ele.textContent);
 const noResultsForCase = rederrortextContent?.find(ele => ele.includes('No results for case'));
-const pageWrap = document.getElementById('page-wrap'), save = document.getElementById('save'), quit = document.getElementById('quit');
-const editMode = (!pageWrap && !noResultsForCase), appModeNotEdit = (quit && save?.disabled);
+// const pageWrap = document.getElementById('page-wrap')
+const save = document.getElementById('save'), quit = document.getElementById('quit');
+const editMode = (!gbl.eles.pageWrap && !noResultsForCase), appModeNotEdit = (gbl.eles.quit && gbl.eles.save?.disabled);
 const iFramed = window.location !== window.parent.location;
 let focusEle = "blank";
 const doNotDupe = {
@@ -172,15 +173,15 @@ const submitButton = document.querySelector('#submit, #caseInputSubmit, #alertIn
           <div id="secondaryActionArea"><div id="duplicateButtons" class="db-container"></div></div>
         </nav>
 		`)
-        if (!pageWrap) { return }
-        greenline?.insertAdjacentElement('afterend', pageWrap);
-        pageWrap?.classList.add('container')
+        if (!gbl.eles.pageWrap) { return }
+        greenline?.insertAdjacentElement('afterend', gbl.eles.pageWrap);
+        gbl.eles.pageWrap?.classList.add('container')
     } catch(error) { console.trace(error) }
     finally { document.documentElement.style.setProperty('--mainPanelMovedDown', '0') }
 }();
 const secondaryActionArea = document.getElementById('secondaryActionArea'), duplicateButtons = document.getElementById('duplicateButtons');
-// globalEles.secondaryActionArea = document.getElementById('secondaryActionArea');
-// globalEles.duplicateButtons = document.getElementById('duplicateButtons');
+// gbl.eles.secondaryActionArea = document.getElementById('secondaryActionArea');
+// gbl.eles.duplicateButtons = document.getElementById('duplicateButtons');
 //
 const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
 !function userSettingDivs() {
@@ -924,7 +925,7 @@ const userCountyObj = new Map([
 !function caseHistoryDatalist() {
     if (iFramed || !newTabField || !countyInfo.userSettings.caseHistory) { return };
     try {
-        const caseHistory = localStorage.getItem('MECH2.caseHistoryLS') ? sanitize.JSON(localStorage.getItem('MECH2.caseHistoryLS')) : []
+        const caseHistory = localStorage.getItem('MECH2.caseHistoryLS') ? sanitize.json(localStorage.getItem('MECH2.caseHistoryLS')) : []
         if (pageTitle === pageTitle.toUpperCase() && thisPageNameHtm.indexOf('Provider') !== 0 && caseId && !editMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
         function addToCaseHistoryArray() {
             const caseName = nameFuncs.commaNameReorder(pageTitle), caseIdTest = (entry) => entry.caseIdNumber === caseId, foundDuplicate = caseHistory.findIndex(caseIdTest)
@@ -934,7 +935,7 @@ const userCountyObj = new Map([
             caseHistory.unshift(newEntry)
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
         };
-        let viewHistory = sanitize.JSON(localStorage.getItem('MECH2.caseHistoryLS'))
+        let viewHistory = sanitize.json(localStorage.getItem('MECH2.caseHistoryLS'))
         let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block;" class="hidden">'
         + viewHistory.map(item => '<div class="caseHistoryEntry" id="' + parseInt(item.caseIdNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdNumber) + '</span></div>').join('')
         + '</datalist>'
@@ -993,7 +994,7 @@ const actualDate = {
     notInBWPwarning: '<span id="actualDateTooltip" class="tooltips" style="height: 1lh;"><span class="tooltips-text tooltips-bottomleft narrow" style="visibility: visible; opacity: 1;">Warning: Date not in the current period.</span></span>',
     _actualDateMatch() {
         if (!this.dateField) { return undefined };
-        let actualDateParsed = sanitize.JSON( sessionStorage.getItem('actualDateSS') )
+        let actualDateParsed = sanitize.json( sessionStorage.getItem('actualDateSS') )
         if (!actualDateParsed) { return undefined };
         let { adCaseNum, adDate } = actualDateParsed
         if (![caseId, "noCaseNumberYet"].includes(adCaseNum) ) { return false };
@@ -1335,7 +1336,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         return excelifiedData
     }
     caseListSelected.addEventListener('change', changeEvent => {
-        let outputImport = sanitize.JSON(sessionStorage.getItem("outputDataObjSS"))
+        let outputImport = sanitize.json(sessionStorage.getItem("outputDataObjSS"))
         outputDataObj = outputImport ?? {}
         // Object.hasOwn(outputDataObj, [e.target.value]) ? document.getElementById('exportLoadedData').disabled = false : document.getElementById('exportLoadedData').disabled = true
         document.getElementById('exportLoadedData').disabled = ([changeEvent.target.value] in outputDataObj)
@@ -1510,12 +1511,12 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     let caseOrProviderType = document.getElementById('caseOrProviderType'), caseOrProviderAlertTotal = document.getElementById('caseOrProviderAlertTotal')
     let alertTotal = document.getElementById('alertTotal'), alertTable = document.querySelector('#alertTable > tbody'), alertGroupId = document.getElementById("groupId"), alertMessage = document.getElementById("message"),
         alertRowIndx = document.getElementById('rowIndex'), inputWorkerId = document.getElementById('inputWorkerId'), workerName = document.getElementById('workerName')
-    function findSelected() { return [...alertTable.children].find(ele => ele.classList.contains('selected')) }
+    function findSelected() { return [...alertTable.children].find(ele => ele.classList.contains('selected')) ?? undefined }
     let selectedAlert, selectedCaseOrProvider = {} // set with click event
     addDateControls("month", "#inputEffectiveDate")
     !async function storeWorkerName() {
         if (document.referrer !== "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") { return };
-        await intervalCheckForValue({element: workerName, interval: 400, iterations: 3}).then(workerNameValue => { countyInfo.updateInfo( 'userName', nameFuncs.LastFirstToFirstL(workerNameValue) ) })
+        await intervalCheckForValue({ element: '#workerName', interval: 400, iterations: 3 }).then(workerNameValue => { countyInfo.updateInfo('userIdNumber', document.getElementById('inputWorkerId')?.value); countyInfo.updateInfo( 'userName', nameFuncs.LastFirstToFirstL(workerNameValue) ) })
     }();
     //alertsByCategories reduction code, untested.
     //minify code: .replace(/(?:\n {20})(\w)/g, " $1").replace(/(?:\n {16})(},\n)/g, " $1")
@@ -1634,7 +1635,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         }
     }
     let storeNumberTask = [submitButton, createButton, document.getElementById('Alerts.htm')].forEach(ele => ele.addEventListener('click', () => {
-        storeSelectedTableRow({ rowOrValue: alertGroupId.value })
+        storeSelectedTableRow({ rowOrValToSearch: alertGroupId.value, clearEle: 'inputWorkerId', clearVal: document.getElementById('inputWorkerId').value })
     }) )
     evalData().then(( { 0: tableOneAlerts, 1: tableTwoAlerts } = {} ) => {
         if (!tableOneAlerts) { return }
@@ -1668,11 +1669,16 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                         cashAlertResults[thisRow.id] = { rowIndex: item.rowIndex }
                     }
                 })
+                let existingCashResults = sanitize.json(sessionStorage.getItem('cashAlertResults')) ?? undefined
+                if (existingCashResults) {
+                    for (let caseNum in existingCashResults) { existingCashResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined }
+                    placeMfipResults(existingCashResults)
+                }
+                if (!document.querySelector('.tableSpan')) { sessionStorage.removeItem('cashAlertResults') }
                 if (!checkCashArray.length) { return }
                 alertDetailRow.insertAdjacentHTML('beforeend', '<button type="button" id="doMfipCheck" class="cButton" tabindex="-1">Check MFIP Alerts</button>')
                 document.getElementById('doMfipCheck').addEventListener( 'click', () => checkMfipResults(checkCashArray) )
                 function checkMfipResults(checkMFIPArray) {
-
                     forAwaitMultiCaseEval(checkCashArray, "CaseOverview").then(function(checkMFIPArray) {
                         for (let thisCase in checkMFIPArray) {
                             let programTable = checkMFIPArray[thisCase][0]
@@ -1686,17 +1692,16 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                                 }
                             }
                         }
-                        placeMfipResults()
-                        const replaceMfipResults = new TrackedMutationObserver(mutations => {
-                            if (deleteButton.value === "Delete Alert" && !document.querySelector('.tableSpan')) { placeMfipResults() }
-                        })
-                        replaceMfipResults.observe(deleteButton, { attributes: true })
+                        placeMfipResults(cashAlertResults)
+                        sessionStorage.setItem('cashAlertResults', JSON.stringify(cashAlertResults))
                     })
-                    function placeMfipResults() {
-                        for (let caseNum in cashAlertResults) {
-                            let thisCaseObj = cashAlertResults[caseNum]
-                            caseOrProviderAlertsTableTbodyChildren[thisCaseObj.rowIndex].children[1].insertAdjacentHTML('beforeend', '<span class="tableSpan">' + thisCaseObj.mfipStatus + thisCaseObj.inactiveDate + thisCaseObj.ccapStatus +'</span>')
-                        }
+                }
+                function placeMfipResults(resultsObj) {
+                    for (let caseNum in resultsObj) {
+                        let thisCaseObj = resultsObj[caseNum]
+                        if (!thisCaseObj.rowIndex) { continue }
+                        let resultsTd = caseOrProviderAlertsTableTbodyChildren[thisCaseObj.rowIndex]?.children[1]
+                            !resultsTd.children.length && resultsTd.insertAdjacentHTML('beforeend', '<span class="tableSpan">' + thisCaseObj.mfipStatus + thisCaseObj.inactiveDate + thisCaseObj.ccapStatus +'</span>')
                     }
                 }
             }();
@@ -1738,6 +1743,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             let alertRowIndexValue = alertRowIndx.value, alertCount = () => caseOrProviderAlertsTableTbody.children[alertRowIndexValue]?.children[3]?.innerText
             let caseProviderRow = caseOrProviderAlertsTableTbody.children[alertRowIndx.value], isCaseProviderRowSelected = () => caseProviderRow?.classList?.contains('selected')
             selectedCaseOrProvider.idTd = (selectedCaseOrProvider.idTd ? selectedCaseOrProvider.idTd : caseOrProviderAlertsTableTbody.querySelector('.selected').children[2]) ?? undefined
+            storeSelectedTableRow()
             deleteAll()
             function deleteAllMsg(h4MsgText) { alertMessageh4.innerText = h4MsgText }
             function deleteAll() {
@@ -1936,7 +1942,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
 }(); // SECTION_END Alerts end (major sub-section) =========================================================================================================;
 !function AlertWorkerCreatedAlert() {
 if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
-    let workerCreatedAlert = sanitize.JSON(localStorage.getItem('MECH2.workerCreatedObject'))
+    let workerCreatedAlert = sanitize.json(localStorage.getItem('MECH2.workerCreatedObject'))
     if (!workerCreatedAlert) { return }
     localStorage.removeItem('MECH2.workerCreatedObject')
     document.querySelector('label[for=message]').parentElement.insertAdjacentHTML('afterend', '<div class="form-group" id="workerAlertButtons"></div>')
@@ -2164,7 +2170,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             })
         } else if (editMode) {
             queueMicrotask(() => {
-                let oProviderEndings = sanitize.JSON(sessionStorage.getItem("MECH2.providerEndings"))
+                let oProviderEndings = sanitize.json(sessionStorage.getItem("MECH2.providerEndings"))
                 if (oProviderEndings !== null) {
                     document.getElementById('wrapUpDB').insertAdjacentHTML("afterend", "<button type='button' id='pasteEndings' class='form-button'>Autofill Endings</button>")
                     document.getElementById('pasteEndings').addEventListener('click', pasteEndingData)
@@ -2175,7 +2181,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                         }
                     }
                 }
-                let oProviderStart = sanitize.JSON(sessionStorage.getItem("MECH2.providerStart"))
+                let oProviderStart = sanitize.json(sessionStorage.getItem("MECH2.providerStart"))
                 if (oProviderStart !== null) {
                     const childDropDown = document.getElementById('memberReferenceNumberNewMember')
                     childProviderSaaButtons.insertAdjacentHTML('afterbegin', "<button type='button' id='pasteStart' class='form-button'>Autofill Start</button>")
@@ -2399,7 +2405,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     if ( rederrortextContent.includes('Results successfully submitted.') ) {
         doNotDupe.pages.push(thisPageNameHtm)
         secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea" class="db-container"><button type="button" id="eligibilityResults" class="form-button center-vertical">Eligibility Results</button></div>')
-        document.getElementById('eligibilityResults').addEventListener('click', () => window.open('/ChildCare/CaseEligibilityResultSelection.htm?parm2=' + caseId, '_self' ))
+        document.getElementById('eligibilityResults').addEventListener('click', () => doClick(document.getElementById('Eligibility Results Selection').children[0]) )
+        // document.getElementById('eligibilityResults').addEventListener('click', () => window.open('/ChildCare/CaseEligibilityResultSelection.htm?parm2=' + caseId, '_self' ))
         eleFocus('#eligibilityResults')
     } else { focusEle = '#createDB' }
 }(); // SECTION_END Case_Create_Eligibility_Results;
@@ -2610,7 +2617,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     if (!("CaseEligibilityResultApproval.htm").includes(thisPageNameHtm)) { return };
     if (editMode) {
         if (sessionStorage.getItem('MECH2.TI.' + caseId) !== null) {
-            let tempInelig = sanitize.JSON(sessionStorage.getItem('MECH2.TI.' + caseId))
+            let tempInelig = sanitize.json(sessionStorage.getItem('MECH2.TI.' + caseId))
             document.getElementById('type').value = tempInelig.type
             document.getElementById('reason').value = tempInelig.reason
             document.getElementById('beginDate').value = tempInelig.start
@@ -2761,7 +2768,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             let copayProviderId = document.querySelector('#providerInformationTable > tbody > tr.selected > td:nth-child(1)'), overrideReason = document.getElementById('overrideReason'), recoupment = document.getElementById('recoupment'), copay = document.getElementById('copay')
             let storedCopayInfo = sessionStorage.getItem('MECH2.ageCategory.' + caseId + '.' + copayProviderId.textContent)
             if (storedCopayInfo !== null) {
-                let copayDist = sanitize.JSON(storedCopayInfo)
+                let copayDist = sanitize.json(storedCopayInfo)
                 copay.value = copayDist.copay
                 recoupment.value = copayDist.recoupment
                 overrideReason.value = copayDist.overrideReason
@@ -3189,7 +3196,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             else { document.getElementById('edit').click() }
         }
         if (editMode) {
-            suspendPlus45 = sanitize.JSON(suspendPlus45)
+            suspendPlus45 = sanitize.json(suspendPlus45)
             if (caseId === suspendPlus45.id) {
                 redeterminationDueDate.value = suspendPlus45.delayDate
                 doChange(redeterminationDueDate)
@@ -3698,9 +3705,6 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         focusEle = password
         return;
     };
-    document.getElementById('submit')?.addEventListener('click', () => {
-        if (userId.value) { countyInfo.updateInfo('userIdNumber', userId?.value) };
-    });
     if (countyInfo.info?.userIdNumber && terms) {
         userId.value = countyInfo.info?.userIdNumber;
         terms.click();
@@ -3792,7 +3796,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             eleFocus(save)
         }
     })
-    let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.JSON(localStorage.getItem("MECH2.note"))[caseOrProviderId] : undefined
+    let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrProviderId] : undefined
     if (noteInfo) {
         !function doAutoNote() { // Auto_Case_Noting
             if (!editMode) {
@@ -3846,7 +3850,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         restyleCreated()
         secondaryActionArea.style.justifyContent = "start"
         !function duplicateNote() {
-            let storedNoteDetails = sanitize.JSON(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
+            let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
             if (!storedNoteExists || storedNoteDetails?.noteSummary === noteSummary?.value) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
             if (!editMode) {
                 let storedNoteInfoHTML = storedNoteExists ? '<div id="unsavedNoteDiv" style="display: flex; align-items: center; gap: 5px;"><span style="margin-left: 10px;" title="' + storedNoteDetails.noteSummary + '">Unsaved note exists for case</span><a target="_self" href="/ChildCare/CaseNotes.htm?parm2=' + storedNoteDetails.identifier + '">'+ storedNoteDetails.identifier +'</a><span id="deleteUnsaved" style="cursor: pointer; color: red !important; padding-bottom: 2px;">✖</span></div>' : ''
@@ -3866,7 +3870,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
                 document.getElementById('cancel').addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
                 if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
-                let noteDetails = sanitize.JSON(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
+                let noteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
                 if (!noteDetailsExists && !storedNoteExists) { return };
                 //
                 if (noteDetailsExists && ["Application", "Redetermination"].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = noteDetails.noteCategory + " update" }
@@ -4759,7 +4763,7 @@ async function evalData({caseProviderNumber = caseId, pageName = thisPageName, d
                     .replaceAll(/eval\(\'|\'\)\;/g,'')
                     .replaceAll(/:,/g, ':"",')
                 match = ("ProviderSearch.htm").includes(thisPageNameHtm) ? match.replaceAll(/\\"/g, '"') : match.replaceAll(/\\'/g, "'")
-                parsedEvalData[i] = sanitize.JSON(match)
+                parsedEvalData[i] = sanitize.json(match)
             })
             resolve(parsedEvalData)
         })
@@ -4777,7 +4781,7 @@ function setIntervalLimited(callback, interval=100, x=1) {
         setTimeout(callback, i * interval);
     };
 }; // setIntervalLimited(() => { alert('hit') }, 1000, 10);//=> hit...hit...etc (every second, stops after 10);
-function intervalCheckForValue({element, interval=100, iterations=1}) {
+function intervalCheckForValue({ element, interval=100, iterations=1 }) {
     if (Number.isNaN(iterations) || Number.isNaN(interval)) { return };
     element = sanitize.query(element)
     return new Promise((resolve, reject) => {
@@ -4864,12 +4868,9 @@ async function copyFormattedHTML({ html, extraStyle='', addTableStyle=true, remo
 };
 async function getClipboardText() { return await navigator.clipboard.readText() }
 //           send value to sessionStorage;
-function storeSelectedTableRow({ storeTable = 'table', rowOrValue = 'row' } = {}) {
-    storeTable = sanitize.query('div.dataTables_scrollBody > ' + storeTable)
-    if (!storeTable) { return };
-    let storeTableRow = rowOrValue === "row" ? getChildNum([...storeTable.children[1].children].find(ele => ele.classList.contains('selected'))) : rowOrValue
-    if (!storeTableRow) { return };
-    sessionStorage.setItem( 'selectedTableRow', (storeTableRow ? storeTableRow : 0) )
+function storeSelectedTableRow({ storeTable = 'table', rowOrValToSearch = 'row', clearEle = undefined, clearVal = undefined } = {}) {
+    let rowOrVal = ( rowOrValToSearch === "row" ? getChildNum(sanitize.query(storeTable + ' .selected') ) : rowOrValToSearch ) ?? 0
+    sessionStorage.setItem( 'selectedTableRow', JSON.stringify({ rowOrVal, clearEle, clearVal }) )
 };
 //           return value, no page changes;
 const stateDataSwap = {
@@ -4886,7 +4887,7 @@ const stateDataSwap = {
     swapStateNameAndAcronym(stateInfo) { return Object.keys(this.stateNamesAndLetters).find(key => this.stateNamesAndLetters[key] === stateInfo) ?? this.stateNamesAndLetters[stateInfo] },
 };
 function inRange(x, min, max) { return typeof x === "string" ? undefined : x >= min && x <= max };
-function getChildNum(childEle) { return childEle.nodeName === "TR" ? (childEle.rowIndex -1) : [...childEle.parentElement.children].indexOf(childEle) };
+function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle.rowIndex -1) : [...childEle.parentElement.children].indexOf(childEle) ) ?? undefined };
 function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) {
     if (textbox.value.indexOf('\n') === -1 && textbox.value.length <= maxColumns) { return 1 }
     const splitStringArray = textbox.value.split('\n').map( item => doStringSplitAtBoundary(item) )
@@ -4975,15 +4976,14 @@ function tbodyFocusNextEdit() {
 function reselectSelectedTableRow(storedTable = 'table', scroll=0) {
     waitForTableCells(storedTable).then((storeTable, recordsFound) => {
         if (!storeTable || recordsFound < 2) { return };
-        let storedTableRow = sanitize.string(sessionStorage.getItem('selectedTableRow') ?? 0)
+        let storedTableRow = sanitize.json(sessionStorage.getItem('selectedTableRow')) ?? { rowOrVal: 0 }
         sessionStorage.removeItem('selectedTableRow')
-        let foundRow = storedTableRow < 999 ? storeTable.children[1].children[storedTableRow ?? 0] : [...storeTable.children[1].children].find(row => row.textContent.indexOf(storedTableRow) > -1)
-        foundRow.click()
-        let tableParams = storeTable.parentElement.getBoundingClientRect()
-        let rowParams = foundRow.getBoundingClientRect()
-        if (rowParams.top < tableParams.top || rowParams.bottom > tableParams.bottom) {
-            foundRow.scrollIntoView({ behavior: "smooth", block: "center" })
-        }
+        if ('clearEle' in storedTableRow) { if (document.getElementById(storedTableRow.clearEle).value !== storedTableRow.clearVal) { return } }
+        let foundRow = storedTableRow.rowOrVal < 999 ? storeTable.children[1].children[storedTableRow.rowOrVal] : [...storeTable.children[1].children].find(row => row.textContent.indexOf(storedTableRow.rowOrVal) > -1)
+        foundRow && foundRow.click()
+        if (storedTableRow < 5 || !scroll) { return }
+        let tableParams = storeTable.parentElement.getBoundingClientRect(), rowParams = foundRow.getBoundingClientRect()
+        if (rowParams.top < tableParams.top || rowParams.bottom > tableParams.bottom) { foundRow.scrollIntoView({ behavior: "smooth", block: "center" }) }
     })
 };
 function listPageLinksAndList(...rowAndPageArrays) { // listPageLinksAndList([table#OnPage, "PageToLinkTo", columnIfNot0], [etc])
