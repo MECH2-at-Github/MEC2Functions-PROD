@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.80
+// @version      0.5.81
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -937,7 +937,7 @@ const userCountyObj = new Map([
         };
         let viewHistory = sanitize.json(localStorage.getItem('MECH2.caseHistoryLS'))
         let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block;" class="hidden">'
-        + viewHistory.map(item => '<div class="caseHistoryEntry" id="' + parseInt(item.caseIdNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdNumber) + '</span></div>').join('')
+        + viewHistory.map(item => '<div class="caseHistoryEntry" id="history' + parseInt(item.caseIdNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdNumber) + '</span></div>').join('')
         + '</datalist>'
         newTabField.insertAdjacentHTML('afterend', viewHistoryDatalist)
         let history = document.getElementById('caseHistory'), historyList = [...history.children]
@@ -950,7 +950,7 @@ const userCountyObj = new Map([
         history.addEventListener('click', clickEvent => {
             if ( !["SPAN", "DIV"].includes(clickEvent.target.nodeName) ) { return }
             unhideElement(history, false)
-            newTabField.value = clickEvent.target.closest('div.caseHistoryEntry').id
+            newTabField.value = Number(clickEvent.target.closest('div.caseHistoryEntry').id.split('history')[1])
             newTabField.select()
         });
         function filterHistory(inputValue, inputType) {
@@ -1220,7 +1220,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     async function redetDateVsSuspendDate() {
         let today = Date.now()
         aclTbody.addEventListener('click', clickEvent => { if ( clickEvent.target.classList.contains("cSpan") ) { redetTbodyEvent(clickEvent.target) } })
-        const suspendedCaseListArray = openCaseLists.suspended.slice.map(ele => {
+        const suspendedCaseListArray = openCaseLists.suspended.map(ele => {
             let tdRedetDate = ele.children[4], tRowTdSpan = tdRedetDate.firstElementChild, redetDateNumber = sanitize.date(tdRedetDate.textContent, "number"), dateDiff = (redetDateNumber - today) / dateFuncs.dayInMs
             if (redetDateNumber <= today) { tRowTdSpan.textContent = "Closing" }
             else if (dateDiff < 46) { tRowTdSpan.textContent = "Mailed" }
@@ -1336,10 +1336,8 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         return excelifiedData
     }
     caseListSelected.addEventListener('change', changeEvent => {
-        let outputImport = sanitize.json(sessionStorage.getItem("outputDataObjSS"))
-        outputDataObj = outputImport ?? {}
-        // Object.hasOwn(outputDataObj, [e.target.value]) ? document.getElementById('exportLoadedData').disabled = false : document.getElementById('exportLoadedData').disabled = true
-        document.getElementById('exportLoadedData').disabled = ([changeEvent.target.value] in outputDataObj)
+        outputDataObj = sanitize.json(sessionStorage.getItem("outputDataObjSS")) ?? {}
+        document.getElementById('exportLoadedData').disabled = !([changeEvent.target.value] in outputDataObj)
     })
     document.getElementById('exportLoadedData').addEventListener('click', () => { copy(excelifyData(outputDataObj), "Excel Data", "notitle") })
 }(); // SECTION_END Active_Case_List;
@@ -1366,7 +1364,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     document.getElementById('inActiveCaseSearchPanelData').firstElementChild.insertAdjacentHTML('beforeend',
     `<div style="vertical-align: middle;" class="float-right-imp">
         <button type="button" class="cButton" tabindex="-1" id="closedTransferAll">Transfer closed \>45 days to:</button>
-        <input type="text" class="form-control" style="display: inline-block; margin-left: 10px; width: var(--eightNumbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
+        <input type="text" class="form-control" style="display: inline-block; margin-left: 10px; width: var(--8numbers)" id="transferWorker" placeholder="Worker #" value=${closedCaseBank}></input>
     </div>`
     )
     function addTableButtons() {
@@ -2048,7 +2046,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     if (!("CaseAddress.htm").includes(thisPageNameHtm)) { return };
     if (!editMode) {
         let mailingStreet1 = document.getElementById('mailingStreet1'), edit = document.getElementById('edit'), caseName = nameFuncs.commaNameReorder(pageTitle), mailFields = [...document.querySelectorAll('#mailingAddressPanelData > div > div')]
-        secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container"><button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mail Address</button></div>');
+        secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea"><button type="button" class="form-button" tabindex="-1" id="copyMailing">Copy Mail Address</button></div>');
         evalData().then(results => {
             document.getElementById('copyMailing').addEventListener('click', () => {
                 let addressTableRow = getChildNum(document.querySelector('.selected')), addressData = results[0][addressTableRow]
@@ -2083,7 +2081,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                                        'careInHomeOfChildBeginDate', 'careInHomeOfChildEndDate', 'childCareMatchesEmployer' ].map(item => [item, document.getElementById(item)]) )
     let childProviderTableTbodyRows = [...document.querySelector('#childProviderTable > tbody').children]
     secondaryActionArea.style.justifyContent = "flex-start"
-    secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container">')
+    secondaryActionArea.style.gap = "60px"
+    secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea"></div>')
     let childProviderSaaButtons = document.getElementById('tertiaryActionArea')
     document.getElementById('reporterType').disabled = true
     if (!editMode) {
@@ -2407,7 +2406,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     if (!("CaseCreateEligibilityResults.htm").includes(thisPageNameHtm)) { return };
     if ( rederrortextContent.includes('Results successfully submitted.') ) {
         doNotDupe.pages.push(thisPageNameHtm)
-        secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea" class="db-container"><button type="button" id="eligibilityResults" class="form-button center-vertical">Eligibility Results</button></div>')
+        secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea"><button type="button" id="eligibilityResults" class="form-button">Eligibility Results</button></div>')
         document.getElementById('eligibilityResults').addEventListener('click', () => doClick(document.getElementById('Eligibility Results Selection').children[0]) )
         // document.getElementById('eligibilityResults').addEventListener('click', () => window.open('/ChildCare/CaseEligibilityResultSelection.htm?parm2=' + caseId, '_self' ))
         eleFocus('#eligibilityResults')
@@ -2421,9 +2420,9 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             [ "goSAOverview", { page: "CaseServiceAuthorizationOverview", name: "SA Overview" }],
             [ "goSAApproval", { page: "CaseServiceAuthorizationApproval", name: "SA Approval" }],
         ])
-        secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea" class="db-container">' + postWrapButtons() + '</div>')
+        secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea">' + postWrapButtons() + '</div>')
         function postWrapButtons() { return [...postWrap].map( ([key, item] = []) => '<button class="form-button" type="button" id="'+ key +'">'+ item.name +'</button>').join('') }
-        eleFocus('#CaseServiceAuthorizationApproval')
+        eleFocus('#goSAApproval')
         document.getElementById('tertiaryActionArea').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             window.open('/ChildCare/' + postWrap.get(clickEvent.target.id).page + '.htm?parm2=' + caseId + '&parm3=' + selectPeriodDates.parm3, '_self')
@@ -2508,13 +2507,12 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
 }(); // SECTION_END Case_CSIA;
 !function _Case_Activity_Pages() {
     if ( !["CaseEmploymentActivity.htm", "CaseEducationActivity.htm", "CaseSupportActivity.htm"].includes(thisPageNameHtm) ) { return };
+    document.querySelectorAll('#leaveDetailExtendedEligibilityBegin, #leaveDetailExpires, #redeterminationDate, #extendedEligibilityBegin, #extendedEligibilityExpires, #leaveDetailRedeterminationDue').forEach(ele => { ele.tabIndex = "-1"; ele.classList.add('borderless') }) //extelig
     if (!editMode) { return };
-    document.querySelectorAll('#leaveDetailExtendedEligibilityBegin, #leaveDetailExpires, #redeterminationDate, #extendedEligibilityBegin, #extendedEligibilityExpires, #leaveDetailRedeterminationDue').forEach(ele => { ele.disabled = true })
     tabIndxNegOne('#tempLeavePeriodBegin, #leaveDetailTemporaryLeavePeriodFrom')
     if (document.querySelector('#tempLeavePeriodBegin, #leaveDetailTemporaryLeavePeriodFrom')?.value === "") { tabIndxNegOne('#tempLeavePeriodEnd, #leaveDetailTemporaryLeavePeriodTo') }
     !function __CaseSupportActivity() {
         if (!("CaseSupportActivity.htm").includes(thisPageNameHtm)) { return }
-        selectPeriod.disabled = true
         let doNotReset = [ "#tempLeavePeriodBegin", "#tempLeavePeriodEnd", "#activityEnd" ]
         let memberDescription = document.getElementById('memberDescription'), verification = document.getElementById('verification'), planRequired = document.getElementById('planRequired'), planApproved = document.getElementById('planApproved')
         let activityEnd = document.getElementById('activityEnd'), activityBegin = document.getElementById('activityBegin')
@@ -3121,10 +3119,10 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         ele.innerHTML = '<td><a href="FinancialBilling.htm?parm2=' + caseId + '&parm3=' + ele.innerText.replace(/ - |\//g, "") + '", target="_blank">' + ele.innerText + '</a></td>'
     });
     let providerTableList = new Set(), childTableList = new Set()
-    let getPaymentHTML = '<div id="tertiaryActionArea" class="db-container">'
+    let getPaymentHTML = '<div id="tertiaryActionArea">'
     + '<select style="width: fit-content;" class="form-control" id="filterProvider"><option value>Provider Filter...</option></select>'
     + '<select style="width: fit-content;" class="form-control" id="filterChild"><option value>Child Filter...</option></select>'
-    + '<button class="cButton" type="button" id="sendPaymentInfoToCB">Copy Payments</button></div>'
+    + '<button class="form-button" type="button" id="sendPaymentInfoToCB">Copy Payments</button></div>'
     secondaryActionArea?.insertAdjacentHTML('beforeend', getPaymentHTML)
     let paymentPeriodBegin = document.getElementById('paymentPeriodBegin'), paymentPeriodEnd = document.getElementById('paymentPeriodEnd'), selectionProvider = document.getElementById('filterProvider'), selectionChild = document.getElementById('filterChild')
     addDateControls("month", paymentPeriodBegin, paymentPeriodEnd)
@@ -3235,14 +3233,16 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     let memberSchoolStatus = document.getElementById('memberSchoolStatus'), memberSchoolType = document.getElementById('memberSchoolType'), memberKindergartenStart = document.getElementById('memberKindergartenStart'),
         memberSchoolVerification = document.getElementById('memberSchoolVerification'), memberHeadStartParticipant = document.getElementById('memberHeadStartParticipant'), memberReferenceNumberNewMember = document.getElementById('memberReferenceNumberNewMember')
     let today = Date.now()
+    function fiftyPercentFinancialSupport() {
+        let eightteenButStillHHmember = document.getElementById('memberFinancialSupport50PercentOrMore')
+        eightteenButStillHHmember.classList.add('borderless')
+        eightteenButStillHHmember.value = ""
+        eightteenButStillHHmember.tabIndex = "-1"
+    }
     async function kindergartenStartDate(memberArray, memberNumber) {
         let memberMatch = memberArray.filter(obj => obj.memberReferenceNumber === memberNumber)
         let birthDate = new Date(memberMatch[0].memberBirthDate), approxAge = new Date().getFullYear() - birthDate.getFullYear()
-        if (approxAge < 17) {
-            let eightteenButStillHHmember = document.getElementById('memberFinancialSupport50PercentOrMore')
-            eightteenButStillHHmember.value = ""
-            eightteenButStillHHmember.disabled = true
-        }
+        if (approxAge < 17) { fiftyPercentFinancialSupport() }
         if (approxAge > 10) { return false }
         let fifthBirthDate = new Date(birthDate.setFullYear(birthDate.getFullYear() + 5)), fifthBirthDateValue = sanitize.date(fifthBirthDate, "number")
         let laborDay = dateFuncs.getDateofWeekdayWithWeek(fifthBirthDate.getFullYear(), 8, 0, 1), laborDayValue = sanitize.date(laborDay, "number")
@@ -3273,6 +3273,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             memberReferenceNumberNewMember.addEventListener('blur', blurEvent => {
                 let memberNumberValue = memberReferenceNumberNewMember.value
                 if (Number(blurEvent.target.value) > 2) { kindergartenStartDate(memberArray, memberNumberValue) }
+                else { fiftyPercentFinancialSupport() }
             })
         }).catch(err => { console.trace(err) })
     }
@@ -3295,11 +3296,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     transferWorkerId = validateTransferWorkerId(transferWorkerId)
     let transferSS = sessionStorage.getItem(ssTransferCase) ?? ''
     if (!editMode && !iFramed) {
-        let caseTransferButtons = '<div id="tertiaryActionArea" class="db-container" style="padding-right: 15px;">'
+        let caseTransferButtons = '<div id="tertiaryActionArea">'
             // + '<button type="button" class="cButton" tabindex="-1" style="margin-right: 10px; padding: 3px 6px;" id="sendMemo">Memo</button>'
             // + '<button type="button" class="cButton" tabindex="-1" style="margin-right: 30px; padding: 3px 6px;" id="sendMemo">Reset</button>'
             + '<button type="button" class="cButton" tabindex="-1" id="closedTransfer">Transfer to:</button>'
-            + '<input type="text" class="form-control" style="width: var(--eightNumbers);" id="transferWorker" placeholder="Worker #" value=' + transferWorkerId + '></input>'
+            + '<input type="text" class="form-control" style="width: var(--8numbers);" id="transferWorker" placeholder="Worker #" value=' + transferWorkerId + '></input>'
         + '</div>'
         secondaryActionArea?.insertAdjacentHTML('beforeend', caseTransferButtons)
         document.getElementById('transferWorker')?.addEventListener( 'blur', blurEvent => { transferWorkerId = validateTransferWorkerId(blurEvent.target.value) })
@@ -3320,7 +3321,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 setTimeout(() => {
                     tabIndxNegOne('#workerSearch')
                     let readOnly = [...document.querySelectorAll('form :is(input, select).form-control[readonly]')]
-                    readOnly.forEach(e => { e.disabled = true })
+                    readOnly.forEach(e => { e.tabIndex = "-1" })
                 }, 300)
         });
         document.getElementById('footer_links').insertAdjacentHTML('beforeend', '<span class="footer" tabindex="-1">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_140754" target="_blank">Moving to New County</a>')
@@ -3444,7 +3445,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             [ "goSpecialLetter", { page: "CaseSpecialLetter", name: "Special Letter" }],
             [ "goCaseTransfer", { page: "CaseTransfer", name: "Case Transfer" }],
         ])
-        secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea" class="db-container">' + postWrapButtons() + '</div>')
+        secondaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="tertiaryActionArea">' + postWrapButtons() + '</div>')
         function postWrapButtons() { return [...postWrap].map( ([key, item] = []) => '<button class="form-button" type="button" id="'+ key +'">'+ item.name +'</button>').join('') }
         document.getElementById('tertiaryActionArea').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
@@ -3651,7 +3652,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }).catch(err => { console.trace(err) })
     }
     let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody')
-    secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container"><button class="cButton" id="copy2WkBillingInfo">2-Week Billing Info</button><button class="cButton" id="copy4WkBillingInfo">4-Week Billing Info</button></div>')
+    secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea"><button class="form-button" id="copy2WkBillingInfo">2-Week Billing Info</button><button class="form-button" id="copy4WkBillingInfo">4-Week Billing Info</button></div>')
     let typeAndNameColumns = {
         FinancialBilling: { type: 1, name: 0 },
         FinancialBillingApproval: { type: 2, name: 1 },
@@ -3747,8 +3748,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }
     let toggleDifferentialRates = createSlider({ label: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", defaultOn: true, classes: "float-right-imp", })
     secondaryActionArea?.insertAdjacentHTML('beforeend', ''
-    + '<div id="tertiaryActionArea" class="db-container">'
-        + '<button type="button" class="cButton" id="copyRates">Copy Rates</button>'
+    + '<div id="tertiaryActionArea">'
+        + '<button type="button" class="form-button" id="copyRates">Copy Rates</button>'
         + toggleDifferentialRates
     + '</div>')
     document.querySelector('h4').innerText = "Rates for " + providerType + " for " + maximumRatesPeriod.value
@@ -3851,13 +3852,14 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }();
     } else { // END Auto_Case_Noting
         restyleCreated()
-        secondaryActionArea.style.justifyContent = "start"
+        secondaryActionArea.style.justifyContent = "flex-start"
+        secondaryActionArea.style.gap = "60px"
         !function duplicateNote() {
             let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
             if (!storedNoteExists || storedNoteDetails?.noteSummary === noteSummary?.value) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
             if (!editMode) {
                 let storedNoteInfoHTML = storedNoteExists ? '<div id="unsavedNoteDiv" style="display: flex; align-items: center; gap: 5px;"><span style="margin-left: 10px;" title="' + storedNoteDetails.noteSummary + '">Unsaved note exists for case</span><a target="_self" href="/ChildCare/CaseNotes.htm?parm2=' + storedNoteDetails.identifier + '">'+ storedNoteDetails.identifier +'</a><span id="deleteUnsaved" style="cursor: pointer; color: red !important; padding-bottom: 2px;">✖</span></div>' : ''
-                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container"><button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML + ' </div>')
+                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea"><button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML + ' </div>')
                 document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.storedNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
                 document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
                 function copyNoteToLS() {
@@ -3878,7 +3880,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 //
                 if (noteDetailsExists && ["Application", "Redetermination"].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = noteDetails.noteCategory + " update" }
                 let autofillButton = noteDetailsExists ? '<button type="button" id="autofill" class="form-button">Autofill</button>' : '', storedNoteButton = storedNoteExists ? '<button type="button" id="storedNote" class="form-button">Stored Note</button>' : ''
-                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea" class="db-container">' + autofillButton + storedNoteButton + '</div>')
+                secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea">' + autofillButton + storedNoteButton + '</div>')
                 document.getElementById('tertiaryActionArea')?.addEventListener('click', clickEvent => {
                     if (clickEvent.target.nodeName !== "BUTTON" || noteCategory?.value) { return };
                     let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : storedNoteDetails
@@ -4072,42 +4074,31 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     if ( thisPageNameHtm.indexOf("Provider") !== 0 ) { return; }
 !function __ProviderAddress() {
     if (!("ProviderAddress.htm").includes(thisPageNameHtm)) { return };
-    // SECTION_START ProviderAddress Copy Provider mailto Address
     if (!editMode) {
         let mailingStreet1 = document.getElementById('mailingStreet1'), edit = document.getElementById('edit'), addrBillFormDisplay = document.getElementById('addrBillFormDisplay'), mailingCountry = document.getElementById('mailingCountry')
         let providerType = document.getElementById('providerData').children[3].firstElementChild.childNodes[2].textContent.trim()
         let providerName = ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) && pageTitle.indexOf(',') ? nameFuncs.commaNameReorder(pageTitle) : pageTitle
         secondaryActionArea?.insertAdjacentHTML('beforeend', ''
-                                               + '<div id="tertiaryActionArea" class="db-container">'
-                                               + '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copySiteHome">Copy Site/Home Address</button>'
-                                               + '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="copyMailing">Copy Mailing Address</button>'
+                                               + '<div id="tertiaryActionArea">'
+                                               + '<button type="button" class="form-button" tabindex="-1" id="copySiteHome">Copy Site/Home Address</button>'
+                                               + '<button type="button" class="form-button" tabindex="-1" id="copyMailing">Copy Mailing Address</button>'
                                                + '</div>');
+        async function getEval() { return await evalData() }
         evalData().then( ({ 0: addressData } = {}) => {
-            // console.log(addressData)
+            let childNum = 0
             function copyAddress(addressType) {
-                let addressTableRow = getChildNum(document.querySelector('.selected'))
-                addressData = addressData[addressTableRow]
+                let addressDatum = addressData[ childNum ], addMid = addressType === "copySiteHome" ? "SiteHome" : ""
+                if (addressType === "copyMailing" && !addressDatum.mailingStreet1) { snackBar('No mailing address.', 'notitle'); return };
                 const mailingDataCheck = () => {
-                    switch(addressType) {
-                        case "copyMailing":
-                            if (!addressData.mailingStreet1) { return { streetData: false } };
-                            return {
-                                streetData: [addressData.mailingStreet1, addressData.mailingStreet2].join(' '),
-                                cityData: addressData.mailingCity,
-                                stateData: stateDataSwap.swapStateNameAndAcronym(addressData.mailingStateProvince),
-                                zipData: [addressData.mailingZipCode, addressData.mailingZipCodePlus4].join('-'),
-                            }
-                        case "copySiteHome":
-                            return {
-                                streetData: [addressData.mailingSiteHomeStreet1, addressData.mailingSiteHomeStreet2].join(' '),
-                                cityData: addressData.mailingSiteHomeCity,
-                                stateData: stateDataSwap.swapStateNameAndAcronym(addressData.mailingSiteHomeState),
-                                zipData: [addressData.mailingSiteHomeZipCode, addressData.mailingSiteHomeZipCodePlus4].join('-'),
-                            }
+                    return {
+                        streetData: [addressDatum["mailing" + addMid + "Street1"], addressDatum["mailing" + addMid + "Street2"]].join(' '),
+                        cityData: addressDatum["mailing" + addMid + "City"],
+                        stateData: stateDataSwap.swapStateNameAndAcronym(addressDatum["mailing" + addMid + "State"]),
+                        zipData: [addressDatum["mailing" + addMid + "ZipCode"], addressDatum["mailing" + addMid + "ZipCodePlus4"]].join('-'),
+                        zipData: addressDatum["mailing" + addMid + "ZipCodePlus4"] !== "" ? [ addressDatum.mailingZipCode, addressDatum["mailing" + addMid + "ZipCodePlus4"] ].join('-') : addressDatum["mailing" + addMid + "ZipCode"],
                     }
                 }
                 let mailingData = mailingDataCheck()
-                if (!mailingData.streetData) { snackBar('No mailing address.', 'notitle'); return };
                 let copyText = providerName + "\n" + mailingData.streetData + "\n" + mailingData.cityData + ", " + mailingData.stateData + " " + mailingData.zipData;
                 copy(copyText, copyText)
             }
@@ -4128,6 +4119,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             checkMailingAddress()
             function checkMailingAddress() {
                 mailingCountry.value ? h4objects.mailingaddress.siblings.forEach(ele => ele.classList.remove('hidden')) : h4objects.mailingaddress.siblings.forEach(ele => ele.classList.add('hidden'))
+                childNum = getChildNum(document.querySelector('.selected'))
             };
             document.getElementById('providerAddressData').addEventListener('click', () => { checkMailingAddress() });
         }).catch(err => { console.trace(err) });
@@ -4987,7 +4979,7 @@ function reselectSelectedTableRow(storedTable = 'table', scroll=0) {
         if ('clearEle' in storedTableRow) { if (document.getElementById(storedTableRow.clearEle).value !== storedTableRow.clearVal) { return } }
         let foundRow = storedTableRow.rowOrVal < 999 ? storeTable.children[1].children[storedTableRow.rowOrVal] : [...storeTable.children[1].children].find(row => row.textContent.indexOf(storedTableRow.rowOrVal) > -1)
         foundRow && foundRow.click()
-        if (storedTableRow < 5 || !scroll) { return }
+        if (!foundRow || storedTableRow < 5 || !scroll) { return }
         let tableParams = storeTable.parentElement.getBoundingClientRect(), rowParams = foundRow.getBoundingClientRect()
         if (rowParams.top < tableParams.top || rowParams.bottom > tableParams.bottom) { foundRow.scrollIntoView({ behavior: "smooth", block: "center" }) }
     })
@@ -5213,4 +5205,3 @@ function mec2enhancements() {
     if (!editMode) { document.getElementById('Report\ a\ Problem')?.firstElementChild?.setAttribute('target', '_blank'); document.getElementById('Maximum\ Rates')?.firstElementChild?.setAttribute('target', '_blank'); }; //change_to_open_in_new_tab
     document.querySelector('h1')?.closest('div.row')?.classList.add('h1-parent-row');
 }();
-console.timeEnd('mec2functions load time');
