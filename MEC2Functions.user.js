@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-
+// @version      0.5.83
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
