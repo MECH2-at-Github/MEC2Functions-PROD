@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.82
+
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2452,7 +2452,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         if ("169".includes(userCountyObj?.code) ) { // SECTION_START Fill_Child_Support_PDF_Forms
             h4objects.details.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right-imp" tabindex="-1" style="margin-top: 5px;" id="csForms">Generate CS Forms</button>');
             document.getElementById('csForms').addEventListener('click', () => {
-                let cpInfo = nameFuncs.commaNameObject(document.querySelector('#csePriTable .selected td:nth-child(2)').textContent)
+                let cpInfo = nameFuncs.commaNameObject(document.querySelector('#csePriTable .selected td:nth-child(2)').firstChild.textContent)
                 let ncpInfo = nameFuncs.commaNameObject(document.querySelector('#csePriTable .selected td:nth-child(3)').textContent)
                 let childList = {};
                 let createdList = [...document.querySelectorAll('#childrenTable tbody tr')].forEach( (row, index) => { childList["child" + index] = row.children[1].textContent } );
