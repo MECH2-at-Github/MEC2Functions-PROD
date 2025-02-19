@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.81
+// @version      0.5.82
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -142,7 +142,7 @@ const gbl = {
         caseIdElement: document.querySelector('#caseId:not([type=hidden])'), providerIdElement: document.querySelector('#providerInput > #providerId:not([type=hidden])'), selectPeriod: document.getElementById('selectPeriod'), wrapUp: document.getElementById('wrapUp'),
     },
 }
-const rederrortextContent = [...document.querySelectorAll('strong.rederrortext'), ...document.querySelectorAll('.error_alertbox_new > strong')].map(ele => ele.textContent);
+const rederrortextContent = [...document.querySelectorAll('strong.rederrortext:not(div.error_alertbox_new > strong.rederrortext, #memberHelpDeskPanel strong)'), ...document.querySelectorAll('.error_alertbox_new:has(> strong)')].map(ele => ele.innerText.trim()).filter(ele => ele);
 const noResultsForCase = rederrortextContent?.find(ele => ele.includes('No results for case'));
 // const pageWrap = document.getElementById('page-wrap')
 const save = document.getElementById('save'), quit = document.getElementById('quit');
@@ -3775,6 +3775,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     if (editMode) {
         save?.addEventListener('click', saveEvent => maxRowColumnCheck({ textbox: noteStringText, maxColumns: 100, maxRows: 30, saveEvent }) )
+        document.querySelector('.dataTables_scrollBody').style.maxHeight = "170px"
     }
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
         document.getElementById('noteCreateDate').closest('div.panel-box-format').classList.add('hidden')
@@ -4035,6 +4036,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     !function Notices_PdfExport() {
         let textbox1 = document.getElementById('textbox1'), textbox2 = document.getElementById('textbox2')
         if ( textbox2?.disabled ) {
+            textbox2.style.fieldSizing = "content"
             function dynamicallyLoadScript(url) {
                 let script = document.createElement("script")
                 script.src = url
@@ -4401,7 +4403,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                 }
                 if (("CaseAddress.htm").includes(thisPageNameHtm)) {
                     tbodyFocusNextEdit()
-                    if (editMode && rederrortextContent.find(arrItem => arrItem.indexOf("Warning: Effective date has changed - Review Living Situation") > -1)) {
+                    if (editMode && rederrortextContent.length === 1 && rederrortextContent.find(arrItem => arrItem.indexOf("Warning: Effective date has changed - Review Living Situation") > -1)) {
                         doClick(save)
                     }
                     else {
@@ -5205,3 +5207,4 @@ function mec2enhancements() {
     if (!editMode) { document.getElementById('Report\ a\ Problem')?.firstElementChild?.setAttribute('target', '_blank'); document.getElementById('Maximum\ Rates')?.firstElementChild?.setAttribute('target', '_blank'); }; //change_to_open_in_new_tab
     document.querySelector('h1')?.closest('div.row')?.classList.add('h1-parent-row');
 }();
+console.timeEnd('mec2functions load time');
