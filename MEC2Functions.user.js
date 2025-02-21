@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.83
+// @version      0.5.84
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3832,7 +3832,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     }).catch(err => { console.trace(err) })
             } else if (editMode) {
                 let userNameTitle = countyInfo.userSettings.promptUserNameTitle ? countyInfo.info.inputUserNameTitle : ""
-                if (noteInfo.noteCategory === "Child Support Note") { document.querySelector('option[value="Application"]').insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>'); }
+                document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
+                document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
                 let signatureName, workerName = countyInfo.info.userName
                 if (["CaseNotes.htm"].includes(thisPageNameHtm)) {
                     if (noteInfo.xNumber) { signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? countyInfo.info.userName + userNameTitle : countyInfo.info.userName + userNameTitle + " for " + noteInfo.worker }
@@ -3874,12 +3875,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             } else if (editMode) {
                 window.addEventListener('beforeunload', getDetailsStoreInLS)
                 function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
-                document.getElementById('cancel').addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
+                document.getElementById('cancel')?.addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
                 if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
                 let noteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
                 if (!noteDetailsExists && !storedNoteExists) { return };
                 //
-                if (noteDetailsExists && ["Application", "Redetermination"].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = noteDetails.noteCategory + " update" }
+                if (noteDetailsExists && ["Application Incomplete", "Redetermination Incomplete"].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = noteDetails.noteCategory + " update" }
                 let autofillButton = noteDetailsExists ? '<button type="button" id="autofill" class="form-button">Autofill</button>' : '', storedNoteButton = storedNoteExists ? '<button type="button" id="storedNote" class="form-button">Stored Note</button>' : ''
                 secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea">' + autofillButton + storedNoteButton + '</div>')
                 document.getElementById('tertiaryActionArea')?.addEventListener('click', clickEvent => {
@@ -3887,7 +3888,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : storedNoteDetails
                     fillNoteDetails(selectedNoteDetails)
                 })
-                document.getElementById('save').addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
+                document.getElementById('save')?.addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
             }
             function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrProviderId, }; }
             function fillNoteDetails(noteDetails) {
@@ -3902,7 +3903,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         // SECTION_START Case_Notes_Only
         if (("CaseNotes.htm").includes(thisPageNameHtm)) {
             if (editMode && !notesTableNoRecords) {
-                document.querySelector('option[value="Application"]').insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
+                document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
+                document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
                 let autoFormatSlider = createSlider({ label: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
                 h4objects.note.h4.insertAdjacentHTML('afterend', autoFormatSlider)
                 let autoFormat = document.getElementById('autoFormat')
@@ -3925,7 +3927,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 noteStringText.addEventListener('keydown', keydownEvent => {
                     if (!["`", 'Tab'].includes(keydownEvent.key) || keydownEvent.shiftKey) { return }
                     keydownEvent.preventDefault()
-                    insertTextAndMoveCursor("             ")
+                    let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
+                    console.log(preceedingCharacter)
+                    insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
                 })
             }
             if (!editMode) {
@@ -3950,7 +3954,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         document.getElementById('unhideElementCaseNotes').addEventListener('click', clickEvent => {
                             clickEvent.target.checked === true ? noteStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }") : noteStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
                         })
-                        queueMicrotask(() => { document.querySelector('tbody > tr:not(.hiddenRow)').click() })
+                        queueMicrotask(() => { document.querySelector('tbody > tr:not(.hiddenRow)')?.click() })
                     }
                 }).catch(err => { console.trace(err) })
             }
@@ -3973,7 +3977,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
         })
         document.querySelector('#caseData input#other')?.addEventListener('click', clickEvent => { document.getElementById('otherTextbox').value = clickEvent.target.checked ? 'See Worker Comments below' : '' })
-        document.querySelectorAll('div.col-lg-offset-3').forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
+        document.querySelectorAll('div.col-lg-offset-3')?.forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
         // [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ]
         function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKSPLIT" %LetterGUINumber% "SPLIT" MEC2DocType "SPLIT" IdList
             let pastedText = (event.clipboardData || window.clipboardData).getData("text")
@@ -3984,7 +3988,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             if (status) {
                 status.value = caseStatus
                 void doChange(status)
-                queueMicrotask(() => { checkBoxIds.split(',').forEach( ele => document.getElementById(ele).click() ) })
+                queueMicrotask(() => { checkBoxIds.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
             }
             textbox.value = commentsText
             eleFocus(save)
