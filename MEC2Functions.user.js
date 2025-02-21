@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.85
+// @version      0.5.86
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2431,8 +2431,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
 }();
 !function CaseCSE() {
     if (!("CaseCSE.htm").includes(thisPageNameHtm)) { return };
-    let absentParentDivs = [...document.querySelectorAll('#cseAbsentParentInfoMiddleInitial, #cseAbsentParentInfoSsn, #cseAbsentParentInfoBirthdate, #cseAbsentParentInfoAbsentParentSmi, #cseAbsentParentInfoAbsentParentId')].map(ele => ele.closest('.form-group') )
-    let goodCauseDivs = [...h4objects.goodcause.siblings]
+    // let absentParentDivs = [...document.querySelectorAll('#cseAbsentParentInfoMiddleInitial, #cseAbsentParentInfoSsn, #cseAbsentParentInfoBirthdate, #cseAbsentParentInfoAbsentParentSmi, #cseAbsentParentInfoAbsentParentId')].map(ele => ele.closest('.form-group') )
+    // let goodCauseDivs = [...h4objects.goodcause.siblings]
     if (editMode) { // Auto-fill fields if Foster Child button
         h4objects.details.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right-imp" tabindex="-1" style="margin-top: 5px;" id="fosterChild">Foster Child</button>');
         document.getElementById('fosterChild').addEventListener('click', () => {
@@ -2448,7 +2448,6 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
         })
     }
     if (!editMode) {
-        actualDate.dateField.closest('.form-group').classList.add('hidden')
         if ("169".includes(userCountyObj?.code) ) { // SECTION_START Fill_Child_Support_PDF_Forms
             h4objects.details.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right-imp" tabindex="-1" style="margin-top: 5px;" id="csForms">Generate CS Forms</button>');
             document.getElementById('csForms').addEventListener('click', () => {
@@ -2460,21 +2459,21 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                 window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank");
             });
         } // SUB_SECTION_END Fill_Child_Support_PDF_Forms
-        goodCauseDivs.forEach( ele => hideFormGroupIfNoValue(ele) )
-        document.getElementById('csePriTable').addEventListener('click', () => { goodCauseDivs.forEach( ele => hideFormGroupIfNoValue(ele) ) });
-        let cseGoodCauseClaimStatusSlider = createSlider({ label: "Show empty fields", title: "Show hidden fields in the Good Cause Claim subheader section.", id: "gccsShowHide", defaultOn: false, classes: "float-right-imp h4-line", })
-        h4objects.goodcause.h4.insertAdjacentHTML('afterend', cseGoodCauseClaimStatusSlider);
-        document.getElementById('gccsShowHide').addEventListener('click', ele => { ele.target.checked ? ( goodCauseDivs.forEach(ele2 => ele2.classList.remove('hidden') )) : ( goodCauseDivs.forEach( ele2 => hideFormGroupIfNoValue(ele2) )) })
+        // goodCauseDivs.forEach( ele => hideFormGroupIfNoValue(ele) )
+        // document.getElementById('csePriTable').addEventListener('click', () => { goodCauseDivs.forEach( ele => hideFormGroupIfNoValue(ele) ) });
+        // let cseGoodCauseClaimStatusSlider = createSlider({ label: "Show empty fields", title: "Show hidden fields in the Good Cause Claim subheader section.", id: "gccsShowHide", defaultOn: false, classes: "float-right-imp h4-line", })
+        // h4objects.goodcause.h4.insertAdjacentHTML('afterend', cseGoodCauseClaimStatusSlider);
+        // document.getElementById('gccsShowHide').addEventListener('click', ele => { ele.target.checked ? ( goodCauseDivs.forEach(ele2 => ele2.classList.remove('hidden') )) : ( goodCauseDivs.forEach( ele2 => hideFormGroupIfNoValue(ele2) )) })
     }
     // SUB_SECTION_START Hide unnecessary fields
-    unhideElement(absentParentDivs, false)
-    function hideFormGroupIfNoValue(ele) {
-        let elementWithValue = ele.querySelector('input, select')
-        elementWithValue.value ? ele.classList.remove('hidden') : ele.classList.add('hidden')
-    }
-    let abpsShowHideSlider = createSlider({ label: "Show hidden fields", title: "Show hidden fields in the Absent Parent subheader section.", id: "abpsShowHide", defaultOn: false, classes: "float-right-imp h4-line", })
-    h4objects.absentparentinformation.h4.insertAdjacentHTML('afterend', abpsShowHideSlider);
-    document.getElementById('abpsShowHide').addEventListener( 'click', ele => unhideElement(absentParentDivs, ele.target.checked) )
+    // unhideElement(absentParentDivs, false)
+    // function hideFormGroupIfNoValue(ele) {
+    //     let elementWithValue = ele.querySelector('input, select')
+    //     elementWithValue.value ? ele.classList.remove('hidden') : ele.classList.add('hidden')
+    // }
+    // let abpsShowHideSlider = createSlider({ label: "Show hidden fields", title: "Show hidden fields in the Absent Parent subheader section.", id: "abpsShowHide", defaultOn: false, classes: "float-right-imp h4-line", })
+    // h4objects.absentparentinformation.h4.insertAdjacentHTML('afterend', abpsShowHideSlider);
+    // document.getElementById('abpsShowHide').addEventListener( 'click', ele => unhideElement(absentParentDivs, ele.target.checked) )
     //
     evalData().then(({ 0: memberData } = {}) => {
         let caseMemberTableChildren = document.querySelector('#csePriTable > tbody').children
@@ -2482,7 +2481,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             cseDetailsCooperationStatus: { label: 'Cooperation', keywords: ["Not Cooperating", ], },
             cseDetailsFormsCompleted: { label: 'Forms', keywords: ["No", ], },
         }
-        checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren)
+        // checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren)
     }).catch(err => { console.trace(err) })
 }(); // SECTION_END Case_CSE;
 !function CaseCSIA() {
@@ -2739,6 +2738,10 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 }(); // SECTION_END Case_Expense;
 !function __CaseUnearnedIncome() {
     if (!("CaseUnearnedIncome.htm").includes(thisPageNameHtm)) { return };
+    let paymentFrequencyFormGroup = document.querySelector('div.form-group:has(#paymentFrequency)'), paymentChangeDate = document.getElementById('paymentChangeDate').parentElement, paymentChangeDateLabel = paymentChangeDate.previousElementSibling
+    paymentFrequencyFormGroup.insertAdjacentElement('beforeend', paymentChangeDateLabel)
+    paymentFrequencyFormGroup.insertAdjacentText('beforeend', " ")
+    paymentFrequencyFormGroup.insertAdjacentElement('beforeend', paymentChangeDate)
     h4objects.actualincome.h4.click();
     h4objects.studentincome.h4.click();
     if (editMode) {
@@ -3112,9 +3115,10 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Case_Parent;
 !function CasePaymentHistory() {
     if (!("CasePaymentHistory.htm").includes(thisPageNameHtm)) { return };
-    document.querySelectorAll('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(3)').forEach(ele => { ele.textContent = "Transact ID" })
-    document.querySelectorAll('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(8)').forEach(ele => { ele.textContent = "Payment" })
-    document.querySelectorAll('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(9)').forEach(ele => { ele.textContent = "Type" })
+    document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(2)').textContent = "Transact ID"
+    document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(5)').textContent = "Recoup"
+    document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(8)').textContent = "Payment"
+    document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(9)').textContent = "Type"
     document.querySelectorAll('#paymentHistoryTable > tbody > tr > td:nth-of-type(3)').forEach(ele => {
         ele.innerHTML = '<td><a href="FinancialBilling.htm?parm2=' + caseId + '&parm3=' + ele.innerText.replace(/ - |\//g, "") + '", target="_blank">' + ele.innerText + '</a></td>'
     });
@@ -3788,16 +3792,28 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         if (pastedText.indexOf("CaseNoteFromAHK") < 0) { return }
         pasteEvent.preventDefault()
         pasteEvent.stopImmediatePropagation()
+        const noteCategoryObj = {
+            Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
+            Redetermination: { pends: " Incomplete", elig: " complete", ineligible: "" }
+        }
         if (!editMode) {
-            noteSummary.value = "Click the 'New' button first ⬇"
-            noteStringText.value = "Click the 'New' button first ⬇"
+            noteSummary.value = "Click the 'New' button first 🡇"
+            noteStringText.value = "Click the 'New' button first 🡇"
             document.getElementById('noteCreator').value = "X1D10T"
             flashRedBorder.animate(newButton)
         } else {
-            let [, noteCategoryData, noteSummaryData, noteStringTextData ] = pastedText.split('SPLIT')
-            noteCategory.value = noteCategoryData
-            noteSummary.value = noteSummaryData
-            noteStringText.value = noteStringTextData
+            let noteDetails = {}
+            if (pastedText.indexOf("CaseNoteFromAHKJSON") > -1) {
+                noteDetails = JSON.parse(pastedText.slice(19))
+            } else {
+                // noteStringText.value = "Please update mec2functions"
+                const splitText = pastedText.split('SPLIT')
+                noteDetails = { noteDocType: splitText[1], noteTitle: splitText[2], noteText: splitText[3], noteElig: splitText[4] ?? '' }
+            }
+                noteCategory.value = noteDetails.noteElig !== '' ? noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig] : noteDetails.noteDocType
+                noteSummary.value = noteDetails.noteTitle
+                noteStringText.value = noteDetails.noteText
+            // }
             eleFocus(save)
         }
     })
@@ -3984,13 +4000,18 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             if (pastedText.indexOf("LetterTextFromAHK") !== 0) { return }
             pasteEvent.preventDefault()
             pasteEvent.stopImmediatePropagation()
-            let [, commentsText, caseStatus, checkBoxIds] = pastedText.split('SPLIT')
-            if (status) {
-                status.value = caseStatus
-                void doChange(status)
-                queueMicrotask(() => { checkBoxIds.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
+            if (pastedText.indexOf("LetterTextFromAHKJSON") > -1) {
+                const letterObj = JSON.parse(pastedText.slice(21));
+            } else {
+                // textbox.value = "Please update mec2functions"
+                let [, commentsText, caseStatus, checkBoxIds] = pastedText.split('SPLIT')
+                if (status) {
+                    status.value = caseStatus
+                    void doChange(status)
+                    queueMicrotask(() => { checkBoxIds.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
+                }
+                textbox.value = commentsText
             }
-            textbox.value = commentsText
             eleFocus(save)
         }
         document.addEventListener('paste', pasteEventAHK )
@@ -4407,10 +4428,10 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                 }
                 if (("CaseAddress.htm").includes(thisPageNameHtm)) {
                     tbodyFocusNextEdit()
-                    if ( editMode && rederrortextContent.find(arrItem => arrItem.indexOf("Warning: Effective date has changed - Review Living Situation") > -1) ) {
-                        focusEle = "#save"
-                    }
-                    else {
+                    // if (editMode && rederrortextContent.length === 1 && rederrortextContent.find(arrItem => arrItem.indexOf("Warning: Effective date has changed - Review Living Situation") > -1)) {
+                        // doClick(save)
+                    // }
+                    // else {
                         let previousButton = document.getElementById('previous'), residenceStreet1 = document.getElementById('residenceStreet1')
                         let editingMode = ( previousButton ) ? /*true*/ previousButton.disabled ? "appEditing" : "appNotEditing" : /*false*/ document.getElementById('edit').disabled ? "editing" : "notEditing"
                         if (editingMode === "appNotEditing") { focusEle = residenceStreet1?.value ? '#wrapUpDB' : '#new' }
@@ -4420,7 +4441,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                             if (!subsidizedHousing?.value) { focusEle = subsidizedHousing }
                             else if (residenceStreet1?.value) { focusEle = '#effectiveDate' }
                         }
-                    }
+                    // }
                 }
                 if (("CaseDisability.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#newDB' : '#memberReferenceNumberNewMember' }
                 if (("CaseRedetermination.htm").includes(thisPageNameHtm)) {
