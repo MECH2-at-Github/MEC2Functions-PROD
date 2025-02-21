@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.84
+// @version      0.5.85
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -4407,8 +4407,8 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                 }
                 if (("CaseAddress.htm").includes(thisPageNameHtm)) {
                     tbodyFocusNextEdit()
-                    if (editMode && rederrortextContent.length === 1 && rederrortextContent.find(arrItem => arrItem.indexOf("Warning: Effective date has changed - Review Living Situation") > -1)) {
-                        doClick(save)
+                    if ( editMode && rederrortextContent.find(arrItem => arrItem.indexOf("Warning: Effective date has changed - Review Living Situation") > -1) ) {
+                        focusEle = "#save"
                     }
                     else {
                         let previousButton = document.getElementById('previous'), residenceStreet1 = document.getElementById('residenceStreet1')
