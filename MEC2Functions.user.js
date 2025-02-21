@@ -3794,7 +3794,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         pasteEvent.stopImmediatePropagation()
         const noteCategoryObj = {
             Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
-            Redetermination: { pends: " Incomplete", elig: " complete", ineligible: "" }
+            Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
         }
         if (!editMode) {
             noteSummary.value = "Click the 'New' button first 🡇"
