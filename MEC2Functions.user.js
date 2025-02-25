@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.86
+// @version      0.5.88
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3787,36 +3787,30 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         noteCreatorChildren.forEach(ele => noteSummaryRow.append(ele))
         tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
     }
-    window.addEventListener('paste', pasteEvent => { //pasted from AHK
-        let pastedText = pasteEvent.clipboardData.getData("text")
-        if (pastedText.indexOf("CaseNoteFromAHK") < 0) { return }
-        pasteEvent.preventDefault()
-        pasteEvent.stopImmediatePropagation()
-        const noteCategoryObj = {
-            Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
-            Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
-        }
+    document.addEventListener('paste', pasteEventAHK )
+    function pasteEventAHK(event) { //pasted from AHK
+        let pastedText = event.clipboardData.getData("text")
+        if (pastedText.indexOf("CaseNoteFromAHKJSON") < 0) { return }
+        event.preventDefault()
+        event.stopImmediatePropagation()
         if (!editMode) {
             noteSummary.value = "Click the 'New' button first 🡇"
             noteStringText.value = "Click the 'New' button first 🡇"
             document.getElementById('noteCreator').value = "X1D10T"
             flashRedBorder.animate(newButton)
         } else {
-            let noteDetails = {}
-            if (pastedText.indexOf("CaseNoteFromAHKJSON") > -1) {
-                noteDetails = JSON.parse(pastedText.slice(19))
-            } else {
-                // noteStringText.value = "Please update mec2functions"
-                const splitText = pastedText.split('SPLIT')
-                noteDetails = { noteDocType: splitText[1], noteTitle: splitText[2], noteText: splitText[3], noteElig: splitText[4] ?? '' }
+            const noteCategoryObj = {
+                Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
+                Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
             }
-                noteCategory.value = noteDetails.noteElig !== '' ? noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig] : noteDetails.noteDocType
-                noteSummary.value = noteDetails.noteTitle
-                noteStringText.value = noteDetails.noteText
-            // }
+            let noteDetails = {}
+            noteDetails = JSON.parse(pastedText.slice(19))
+            noteCategory.value = noteDetails.noteElig !== '' ? noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig] : noteDetails.noteDocType
+            noteSummary.value = noteDetails.noteTitle
+            noteStringText.value = noteDetails.noteText
             eleFocus(save)
         }
-    })
+    }
     let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrProviderId] : undefined
     if (noteInfo) {
         !function doAutoNote() { // Auto_Case_Noting
@@ -3857,8 +3851,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 }
                 setTimeout(() => {
                     if (noteInfo.intendedPerson) {
-                        // let intendedPerson = [...document.querySelectorAll('#noteMemberReferenceNumber > option')].find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) ).value
-                        noteMemberReferenceNumber.value = [...document.querySelectorAll('#noteMemberReferenceNumber > option')].find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) ).value
+                        noteMemberReferenceNumber.value = [...document.querySelectorAll('#noteMemberReferenceNumber > option')]?.find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) )?.value
                     }
                     noteCategory.value = noteInfo.noteCategory
                     noteSummary.value = noteInfo.noteSummary
@@ -3881,7 +3874,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.storedNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
                 document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
                 function copyNoteToLS() {
-                    let selectedLength = document.getElementsByClassName('selected').length
+                    let selectedLength = document.getElementsByClassName('selected')?.length
                     if (noteCategory?.value && selectedLength) {
                         localStorage.setItem("MECH2.copiedNote", JSON.stringify( getNoteDetails() ))
                         snackBar('Copied note!', 'notitle')
@@ -3890,13 +3883,13 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 }
             } else if (editMode) {
                 window.addEventListener('beforeunload', getDetailsStoreInLS)
-                function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
                 document.getElementById('cancel')?.addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
                 if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
                 let noteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
                 if (!noteDetailsExists && !storedNoteExists) { return };
                 //
-                if (noteDetailsExists && ["Application Incomplete", "Redetermination Incomplete"].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = noteDetails.noteCategory + " update" }
+                let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
+                if (noteDetailsExists && ["Application", "Redetermination" ].includes(noteCategorySplit0)) { noteDetails.noteSummary = noteCategorySplit0 + " update" }
                 let autofillButton = noteDetailsExists ? '<button type="button" id="autofill" class="form-button">Autofill</button>' : '', storedNoteButton = storedNoteExists ? '<button type="button" id="storedNote" class="form-button">Stored Note</button>' : ''
                 secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea">' + autofillButton + storedNoteButton + '</div>')
                 document.getElementById('tertiaryActionArea')?.addEventListener('click', clickEvent => {
@@ -3905,6 +3898,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     fillNoteDetails(selectedNoteDetails)
                 })
                 document.getElementById('save')?.addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
+                function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
             }
             function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrProviderId, }; }
             function fillNoteDetails(noteDetails) {
@@ -3944,7 +3938,6 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     if (!["`", 'Tab'].includes(keydownEvent.key) || keydownEvent.shiftKey) { return }
                     keydownEvent.preventDefault()
                     let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
-                    console.log(preceedingCharacter)
                     insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
                 })
             }
@@ -3995,23 +3988,24 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         document.querySelector('#caseData input#other')?.addEventListener('click', clickEvent => { document.getElementById('otherTextbox').value = clickEvent.target.checked ? 'See Worker Comments below' : '' })
         document.querySelectorAll('div.col-lg-offset-3')?.forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
         // [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ]
-        function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKSPLIT" %LetterGUINumber% "SPLIT" MEC2DocType "SPLIT" IdList
+        function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKJSON{"IdList":"List, comma separated", "CaseStatus":"status", "LetterText":"letter text"}
             let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-            if (pastedText.indexOf("LetterTextFromAHK") !== 0) { return }
+            if (pastedText.indexOf("LetterTextFromAHKJSON") < 0) { return }
             pasteEvent.preventDefault()
             pasteEvent.stopImmediatePropagation()
-            if (pastedText.indexOf("LetterTextFromAHKJSON") > -1) {
-                const letterObj = JSON.parse(pastedText.slice(21));
-            } else {
-                // textbox.value = "Please update mec2functions"
-                let [, commentsText, caseStatus, checkBoxIds] = pastedText.split('SPLIT')
-                if (status) {
-                    status.value = caseStatus
-                    void doChange(status)
-                    queueMicrotask(() => { checkBoxIds.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
-                }
-                textbox.value = commentsText
+            let letterObj = {}
+            letterObj = JSON.parse(pastedText.slice(21))
+            // } else {
+            //     // textbox.value = "Please update mec2functions"
+            //     const splitText = pastedText.split('SPLIT')
+            //     letterObj = { LetterText: splitText[1], CaseStatus: splitText[2], IdList: splitText[3] }
+            // }
+            if (status) {
+                status.value = letterObj.CaseStatus
+                void doChange(status)
+                queueMicrotask(() => { letterObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
             }
+            textbox.value = letterObj.LetterText
             eleFocus(save)
         }
         document.addEventListener('paste', pasteEventAHK )
@@ -4693,7 +4687,9 @@ function addDateControls(increment, ...eles) {
 function ifNoPersonUntabEndAndDisableChange(member, end, change) {
     if (member = sanitize.query(member)) {
         sanitize.query(end).tabIndex = "-1"
-        sanitize.query(change).disabled = true
+        change = sanitize.query(change)
+        change.readOnly = true
+        change.tabIndex = "-1"
     }
 };
 function checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren) {
