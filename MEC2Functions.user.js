@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.88
+// @version      0.5.89
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -32,7 +32,7 @@ const sanitize = {
         };
     },
     string(text) { return String(text)?.replace(/[^a-z0-9áéíóúñü \.,'_-]/gim, '') },
-    number(num) { return Number.isNaN(num) ? undefined : Number(num) },
+    number(num) { num = Number(num); return Number.isNaN(num) ? undefined : num },
     html(text) { return new DOMParser().parseFromString(text, "text/html").documentElement.textContent },
     timeStamp(time) { return String(time)?.replace(/[^apm0-9:,\/ ]/gi, '') },
     date(inputDate, dateTypeNeeded = "date") {
@@ -224,6 +224,16 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
                 case "inputUserNameTitle": { return "Input username signature title, including any punctuation\n(ex: , Hennpin County)." }
             }
         }
+
+        let baseCssOnlyList = countyInfo.info.baseCssOnlyList?.split(",") ?? []
+        function toggleItemInArray(arr, val) { return arr.includes(val) ? arr.filter(el => el !== val) : [...arr, val] }
+        document.getElementById('mec2stylusBaseCssToggle')?.addEventListener('click', clickEvent => {
+            toggleItemInArray(baseCssOnlyList, thisPageNameHtm)
+            countyInfo.updateInfo('baseCssOnlyList', !countyInfo.info.navOnly); document.getElementById('navOnly').textContent = mec2stylusBaseCssToggleText(); snackBar('Page must be reloaded to apply setting.', 'notitle')
+        })
+        if (baseCssOnlyList.includes(thisPageNameHtm)) { document.body.classList.add('baseStyle') }
+        let mec2stylusBaseCssToggleText = () => baseCssOnlyList.includes(thisPageNameHtm) ? "Custom Page Styling" : "Base Page Styling"
+
         document.getElementById('mec2functionsSettingsButtonDiv').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             if (clickEvent.target.id === "mec2functionsSave") {
@@ -236,7 +246,7 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
         let mec2functionsSettingsHTML = ''
         + '<a href="#">mec2functions</a>'
         + '<ul class="sub_menu" style="width: fit-content;" id="mec2functionsSubMenu">'
-            + [ { id: "navOnly", text: navOnlyText() }, { id: "mec2functionsFinancialWorker", text: "Financial Worker" }, { id: "mec2functionsPaymentWorker", text: "Payment Worker" }, { id: "mec2functionsProviderWorker", text: "Provider Worker" }, { id: "mec2functionsOpenSettings", text: "Settings" }, ].map(({ id, text } = {}) => '<li><a href="#" id="' + id + '">' + text + '</a>').join('')
+            + [ { id: "navOnly", text: navOnlyText() }, { id: "mec2stylusBaseCssToggle", text: mec2stylusBaseCssToggleText() }, { id: "mec2functionsFinancialWorker", text: "Financial Worker" }, { id: "mec2functionsPaymentWorker", text: "Payment Worker" }, { id: "mec2functionsProviderWorker", text: "Provider Worker" }, { id: "mec2functionsOpenSettings", text: "Settings" }, ].map(({ id, text } = {}) => '<li><a href="#" id="' + id + '">' + text + '</a>').join('')
         + '</ul>'
         let mec2functionsDropdown = document.createElement('li')
         mec2functionsDropdown.id = "mec2functionsDropdown"
@@ -741,7 +751,7 @@ if (countyInfo.info.navOnly) { return };
 function resetTabIndex(excludedListString) {
     const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
     if (nonResetPages.includes(thisPageNameHtm)) { return };
-    document.querySelectorAll('form :is(.form-control, .form-button):not([type=hidden])').forEach(ele => ele.removeAttribute('tabindex'))
+    document.querySelectorAll('form .panel-box-format :is(.form-control, .form-button):not([type=hidden])').forEach(ele => ele.removeAttribute('tabindex'))
 };
 const flashRedBorder = {
     animate(ele) { let saniEle = sanitize.query(ele); saniEle && saniEle.animate(this.redBorder, this.redBorderTiming) },
@@ -767,9 +777,13 @@ const nameFuncs = {
 const dateFuncs = {
     dayInMs: 86400000,
     addDays(date, days) {
-        date = sanitize.date(date, 'date');
-        date.setDate(date.getDate() + days);
-        return date;
+        date = sanitize.date(date, 'date')
+        return date.setDate(date.getDate() + sanitize.number(days));
+    },
+    addMonths(date, months, dayOfMonth) {
+        date = sanitize.date(date, 'date')
+        dayOfMonth = !dayOfMonth ? date.getDate() : dayOfMonth
+        return date.setMonth(date.getMonth() + sanitize.number(months), dayOfMonth);
     },
     dateDiffInDays(a, b) {
         if (!a) { return };
@@ -783,19 +797,15 @@ const dateFuncs = {
         date = date instanceof Date ? date : new Date(date)
         if ( date === "12/31/1969" || isNaN(date) ) { return undefined };
         switch (format) {
-            case "mmddyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" })
-            case "mdyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" })
-            case "mmddyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
-            case "mmddhm": return date.toLocaleDateString('en-US', { hour: "numeric", minute: "2-digit", month: "2-digit", day: "2-digit" })
-            case "utc": return Date.UTC()
-            default: return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" })
+            case "mmddyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" });
+            case "mdyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" });
+            case "mmddyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
+            case "mmddhm": return date.toLocaleDateString('en-US', { hour: "numeric", minute: "2-digit", month: "2-digit", day: "2-digit" });
+            case "utc": return Date.UTC();
+            default: return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
         }
     },
-    getDateString(year, month, week, day) {
-        const dateToGet = this.getDateofWeekdayWithWeek(year, month, week, day);
-        return dateToGet.toLocaleDateString();
-    },
-    getDateofWeekdayWithWeek(year, month, week, day) {
+    getDateOfWeekdayWithWeek(year, month, week, day) {
         if (week < 0) { month++ }
         const dateToGet = new Date(year, month, (week * 7) + 1)
         if (day < dateToGet.getDay()) { day += 7 }
@@ -1527,15 +1537,15 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             ncpAddress: { textIncludes: /Absent Parent of Child Ref #\d{2} has an address/, noteCategory: "NCP Information", noteSummary: [/(?:[A-Za-z\- ]+)(\#\d{2})(?:[a-z\- ]+)(.+?\d{5})(?:\d{0,4})\./, "ABPS of $1 address: $2"], noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
             cpAddress: { textIncludes: /Parentally Responsible Individual Ref #\d{2} add/, noteCategory: "Household Change", noteSummary: [/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[a-z- +]+)(.+)(\d{5})(?:\d{0,4})/i, "HH address per PRISM: $1$2"], omniPageButtons: ["CaseAddress"], },
             csInterface: { textIncludes: /Complete Child Support Interface win/, noteCategory: "Child Support Note", omniPageButtons: ["CaseCSIA"], },
-            csCSES: { textIncludes: /CSES\: Parentage|CSES\: Residence Address|CSES\: Birthdate|CSES\: Employer\'s name for Absent Parent|CSES\: Child support amount|CSES\: Support payment frequency|Absent Parent of Child Ref #\d{2} has an SSN change to/, noteSummary: "CSES Messages", noteCategory: "Child Support Note", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["delete"], },
-            csDeleteFocus: { textIncludes: /Absent Parent of Child Ref #\d{2} has a new empl|Amount of child support|Child support payment|Disbursed child care support|Paternity for Child Ref/, noteCategory: "Child Support Note", omniPageButtons: ["delete"], },
+            csCSES: { textIncludes: /CSES\: Parentage|CSES\: Residence Address|CSES\: Birthdate|CSES\: Employer\'s name for Absent Parent|CSES\: Child support amount|CSES\: Support payment frequency|Absent Parent of Child Ref #\d{2} has an SSN change to/, noteSummary: "CSES Messages", noteCategory: "NCP Information", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["delete"], },
+            csDeleteFocus: { textIncludes: /Absent Parent of Child Ref #\d{2} has a new empl|Amount of child support|Child support payment|Disbursed child care support|Paternity for Child Ref/, noteCategory: "NCP Information", omniPageButtons: ["delete"], },
             nonCoopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is not cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
             coopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
             csCpNewEmployer: { textIncludes: /Child support reported new employer for Parentally Responsible Individual/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEmploymentActivity"], },
             cpNameChange: { textIncludes: /Parentally Responsible Individual Ref #\d{2} reported a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], intendedPerson: true, omniPageButtons: ["CaseMember"], },
             csRecordsDiffer: { textIncludes: /differs with child support records/, noteCategory: "Child Support Note", omniPageButtons: ["CaseMember", "CaseAddress"], },
-            ncpNameChange: { textIncludes: /Absent Parent of Child Ref #\d{2} has a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z-\# ]+)(\d{2})(?: has a name change to )([a-z\'\-\,\. ]+)(?:\.)/i, "ABPS of M$1 name change: $2"], omniPageButtons: ["CaseCSE"], },
-            employerAddress: { textIncludes: /Complete Employer Address on the Earned Incom/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEarnedIncome"], },
+            ncpNameChange: { textIncludes: /Absent Parent of Child Ref #\d{2} has a name change/, noteCategory: "NCP Information", noteSummary: [/(?:[a-z-\# ]+)(\d{2})(?: has a name change to )([a-z\'\-\,\. ]+)(?:\.)/i, "ABPS of M$1 name change: $2"], omniPageButtons: ["CaseCSE"], },
+            employerAddress: { textIncludes: /Complete Employer Address/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEarnedIncome"], },
         },
         eligibility: {
             unapprovedElig: { textIncludes: /Unapproved results have/, noteCategory: "Other", omniPageButtons: ["CaseEligibilityResultSelection"], },
@@ -1550,13 +1560,12 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             terminatedSA: { textIncludes: /The system auto approved a terminated Service/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
             homelessApp: { textIncludes: /^Homeless/, noteCategory: "Application", omniPageButtons: ["autonoteButton"], },
             autoApprovedSA: { textIncludes: /The system auto approved a Service Auth/, noteSummary: "SA for age category change was auto-approved", noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
-            xferStatusChanged: { textIncludes: /changed to In Progress/, noteCategory: "Other", omniPageButtons: ["delete"], },
             dualAccess: { textIncludes: /Dual access has been initiated/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
             closeSusp: { textIncludes: /allowed period of suspension expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1"], omniPageButtons: ["autonoteButton"], },
             closeTI: { textIncludes: /allowed period of temporary ineligibility expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: TI period expires on $1"], omniPageButtons: ["autonoteButton"], },
             caseTransferring: { textIncludes: /This case is transferring to your Servicing/, noteCategory: "Other", omniPageButtons: ["CaseAddress", "ServicingAgencyIncomingTransfers"], },
-            caseTransferInProgress: { textIncludes: /The transfer status has been changed/, noteCategory: "Other", omniPageButtons: ["delete"], },
-            caseTransferInProgress: { textIncludes: /A new Job Search Tracking window/, noteCategory: "Other", omniPageButtons: ["CasePageSummary"], },
+            xferStatusChanged: { textIncludes: /The transfer status has been changed/, noteCategory: "Other", omniPageButtons: ["delete"], },
+            newJobSearchWindow: { textIncludes: /A new Job Search Tracking window/, noteCategory: "Other", omniPageButtons: ["CasePageSummary"], },
             servicingEnd: { textIncludes: /The Servicing Ends date/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Servicing Ends date changed to $1"], omniPageButtons: ["autonoteButton"], },
         },
         masschange: {
@@ -1565,7 +1574,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         maxis: {
             gcReviewDate: { textIncludes: /Good Cause (?:Claim|Review) date/i, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+)(\d{1,2}\/\d{1,2}\/\d{2,4}) to (Blank|\d{1,2}\/\d{1,2}\/\d{2,4})(?:[a-z0-9 ]+.)/i, "Good Cause review date: $1 to $2"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteMsgFunc: "doFunctionOnNotes", },
             genGoodCauseChanged: { textIncludes: /Good Cause/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: [/([a-z ]+)(?: for [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteMsgFunc: "doFunctionOnNotes", },
-            abpsChange: { textIncludes: /for Absent Parent/, noteCategory: "Child Support Note", noteSummary: [/([a-z ]+)(?: for Absent Parent [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], },
+            abpsChange: { textIncludes: /for Absent Parent/, noteCategory: "NCP Information", noteSummary: [/([a-z ]+)(?: for Absent Parent [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], },
             schoolChanged: { textIncludes: /SCHL Panel|Ver has been changed on the School|Kindergarten|School Type|School Status|Last Grade Completed/, noteCategory: "Other", omniPageButtons: ["delete", "CaseSchool", "CaseEducationActivity"], },
             childRef: { textIncludes: /for Child Ref/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+)(?: for Child Ref # \d\d has[a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember"], },
             changeReported: { textIncludes: /reported to MAXIS/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+ has been reported to MAXIS)(?:.*)/i, "$1"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseUnearnedIncome"], },
@@ -1574,7 +1583,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             marriage: { textIncludes: /Marriage Date|Marital status|Designated Spouse/, noteCategory: "Household Change", noteSummary: "Marriage alerts from MAXIS worker", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseMemberII"], },
             memberLeft: { textIncludes: /Member Left date/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})./, "REMO: personName left $1"], omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
             memberJoined: { textIncludes: /Member window for Reference Number/, noteCategory: "Household Change", intendedPerson: true, noteSummary: 'doFunction', omniPageButtons: ["CaseNotes", "CaseMember"], },
-            childRemoved: { textIncludes: /Child\'s Reference Number has been removed|Parent window has been added/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseParent", "CaseRemoveMember"], },
+            childRemoved: { textIncludes: /Child\'s Reference Number has been removed|Parent window has been added/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseParent"], },
             childCseRemoved: { textIncludes: /Child Ref Nbr \d{2} has been removed/, noteCategory: "Other", omniPageButtons: ["CaseCSE", "CaseRemoveMember"], },
             dateOfDeath: { textIncludes: /Date of Death/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseMember"], },
             schoolPanelAdded: { textIncludes: /SCHL Panel|School Type/, noteCategory: "Other", omniPageButtons: ["CaseNotes", "CaseSchool", "CaseEducationActivity"], },
@@ -1582,14 +1591,10 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             disabilityStart: { textIncludes: /Disability start date/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["delete", "CaseDisability"], },
             residenceAddress: { textIncludes: /Residence Address has been/, noteCategory: "Household Change", noteSummary: "Residence address changed by MAXIS worker", noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
             mailingAddress: { textIncludes: /Mailing Address has been/, noteCategory: "Household Change", noteSummary: "Mailing address changed by MAXIS worker", noteMsgFetchData: ["CaseAddress:0.0.mailingStreet1", "CaseAddress:0.0.mailingStreet2", "CaseAddress:0.0.mailingCity", ], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
-            // unemployment: { textIncludes: /Unemployment Insurance reported/, noteCategory: "Other", omniPageButtons: ["CaseUnearnedIncome"], },
-            // reportedToMaxis: { textIncludes: /reported to MAXIS/, noteCategory: "Other", omniPageButtons: ["CaseNotes"], },
-            // memberVerChanged: { textIncludes: /Verification has been changed on the Member window/, noteCategory: "Other", omniPageButtons: ["CaseMember",], },
-            // memberIIVerChanged: { textIncludes: /has been changed on the Member II/, noteCategory: "Other", omniPageButtons: ["CaseMemberII",], },
             windowAddedRemoved: { textIncludes: /window [a-z0-9 ]+ been/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+ window)(?:[a-z0-9 ]+ been )([a-z ]+)(?: by.+)/i, "$1: $2"], omniPageButtons: ["autonoteButton", "CaseMember"], },
             verMultiChanged: { textIncludes: /SSN has been changed|SSN Verification has been changed|Paternity for Child Ref|Last Grade Completed/, noteCategory: "Other", omniPageButtons: ["delete"], },
-            verSourceChanged: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+ on the )([a-z]+)(?: window from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "Maxis: $1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
-            // hasBeenChanged: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+)(?: has[a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
+            verSourceChangedCatchAll: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+ on the )([a-z]+)(?: window from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "Maxis: $1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
+            hasBeenAddedCatchAll: { textIncludes: /has been added/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseParent"], },
         },
         parisinterstate: {
             parisMatch: { textIncludes: /PARIS/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
@@ -1597,7 +1602,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
         periodicprocessing: {
             jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Job search hours end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
             missingKindergarten: { textIncludes: /Member missing Kindergarten/, noteCategory: "Other", omniPageButtons: ["CaseSchool"], },
-            ageCategory: { textIncludes: /Member turned/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember"], },
+            ageCategory: { textIncludes: /Member turned/, noteCategory: "Service Authorization", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember"], },
             tyExpires: { textIncludes: /The allowed time on Transition Year will expi/, noteCategory: "Other", noteSummary: [/(?:[a-z ]+)(\d{2}\/\d{2}\/\d{2,4})(?:[a-z\. ]+)/i, "Approved TY to BSF elig results eff $1"], omniPageButtons: ["FundingAvailability"], },
             extendedEligExpiring: { textIncludes: /activity extended eligibility/, noteCategory: "Activity Change", noteSummary: [/The (\w+)(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseEmploymentActivity", "CaseSupportActivity"], },
             homelessExpiring: { textIncludes: /The Homeless 3 month period will expire/, noteCategory: "Application", noteSummary: [/(?:[A-Za-z0-9 ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI"], omniPageButtons: ["autonoteButton", "CaseAction"], },
@@ -1671,8 +1676,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
                 if (existingCashResults) {
                     for (let caseNum in existingCashResults) { existingCashResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined }
                     placeMfipResults(existingCashResults)
-                }
-                if (!document.querySelector('.tableSpan')) { sessionStorage.removeItem('cashAlertResults') }
+                } else if (existingCashResults && !checkCashArray.length) { sessionStorage.removeItem('cashAlertResults') }
                 if (!checkCashArray.length) { return }
                 alertDetailRow.insertAdjacentHTML('beforeend', '<button type="button" id="doMfipCheck" class="cButton" tabindex="-1">Check MFIP Alerts</button>')
                 document.getElementById('doMfipCheck').addEventListener( 'click', () => checkMfipResults(checkCashArray) )
@@ -1713,7 +1717,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
 
         deleteButton.insertAdjacentElement('afterend', createButton)
         alertTotal.insertAdjacentHTML('afterend', `
-        <button type="button" class="form-button centered-text" id="deleteTop">Delete Alert</button>
+        <button type="button" class="form-button centered-text ulfl" id="deleteTop">Delete Alert</button>
         <button type="button" class="form-button centered-text" id="deleteAll" title="Delete All" value="Delete All">Delete All</button>
         <button type="button" class="form-button centered-text hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>
         `)
@@ -1943,26 +1947,25 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     let workerCreatedAlert = sanitize.json(localStorage.getItem('MECH2.workerCreatedObject'))
     if (!workerCreatedAlert) { return }
     localStorage.removeItem('MECH2.workerCreatedObject')
-    document.querySelector('label[for=message]').parentElement.insertAdjacentHTML('afterend', '<div class="form-group" id="workerAlertButtons"></div>')
+    document.querySelector('label[for=message]').parentElement.insertAdjacentHTML('afterend', '<div class="form-group" id="workerAlertButtons" style="margin-top: 10px;"></div>')
     let workerAlertButtons = document.getElementById('workerAlertButtons')
-    let matchesDelayStrings = ( ["Unapproved results", "The program switch"].includes(workerCreatedAlert.noteMessage?.slice(0, 18)) ) ? delayMfipButtons() : snoozeButtons()
+    let matchesDelayStrings = ( ["Unapproved results", "The program switch", "Approve new result"].includes(workerCreatedAlert.noteMessage?.slice(0, 18)) ) ? delayMfipButtons() : snoozeButtons()
     function snoozeButtons() {
         workerAlertButtons.insertAdjacentHTML('beforeend','<button type="button" class="cButton delay" id="snooze1">Snooze One Day</button><button type="button" class="cButton delay" id="snooze7">Snooze One Week</button><button type="button" class="cButton delay" id="snooze14">Snooze Two Weeks</button>')
         workerAlertButtons.addEventListener('click', doSnooze )
         focusEle = '#snooze1'
         function doSnooze(clickEvent) {
             clickEvent.preventDefault()
-            let snoozeDays = Number(clickEvent.target.id.slice(6))
-            if (Number.isNaN(snoozeDays)) { return }
-            let todayDate = new Date()
-            let snoozeDate = dateFuncs.formatDate(todayDate.setDate(todayDate.getDate() + snoozeDays), 'mmddyyyy')
+            let snoozeDays = sanitize.number(clickEvent.target.id.slice(6))
+            if (!snoozeDays) { return }
+            let todayDate = new Date(), snoozeDate = dateFuncs.formatDate(todayDate.setDate(todayDate.getDate() + snoozeDays), 'mmddyyyy')
             enterAlertInfo("Snoozed: " + workerCreatedAlert.messageCategory + ": " + workerCreatedAlert.noteMessage, snoozeDate)
         }
     }
     function delayMfipButtons() {
         let todayDate = new Date()
-        let nextMonth = dateFuncs.formatDate(todayDate.setMonth(todayDate.getMonth() + 1, 1), 'mmddyyyy')
-        let monthAfter = dateFuncs.formatDate(todayDate.setMonth(todayDate.getMonth() + 1, 1), 'mmddyyyy')
+        let nextMonth = dateFuncs.formatDate(dateFuncs.addMonths(todayDate, 1, 1), 'mmddyyyy')
+        let monthAfter = dateFuncs.formatDate(dateFuncs.addMonths(todayDate, 1, 1), 'mmddyyyy')
         workerAlertButtons.insertAdjacentHTML('beforeend','<button type="button" class="cButton delay" id="delayNextMonth">MFIP Close Delay Alert: ' + nextMonth + '</button><button type="button" class="cButton delay" id="delayMonthAfter">MFIP Close Delay Alert: ' + monthAfter + '</button>')
         workerAlertButtons.addEventListener('click', doMfipDelay )
         focusEle = '#delayNextMonth'
@@ -2029,7 +2032,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     document.querySelectorAll('#billsTable_wrapper thead tr td:nth-child(3)').forEach(ele => { (ele.childElementCount ? ele.firstElementChild : ele).textContent = "PID" })
     document.querySelectorAll('#billsTable_wrapper thead tr td:nth-child(7)').forEach(ele => { (ele.childElementCount ? ele.firstElementChild : ele).textContent = "E-Bill" })
     document.querySelectorAll('#billsTable_wrapper thead tr td:nth-child(8)').forEach(ele => { (ele.childElementCount ? ele.firstElementChild : ele).textContent = "Manual" })
-    listPageLinksAndList([0, "FinancialBilling", 4], [2, "ProviderInformation"])
+    listPageLinksAndList([ { child: 0, parm3Child: 4, pageToLinkTo: "FinancialBilling" }, { child: 2, pageToLinkTo: "ProviderInformation"} ])
+    // listPageLinksAndList([0, "FinancialBilling", 4], [2, "ProviderInformation"])
     addDateControls("day", document.getElementById('searchStartDate'))
 }(); // SECTION_END Bills_List;
 !function CaseAction() {
@@ -2085,25 +2089,28 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     secondaryActionArea?.insertAdjacentHTML('beforeend', '<div id="tertiaryActionArea"></div>')
     let childProviderSaaButtons = document.getElementById('tertiaryActionArea')
     document.getElementById('reporterType').disabled = true
+    evalData().then(({ 0: childProvidersData} = {}) => {
+        if (!childProvidersData) { return };
+        let providerDataRowOffset = 0
+        childProvidersData.forEach(providerData => {
+            if (providerData.providerId === "") { providerDataRowOffset++; return }
+            let providerDataRow = editMode ? Number(providerData.rowIndex) + providerDataRowOffset : providerData.rowIndex
+            childProviderTableTbodyRows[providerDataRow].children[2].innerHTML = '<span>' + sanitize.evalText(providerData.providerName) + ' </span><a href="https://mec2.childcare.dhs.state.mn.us/ChildCare/ProviderOverview.htm?providerId=' + providerData.providerId + '" target="_blank">(' + providerData.providerId + ')</a>'
+            let endDate = childProviderTableTbodyRows[providerDataRow].children[4]?.textContent
+            if ( Date.parse(endDate) < Date.parse(selectPeriodDates.start) ) { childProviderTableTbodyRows[providerDataRow].classList.add('disabledRow')}
+        })
+    }).catch(err => { console.trace(err) })
     if (!editMode) {
         !function providerPagesButtons() {
             let providerButtonHTML = [ ["buttonProviderAddress", "Address"], ["buttonProviderInformation", "Contact"], ["buttonProviderParentAware", "Parent Aware"], ["buttonProviderAccreditation", "Accred."] ]
             .map(([id, name]) => { return '<button type="button" class="cButton sidePadding" tabindex="-1" id="' + id + '">' + name + '</button>' }).join('');
             h4objects.providerinformation.h4.insertAdjacentHTML('afterend','<div id="providerPageButtons" class="float-right-imp h4-line" style="display: flex; gap: 5px;">' + providerButtonHTML + '</div>');
             document.getElementById('providerPageButtons').addEventListener('click', clickEvent => {
-                let providerPageName = clickEvent.target.id.slice(6)
+                let providerPageName = clickEvent.target.id.split('button')[1]
                 clickEvent.preventDefault()
                 window.open("/ChildCare/" + providerPageName + ".htm?providerId=" + ccpEle.providerId.value, "_blank");
             })
         }();
-        evalData().then(({ 0: childProvidersData} = {}) => {
-            if (!childProvidersData) { return };
-            childProvidersData.forEach(providerData => {
-                childProviderTableTbodyRows[providerData.rowIndex].children[2].innerHTML = '<span>' + sanitize.evalText(providerData.providerName) + ' </span><a href="https://mec2.childcare.dhs.state.mn.us/ChildCare/ProviderOverview.htm?providerId=' + providerData.providerId + '" target="_blank">(' + providerData.providerId + ')</a>'
-                let endDate = childProviderTableTbodyRows[providerData.rowIndex].children[4]?.textContent
-                if ( Date.parse(endDate) < Date.parse(selectPeriodDates.start) ) { childProviderTableTbodyRows[providerData.rowIndex].classList.add('disabledRow')}
-            })
-        }).catch(err => { console.trace(err) })
     } else if (editMode) {
         setTimeout(() => {
             resetTabIndex()
@@ -2384,9 +2391,9 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     function providerTypeExists() {
         childProviderPage()
         switch (ccpEle.providerType.value) {
-            case "": console.trace('CaseChildProvider.htm section, !ccpEle.providerType.value'); break
-            case "Legal Non-licensed": eleFocus(ccpEle.providerLivesWithChild); break;
-            default: eleFocus(ccpEle.primaryBeginDate); break;
+            case "": { console.trace('CaseChildProvider.htm section, !ccpEle.providerType.value'); break; }
+            case "Legal Non-licensed": { eleFocus(ccpEle.providerLivesWithChild); break; }
+            default: { eleFocus(ccpEle.primaryBeginDate); console.log(1); preventKeys(["Tab"]); break; }
         }
     }
     let listenForDateChange = [ccpEle.primaryBeginDate, ccpEle.secondaryBeginDate].forEach(ele => {
@@ -2686,6 +2693,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     let ceiIncomeType = document.getElementById('ceiIncomeType'), ceiEmpCountry = document.getElementById('ceiEmpCountry')
     let ceiAddressLabels = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.querySelector('label[for=' + ele + ']'))
     let ceiAddressLabelsAndDivs = [...ceiAddressLabels, ...ceiAddressLabels.map(ele => ele.nextElementSibling) ]
+    let ceiAddressGroups = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.getElementById(ele)?.closest('.form-group'))
     h4objects.actualincome.h4.click();
     tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome')
     function checkEmploymentType() {
@@ -2701,8 +2709,8 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     checkEmploymentType()
     let toggleEmployerAddress = createSlider({ label: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", defaultOn: false, classes: "float-right-imp h4-line", })
     h4objects.details.h4.insertAdjacentHTML('afterend', toggleEmployerAddress)
-    document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressLabelsAndDivs, ele.target.checked) )
-    unhideElement(ceiAddressLabelsAndDivs, false)
+    document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressGroups, ele.target.checked) )
+    unhideElement(ceiAddressGroups, false)
     if (editMode) {
         ceiIncomeType.addEventListener('change', changeEvent => {
             checkEmploymentType()
@@ -2825,7 +2833,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 !function __CaseServiceAuthorizationOverview() {
 if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { return };
     let status = document.getElementById('status'), providerInfoTable = document.getElementById('providerInfoTable'), copayAmountManual = document.getElementById('copayAmountManual')
-    listPageLinksAndList([0, "ProviderOverview",])
+    listPageLinksAndList([{child: 0, pageToLinkTo: "ProviderOverview"}])
     if (typeof userCountyObj !== undefined && userCountyObj.code === "169") {
         document.getElementById('csicTableData1')?.insertAdjacentHTML('beforebegin', `
             <div style="overflow: hidden" id="billingFormDiv">
@@ -3249,8 +3257,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         if (approxAge < 17) { fiftyPercentFinancialSupport() }
         if (approxAge > 10) { return false }
         let fifthBirthDate = new Date(birthDate.setFullYear(birthDate.getFullYear() + 5)), fifthBirthDateValue = sanitize.date(fifthBirthDate, "number")
-        let laborDay = dateFuncs.getDateofWeekdayWithWeek(fifthBirthDate.getFullYear(), 8, 0, 1), laborDayValue = sanitize.date(laborDay, "number")
-        if (fifthBirthDateValue > laborDayValue) { laborDay = dateFuncs.getDateofWeekdayWithWeek(fifthBirthDate.getFullYear() + 1, 8, 0, 1); laborDayValue = sanitize.date(laborDay, "number") }
+        let laborDay = dateFuncs.getDateOfWeekdayWithWeek(fifthBirthDate.getFullYear(), 8, 0, 1), laborDayValue = sanitize.date(laborDay, "number")
+        if (fifthBirthDateValue > laborDayValue) { laborDay = dateFuncs.getDateOfWeekdayWithWeek(fifthBirthDate.getFullYear() + 1, 8, 0, 1); laborDayValue = sanitize.date(laborDay, "number") }
         let olderThanKindergartenStart = today > laborDayValue ? 1 : 0
         if (olderThanKindergartenStart) {
             !memberSchoolStatus.value && (memberSchoolStatus.value = "Fulltime")
@@ -3537,7 +3545,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }; // SECTION_END Client_Search;
 !function ClientSearch() {
     if (!("ClientSearch.htm").includes(thisPageNameHtm)) { return };
-    if (rederrortextContent.find(arrItem => arrItem.indexOf("Warning: SSN is missing") > -1)) { [...document.getElementById('selectBtn'), document.getElementById('createPMIBtn')].forEach(ele => { ele.style.display = "inline-block" }) }
+    if (rederrortextContent.find(arrItem => arrItem.indexOf("Warning: SSN is missing") > -1)) { [document.getElementById('selectBtn'), document.getElementById('createPMIBtn')].forEach(ele => { ele.style.display = "inline-block" }) }
     let searchTableTbody = document.querySelector('#clientSearchTable > tbody'), selectBtn = document.getElementById('selectBtn'), programBtn = document.getElementById('programBtn'), returnBtn = document.getElementById('returnBtn'), h5 = document.querySelector('h5')
     if (selectBtn) { let focusBtn = selectBtn.style.display !== "none" ? selectBtn : programBtn; searchTableTbody?.addEventListener( 'click', () => eleFocus(focusBtn) ) }
     if (document.getElementById('resetbtn')) {
@@ -3561,9 +3569,13 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }
     }
     if (returnBtn && returnBtn.style.display !== "none") {
-        waitForTableCells('#clientSearchProgramResults').then(resultTable => {
-            [...resultTable.querySelectorAll('tr > td:nth-child(2)')].filter(ele => ["MFIP/DWP Child Care", "Basic Sliding Fee", "Transition Year", "Transition Year Extension"].includes(ele.innerText)).forEach(ele2 => ele2.classList.add('match'));
-            [...resultTable.querySelectorAll('tr > td:nth-child(3)')].filter(ele => ele.innerText.indexOf("Current") > -1).forEach(ele2 => ele2.classList.add('match'));
+        const resultTable = document.querySelector('#clientSearchProgramResults tbody').children
+        const testPendCurrent = text => { return (["PEND", "Current"].includes(text.split(" ")[1]) ) ? "match" : "disabledText" }
+        evalData().then( ({ 0: results } = {}) => {
+            results.forEach( ({ participationPeriod, affiliatedPeriod }, i) => {
+                participationPeriod !== " " && resultTable[i].children[2].classList.add( testPendCurrent(participationPeriod) )
+                affiliatedPeriod !== " " && resultTable[i].children[3].classList.add( testPendCurrent(affiliatedPeriod) )
+            })
         })
     }
     if ( programBtn ) {
@@ -3583,7 +3595,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
 !function __FinancialBilling() {
     if (!("FinancialBilling.htm").includes(thisPageNameHtm) || !caseId) { return };
-    listPageLinksAndList([4, "ProviderInformation"])
+    listPageLinksAndList([ {child: 4, pageToLinkTo: "ProviderInformation"} ])
     let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody')
     if (editMode) {
         let totalHoursBilledWeekOne = document.getElementById('totalHoursBilledWeekOne'), totalHoursBilledWeekTwo = document.getElementById('totalHoursBilledWeekTwo'), totalHoursOfCareAuthorized = document.getElementById('totalHoursOfCareAuthorized'), totalHours = [ totalHoursBilledWeekOne, totalHoursBilledWeekTwo, totalHoursOfCareAuthorized ]
@@ -3617,7 +3629,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Financial_Billing;
 !function __FinancialBillingApproval() {
     if (!("FinancialBillingApproval.htm").includes(thisPageNameHtm) || !caseId) { return };
-    listPageLinksAndList([0, "ProviderInformation"])
+    listPageLinksAndList([ {child: 0, pageToLinkTo: "ProviderInformation"} ])
     if (editMode) {
         h4objects.comments.h4.insertAdjacentHTML('afterend', ''
             + '<div class="float-right-imp" id="commentsButtons">'
@@ -3789,7 +3801,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }
     document.addEventListener('paste', pasteEventAHK )
     function pasteEventAHK(event) { //pasted from AHK
-        let pastedText = event.clipboardData.getData("text")
+        let pastedText = (event.clipboardData || window.clipboardData).getData("text")
         if (pastedText.indexOf("CaseNoteFromAHKJSON") < 0) { return }
         event.preventDefault()
         event.stopImmediatePropagation()
@@ -3804,7 +3816,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
             }
             let noteDetails = {}
-            noteDetails = JSON.parse(pastedText.slice(19))
+            noteDetails = JSON.parse(pastedText.split('AHKJSON')[1])
             noteCategory.value = noteDetails.noteElig !== '' ? noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig] : noteDetails.noteDocType
             noteSummary.value = noteDetails.noteTitle
             noteStringText.value = noteDetails.noteText
@@ -3989,17 +4001,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         document.querySelectorAll('div.col-lg-offset-3')?.forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
         // [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ]
         function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKJSON{"IdList":"List, comma separated", "CaseStatus":"status", "LetterText":"letter text"}
-            let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+            let pastedText = (event.clipboardData || window.clipboardData).getData("text") //.replace(/(?<!\\)"/, '\"') // fixed in AHK - escapes added;
             if (pastedText.indexOf("LetterTextFromAHKJSON") < 0) { return }
             pasteEvent.preventDefault()
             pasteEvent.stopImmediatePropagation()
             let letterObj = {}
-            letterObj = JSON.parse(pastedText.slice(21))
-            // } else {
-            //     // textbox.value = "Please update mec2functions"
-            //     const splitText = pastedText.split('SPLIT')
-            //     letterObj = { LetterText: splitText[1], CaseStatus: splitText[2], IdList: splitText[3] }
-            // }
+            letterObj = JSON.parse(pastedText.split('AHKJSON')[1])
             if (status) {
                 status.value = letterObj.CaseStatus
                 void doChange(status)
@@ -4013,9 +4020,11 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         if ( ["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) ) { // || ("CaseNotices.htm".includes(thisPageNameHtm) && document.getElementById('textbox2')?.disabled === false) ) {
             let textareaButtonText = {
                 jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
-                + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+                    + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
                 extEligEnds() { return 'Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,'
-                + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+                    + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+                closingUnpaidCopay() { return 'Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n'
+                    + 'If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility.' },
                 abpsInHh() {
                     let abpsInput = prompt("What is the absent parent's name?")
                     return 'I have been notified that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is now residing in your household, please submit the following verifications:'
@@ -4035,6 +4044,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 + '<button type="button" class="cButton" tabindex="-1" id="abpsInHh">ABPS in HH</button>'
                 + '<button type="button" class="cButton" tabindex="-1" id="fosterChildCcap">CCAP for Foster</button>'
                 + '<button type="button" class="cButton" tabindex="-1" id="deniedOpen">Denied, Case Open</button>'
+                + '<button type="button" class="cButton" tabindex="-1" id="closingUnpaidCopay">Closing, Unpaid Copay</button>'
                 + ("CaseMemo.htm".includes(thisPageNameHtm) ? '<button type="button" class="cButton" tabindex="-1" id="lnlSfsTraining">LNL SfS Training</button>' : '')
             + '</div>'
             !function addTextareaButtons() {
@@ -4197,7 +4207,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     tabIndxNegOne('#ssn, #itin, #fein, #licenseNumber, #middleInitName')
     if (providerSearchResultsLength > 1) {
         let localCounties = {
-            neighbors: [...userCountyObj?.neighbors, userCountyObj?.county],
+            neighborsAndSelf: [...userCountyObj?.neighbors, userCountyObj?.county],
             outOfState: userCountyObj?.outOfState
         }
         const invisEle = document.createElement('div')
@@ -4206,37 +4216,38 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         const hiddenClassSet = new Set(['inactiveToggle', 'outOfAreaToggle'])
         let searchStyle = cssStyle(), replaceStyle = doTableStyleToggle(invisEle, 'outOfAreaToggle')
         searchStyle.replaceSync( replaceStyle + " tbody .inactiveToggle { display: none !important; } tbody .outOfAreaToggle { display: none !important; }" );
-        evalData().then(providerArray => {
-            const { 0: providerList } = providerArray
-            for (let index in providerList) {
-                let providerData = providerList[index], countyName = providerData.county.replace(/<.*?>/g, '')
-                if (providerData.status.indexOf("Inactive") > -1) { // adding inactive
-                    providerSearchTableTbodyChildren[providerData.selectedRowIndex].classList.add('inactiveToggle')
-                }
-                if ( !localCounties.neighbors?.includes(countyName) ) { // adding out-of-area
-                    if (countyName === "Out-of-State" && localCounties.outOfState) {
-                        let providerZip = providerData.address.slice(-9, -4)
-                        if ( inRange(providerZip, localCounties.outOfState[0], localCounties.outOfState[1]) ) { continue }
-                    }
+        evalData().then(providerObj => {
+            const { 0: providerArray } = providerObj
+            for (let index in providerArray) {
+                let providerData = providerArray[index], countyName = providerData.county.replace(/<.*?>/g, '')
+                if (providerData.status.indexOf("Inactive") > -1) { providerSearchTableTbodyChildren[providerData.selectedRowIndex].classList.add('inactiveToggle') } // adding inactive
+                if ( !localCounties.neighborsAndSelf?.includes(countyName) ) { // not local county
+                    let providerZip = providerData.address.split("  ")[1].split("<")[0].slice(0, 5)
+                    console.log(providerZip, localCounties.outOfState[0], localCounties.outOfState[1], inRange(providerZip, localCounties.outOfState[0], localCounties.outOfState[1]))
+                    if (countyName === "Out-of-State" && localCounties.outOfState) { if ( inRange(providerZip, localCounties.outOfState[0], localCounties.outOfState[1]) ) { continue } } // skip zip codes within the ranges from userCountyObj.outOfState
                     providerSearchTableTbodyChildren[providerData.selectedRowIndex].classList.add('outOfAreaToggle')
                 }
             }
             let openActiveNearby = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle, .outOfAreaToggle').length, openActive = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle').length
-            let inactiveToggle = createSlider({ label: "Show Inactive", title: "Show or hide providers that are inactive", id: "inactiveToggle", defaultOn: false, }), outOfAreaToggle = createSlider({ label: "Show Out-of-Area", title: "Show or hide providers that are more than 1 county away", id: "outOfAreaToggle", defaultOn: false, })
-            let h5element = document.querySelector('h5')
-            h5element.textContent += " " + openActiveNearby + " open local providers. " + openActive + " active providers."
-            h5element.insertAdjacentHTML('afterend', '<div id="searchFilters" style="gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;">' + inactiveToggle + outOfAreaToggle + '</div>')
-            document.getElementById('searchFilters').addEventListener('click', clickEvent => {
-                if (clickEvent.target.nodeName !== "INPUT") { return }
-                let replaceStyle = doTableStyleToggle(invisEle, clickEvent.target.id)
-                let nonHidden = hiddenClassSet.difference(new Set([...invisEle.classList])), hidden = hiddenClassSet.difference(nonHidden)
-                let nonHiddenRule = [...nonHidden].map(item1 => " ." + item1 + " { display: table-row; }").join(''), hiddenRule = [...hidden].map(item2 => " ." + item2 + " { display: none; }").join('')
-                searchStyle.replaceSync( replaceStyle + nonHiddenRule + hiddenRule )
-            })
+            let inactiveCount = document.getElementsByClassName('inactiveToggle').length, outOfAreaCount = document.getElementsByClassName('outOfAreaToggle').length
+            let inactiveToggle = inactiveCount > 0 ? createSlider({ label: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", defaultOn: false, }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ label: "Show Out-of-Area", title: "Toggle showing providers that are more than 1 county away", id: "outOfAreaToggle", defaultOn: false, }) : ""
+            if ( (inactiveCount + outOfAreaCount) > 0 ) {
+                let h5element = document.querySelector('h5')
+                let h5elementText = document.querySelector('h5').innerText.split(".")
+                h5element.textContent = h5elementText[0] + ". " + openActiveNearby + " active local providers. " + openActive + " active providers total." + h5elementText[1] + "."
+                h5element.insertAdjacentHTML('afterend', '<div id="searchFilters" style="gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;">' + inactiveToggle + outOfAreaToggle + '</div>')
+                document.getElementById('searchFilters')?.addEventListener('click', clickEvent => {
+                    if (clickEvent.target.nodeName !== "INPUT") { return }
+                    let replaceStyle = doTableStyleToggle(invisEle, clickEvent.target.id)
+                    let nonHidden = hiddenClassSet.difference(new Set([...invisEle.classList])), hidden = hiddenClassSet.difference(nonHidden)
+                    let nonHiddenRule = [...nonHidden].map(item1 => " ." + item1 + " { display: table-row; }").join(''), hiddenRule = [...hidden].map(item2 => " ." + item2 + " { display: none; }").join('')
+                    searchStyle.replaceSync( replaceStyle + nonHiddenRule + hiddenRule )
+                })
+            }
             queueMicrotask(() => { providerSearchTableTbody.querySelector('tr:not(.inactiveToggle, .outOfAreaToggle)')?.click() })
         }).catch(err => { console.trace(err) });
     }
-    if (providerSearchResultsLength === 1 && providerSearchTableTbodyChildren[0].textContent !== "No records found" ) {
+    if (providerSearchResultsLength === 1 && providerSearchTableTbodyChildren[0]?.textContent !== "No records found" ) {
         [...providerSearchTableTbody.querySelectorAll('a')].forEach(ele => { ele.target = '_self' })
     }
     let docRef = document.referrer
@@ -4244,7 +4255,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Provider_Search;
 !function _Transfers_ServicingAgency_Incoming_Outgoing() {
     if (!["ServicingAgencyIncomingTransfers.htm", "ServicingAgencyOutgoingTransfers.htm"].includes(thisPageNameHtm)) { return };
-    listPageLinksAndList(5, "CaseAddress")
+    listPageLinksAndList([ {child: 5, pageToLinkTo: "CaseAddress"} ])
+
 }(); // SECTION_END _Transfers_ServicingAgency_Incoming_Outgoing;
 !function _WorkerPages_ProviderRegistrationList() {
     if (!["CaseWorker.htm", "lastUpdateWorker.htm", "WorkerSearch.htm", "ProviderWorker.htm", "ProviderRegistrationList.htm"].includes(thisPageNameHtm)) { return };
@@ -4907,7 +4919,7 @@ const stateDataSwap = {
     stateNameToAcronym(stateName) { return Object.keys(this.stateNamesAndLetters).find(key => this.stateNamesAndLetters[key] === this.stateNamesAndLetters) ?? this.stateNamesAndLetters },
     swapStateNameAndAcronym(stateInfo) { return Object.keys(this.stateNamesAndLetters).find(key => this.stateNamesAndLetters[key] === stateInfo) ?? this.stateNamesAndLetters[stateInfo] },
 };
-function inRange(x, min, max) { return typeof x === "string" ? undefined : x >= min && x <= max };
+function inRange(x, min, max) { return Number(x).isNan ? undefined : x >= min && x <= max };
 function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle.rowIndex -1) : [...childEle.parentElement.children].indexOf(childEle) ) ?? undefined };
 function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) {
     if (textbox.value.indexOf('\n') === -1 && textbox.value.length <= maxColumns) { return 1 }
@@ -5007,23 +5019,24 @@ function reselectSelectedTableRow(storedTable = 'table', scroll=0) {
         if (rowParams.top < tableParams.top || rowParams.bottom > tableParams.bottom) { foundRow.scrollIntoView({ behavior: "smooth", block: "center" }) }
     })
 };
-function listPageLinksAndList(...rowAndPageArrays) { // listPageLinksAndList([table#OnPage, "PageToLinkTo", columnIfNot0], [etc])
+function listPageLinksAndList(rowAndPageArrays = [{ child: 0 }]) { // listPageLinksAndList([ { pageToLinkTo:"PageToLinkTo.htm", child: columnIfNot0, parm3Child: columnIfRelevant }, { etc } ])
+    let trNumberArray = []
     waitForTableCells().then(() => {
-        let trs = [...document.querySelector('tbody').children], trNumberArray = []
-        if (rowAndPageArrays?.length) {
+        rowAndPageArrays.forEach( ({child = 0, pageToLinkTo, parm3Child = ""} = {}) => {
+            let trs = [...document.querySelector('tbody').children]
             trs.forEach(tRow => {
-                rowAndPageArrays.forEach(subArray => { rowAndPageForEach( tRow, subArray[0], subArray[1], subArray[2] ) })
-            })
-        } else { trs.forEach(tRow => { rowAndPageForEach(tRow, 0) }) }
+                rowAndPageForEach({ tRow, pageToLinkTo, child, parm3Child })
+            }) })
         return trNumberArray
-        function rowAndPageForEach(tRow, td, pageToOpen, parm3child) {
-            let tdWithNumber = tRow.children[td], tdWithNumberText = tdWithNumber.textContent
+        function rowAndPageForEach({ tRow, child, pageToLinkTo, parm3Child }) {
+            let tdWithNumber = tRow.children[child]
+            let tdWithNumberText = tdWithNumber.textContent
             tRow.id = tdWithNumberText
             trNumberArray.push(tdWithNumberText)
-            if (pageToOpen) {
-                let paramName = pageToOpen.indexOf("Provider") === 0 ? "providerId" : "parm2"
-                let parm3 = parm3child ? "&parm3=" + tRow.children[parm3child].textContent.replace(/[\/\- ]/g, '') : ''
-                tdWithNumber.innerHTML = '<a target="_blank" href="/ChildCare/' + pageToOpen + '.htm?' + paramName + '=' + tdWithNumberText + parm3 + '">' + tdWithNumberText + '</a>'
+            if (pageToLinkTo) {
+                let paramName = pageToLinkTo.indexOf("Provider") === 0 ? "providerId" : "parm2"
+                let parm3 = parm3Child ? "&parm3=" + tRow.children[parm3Child].textContent.replace(/[\/\- ]/g, '') : ''
+                tdWithNumber.innerHTML = '<a target="_blank" href="/ChildCare/' + pageToLinkTo + '.htm?' + paramName + '=' + tdWithNumberText + parm3 + '">' + tdWithNumberText + '</a>'
             }
         }
     })
@@ -5067,7 +5080,7 @@ function preventKeys(keyArray, ms=1500) {
         if (keydownEvent.key === "Alt") { keydownEvent.preventDefault(); return; }; // alt pressed without additional key;
         if (keydownEvent.key === "Tab" && keydownEvent.target.classList?.contains('hasDatepicker') && keydownEvent.target.value.length > 0 && keydownEvent.target.value.length < 10) { keydownEvent.preventDefault() }
         if (keydownEvent.altKey) {
-            if (!["d", "s", "n", "c", "e", "r", "w", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { return };
+            if (![ "d", "s", "n", "c", "e", "r", "w", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { return };
             keydownEvent.preventDefault()
             switch (keydownEvent.key) {
                 case 'd': document.querySelector(':is(#done, #delete):not(:disabled)')?.click(); break;
@@ -5206,10 +5219,6 @@ function mec2enhancements() {
     };
 };
 !function postLoadChanges() {
-    // !function wrapTextareas() {
-    //     let ele = [...document.querySelectorAll('textarea')].findLast(ele => ele)
-    //     doWrap({ ele, classList: "textarea_wrapper" })
-    // }();
     !function fixToLabels() {
         [...document.querySelectorAll('div.col-md-2 + label.col-lg-1:has(+ div.col-md-2)')].forEach(label => {
             if ( (["DIV", "INPUT"].includes(label.nextElementSibling.nodeName) && label.nextElementSibling.firstElementChild?.type === "text") ) {
