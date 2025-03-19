@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.89
+// @version      0.5.90
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -61,7 +61,7 @@ if ("Logout.htm".includes(thisPageNameHtm)) { clearStorageItems(); return; };
 if ( "Welcome.htm".includes(thisPageNameHtm) ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
 const mec2functionFeatures = [
         { title: 'Primary Navigation', desc: 'Buttons added to replace the drop-down menus for navigating MEC2.', selector: '.primary-navigation' },
-        { title: 'User Settings', desc: 'Settings menu for mec2functions.', selector: '#mec2functionsDropdown' },
+        { title: 'User Settings', desc: 'Settings menu for mec2functions.', selector: '#mec2functionsMenu' },
         { title: 'Open Case in New Tab', desc: 'An input field for a case number, with buttons that open the case in Notes or Overview. Pressing Enter opens Overview, and N opens Notes.', selector: '#buttonPanelOneNTF' },
         { title: 'Case History', desc: 'A list of the last 10 cases opened. Includes the case name, number, and date with time.', selector: '#newTabField' },
         { title: 'Addtional Footer Links', desc: 'Links added to the footer of sites commonly used by CCAP workers. Some links are only added to specific pages, such as on the CaseTransfer page.', selector: '#footer_links' },
@@ -91,6 +91,7 @@ const countyInfo = {
 }; // function_and_values
 document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="#" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info.navOnly ? " Nav Only" : "") + '</a>'
                                                     + '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>');
+document.getElementById('versionNumber').addEventListener('click', clickEvent => { let versionText = clickEvent.target.innerText + window.getComputedStyle(clickEvent.target, ':after').content.replace(/"/g, ''); copy( versionText, versionText ) })
 document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
 //
 const newFeatureNotice = {
@@ -232,7 +233,7 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
             countyInfo.updateInfo('baseCssOnlyList', !countyInfo.info.navOnly); document.getElementById('navOnly').textContent = mec2stylusBaseCssToggleText(); snackBar('Page must be reloaded to apply setting.', 'notitle')
         })
         if (baseCssOnlyList.includes(thisPageNameHtm)) { document.body.classList.add('baseStyle') }
-        let mec2stylusBaseCssToggleText = () => baseCssOnlyList.includes(thisPageNameHtm) ? "Custom Page Styling" : "Base Page Styling"
+        const mec2stylusBaseCssToggleText = () => baseCssOnlyList.includes(thisPageNameHtm) ? "Custom Page Styling" : "Base Page Styling"
 
         document.getElementById('mec2functionsSettingsButtonDiv').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
@@ -244,25 +245,26 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
         })
         let navOnlyText = () => countyInfo.info.navOnly ? "Full Functionality" : "Navigation Only"
         let mec2functionsSettingsHTML = ''
-        + '<a href="#">mec2functions</a>'
-        + '<ul class="sub_menu" style="width: fit-content;" id="mec2functionsSubMenu">'
+        + '<a style="pointer-events: none;" href="#">mec2functions</a>'
+        + '<ul class="sub_menu" id="mec2functionsSubMenu">'
             + [ { id: "navOnly", text: navOnlyText() }, { id: "mec2stylusBaseCssToggle", text: mec2stylusBaseCssToggleText() }, { id: "mec2functionsFinancialWorker", text: "Financial Worker" }, { id: "mec2functionsPaymentWorker", text: "Payment Worker" }, { id: "mec2functionsProviderWorker", text: "Provider Worker" }, { id: "mec2functionsOpenSettings", text: "Settings" }, ].map(({ id, text } = {}) => '<li><a href="#" id="' + id + '">' + text + '</a>').join('')
         + '</ul>'
-        let mec2functionsDropdown = document.createElement('li')
-        mec2functionsDropdown.id = "mec2functionsDropdown"
-        mec2functionsDropdown.innerHTML = mec2functionsSettingsHTML
-        document.querySelector('ul.dropdown').append(mec2functionsDropdown)
+        let mec2functionsMenu = document.createElement('li'); mec2functionsMenu.id = "mec2functionsMenu"; mec2functionsMenu.innerHTML = mec2functionsSettingsHTML
+        document.querySelector('ul.dropdown').append(mec2functionsMenu)
         let mec2functionsSubMenu = document.getElementById('mec2functionsSubMenu')
-        mec2functionsDropdown.addEventListener('click', clickEvent => {
+        document.querySelectorAll('#mec2functionsSubMenu, #mec2functionsMenu, #mec2functionsMenu > a').forEach(ele => ele.addEventListener('hover', hoverEvent => { console.log(hoverEvent.target) }) )
+        mec2functionsSubMenu.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "A") { return }
+            toggleVisible(mec2functionsSubMenu, false); setTimeout(() => removeVisible(), 1000);
             if (clickEvent.target.id === "navOnly") { countyInfo.updateInfo('navOnly', !countyInfo.info.navOnly); document.getElementById('navOnly').textContent = navOnlyText(); snackBar('Page must be reloaded to apply setting.', 'notitle') }
-            else if (clickEvent.target.id.indexOf("Worker") > -1) { countyInfo.updateInfo('workerRole', clickEvent.target.id) }
+            else if (clickEvent.target.id.indexOf("Worker") > -1) { countyInfo.updateInfo('workerRole', clickEvent.target.id); snackBar('Page must be reloaded to apply setting.', 'notitle') }
             else if (clickEvent.target.id === "mec2functionsOpenSettings") {
                 let userSettingsInputs = [...document.querySelectorAll('#settingsInner input')]
                 userSettingsInputs.forEach(ele => { ele.checked = countyInfo.userSettings[ele.id] ?? false })
                 mec2functionsSettingsDialog.showModal()
             }
         })
+        function removeVisible() { mec2functionsSubMenu.style.removeProperty('visibility') }
     }
     catch (error) { console.trace(error) }
 }();
@@ -573,7 +575,8 @@ function docReady(fn) {
                 return
             }
             if (!editMode) {
-                let targetPage = navMaps.allPagesMap.get(allPagesMapKey).parentId.replace(/ /g, '\ ')
+                let targetPage = navMaps.allPagesMap.get(allPagesMapKey)?.parentId?.replace(/ /g, '\ ')
+                if (!targetPage) { return }
                 if (target === "_self") { document.body.style.opacity = ".8" }
                 window.open( document.getElementById(targetPage).firstElementChild.href, target )
             } else if (editMode) {
@@ -615,47 +618,43 @@ function docReady(fn) {
         }
         if (["ProviderSearch.htm", "ProviderRegistrationList.htm"].includes(thisPageNameHtm)) { document.getElementById('Provider_Info.btn').click() };
         // SECTION_START New_Tab_Case_Number_Field
-        !function newTabFieldButtons() {
+        !function newTabFieldSetup() {
             buttonDivOneNTF.insertAdjacentHTML('afterbegin', ''
-                + '<div id="newTabInputDiv"><input id="newTabField" list="" autocomplete="off" class="form-control" placeholder="Case #" style="width: 10ch;"></input></div>'
+                + '<div id="newTabInputDiv"><input id="newTabField" list="" autocomplete="off" class="form-control" placeholder="Case #" pattern="^\\d{1,8}$" style="width: 10ch;"></input></div>'
                 + '<button type="button" data-page-name="CaseNotes" id="FieldNotesNT" class="cButton nav">Notes</button>'
                 + '<button type="button" data-page-name="CaseOverview" id="FieldOverviewNT" class="cButton nav">Overview</button>')
             newTabField = document.getElementById('newTabField')
-            function clearNTF() { newTabField.value = '' }
             buttonDivOneNTF.addEventListener('click', clickEvent => {
-                if (clickEvent.target.closest('button')?.nodeName === 'BUTTON' && (/\b\d{1,8}\b/).test(newTabField.value)) {
-                    clickEvent.preventDefault()
-                    openCaseNumber(sanitize.string(clickEvent.target.dataset.pageName), newTabField.value)
-                    clearNTF()
-                }
+                if (clickEvent.target.closest('button')?.nodeName === 'BUTTON') { pageOpenNTF(clickEvent, clickEvent.target.dataset.pageName) };
+            })
+            newTabField.addEventListener('paste', pasteEvent => {
+                pasteEvent.preventDefault();
+                let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+                if ( !/^\d{1,8}$/.test(pastedText) ) { return };
+                newTabField.value = pastedText
             })
             newTabField.addEventListener('keydown', keydownEvent => {
                 keydownEvent.stopImmediatePropagation()
-                if (keydownEvent.target.value.length > 7) {
-                    if (!['ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Home', 'End', 'Escape'].includes(keydownEvent.key) && ( !keydownEvent.ctrlKey && !['v', 'a', 'z'].includes(keydownEvent.key) ) ) {
-                        keydownEvent.preventDefault()
-                        return false
-                    }
-                }
-                if ( !keydownEvent.ctrlKey && (/[a-z]/i).test(newTabField.value) ) { return }
+                if (
+                    ( /[0-9]/.test(keydownEvent.key) && /^\d{0,7}$/.test(keydownEvent.target.value) )
+                    || ( keydownEvent.ctrlKey && ['v', 'a', 'x'].includes(keydownEvent.key) )
+                    || [ 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Home', 'End', 'Tab' ].includes(keydownEvent.key)
+                   ) { return; }
                 switch (keydownEvent.key) {
-                    case 'n':
-                        keydownEvent.preventDefault();
-                        window.open('/ChildCare/CaseNotes.htm?parm2=' + newTabField.value, '_blank');
-                        clearNTF()
-                        break
+                    case 'n': pageOpenNTF(keydownEvent, 'CaseNotes'); return;
                     case 'o':
-                    case 'Enter':
-                        keydownEvent.preventDefault();
-                        window.open('/ChildCare/CaseOverview.htm?parm2=' + newTabField.value, '_blank');
-                        clearNTF()
-                        break
+                    case 'Enter': pageOpenNTF(keydownEvent, 'CaseOverview'); return;
+                    case 'Escape': toggleVisible(document.getElementById('caseHistory'), false); break;
                 }
+                keydownEvent.preventDefault()
             })
-            function openCaseNumber(pageName, enteredCaseNumber) {
-                if (pageName == "CaseNotes") { window.open('/ChildCare/CaseNotes.htm?parm2=' + enteredCaseNumber, '_blank') }
-                else { window.open('/ChildCare/CaseOverview.htm?parm2=' + enteredCaseNumber, '_blank') }
-            };
+            function clearNTF() { newTabField.value = '' }
+            function pageOpenNTF(event, pageNameNTF) {
+                event.preventDefault();
+                if (!/^\d{1,8}$/.test(newTabField.value)) { return; }
+                window.open('/ChildCare/' + (pageNameNTF === "CaseOverview" ? "CaseOverview" : "CaseNotes") + '.htm?parm2=' + newTabField.value, '_blank');
+                clearNTF()
+            }
         }();
         editMode && (document.querySelectorAll('#buttonPanelTwo, #buttonPanelThree').forEach(ele => ele.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
     } catch (error) { console.trace(error) }
@@ -753,11 +752,12 @@ function resetTabIndex(excludedListString) {
     if (nonResetPages.includes(thisPageNameHtm)) { return };
     document.querySelectorAll('form .panel-box-format :is(.form-control, .form-button):not([type=hidden])').forEach(ele => ele.removeAttribute('tabindex'))
 };
-const flashRedBorder = {
-    animate(ele) { let saniEle = sanitize.query(ele); saniEle && saniEle.animate(this.redBorder, this.redBorderTiming) },
-    redBorder: [{ borderColor: "red", borderWidth: "2px", }],
-    redBorderTiming: { borderStyle: "solid", duration: 300, iterations: 10, },
-};
+function flashRedOutline(ele) {
+    ele = sanitize.query(ele)
+    if (!ele) { return };
+    const redOutline = [{ outlineColor: "red", outlineWidth: "2px", }], redOutlineTiming = { outlineStyle: "solid", duration: 300, iterations: 10, }
+    ele.animate(redOutline, redOutlineTiming)
+}
 const nameFuncs = {
     commaNameObject(commaNameO) {
         if (!commaNameO) { return };
@@ -839,101 +839,9 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
     }
     static getActive() { return this.instances };
 };
-//
-const userCountyObj = new Map([
-        ["x101", { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] }],
-        ["x102", { county: "Anoka", code: "102", neighbors: ["Sherburne", "Wright", "Hennepin", "Ramsey", "Washington", "Chisago", "Isanti"] }],
-        ["x103", { county: "Becker", code: "103", neighbors: ["Norman", "Clay", "Otter Tail", "Wadena", "Hubbard", "Clearwater", "Mahnomen"] }],
-        ["x104", { county: "Beltrami", code: "104", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods"] }],
-        ["x105", { county: "Benton", code: "105", neighbors: ["Morrison", "Stearns", "Sherburne", "Mille Lacs"] }],
-        ["x106", { county: "Big Stone", code: "106", neighbors: ["Lac Qui Parle", "Swift", "Stevens", "Traverse"], outOfState: [ 57200, 57299 ] }],
-        ["x107", { county: "Blue Earth", code: "107", neighbors: ["Brown", "Watonwan", "Martin", "Faribault", "Waseca", "Le Sueur", "Nicollet"] }],
-        ["x108", { county: "Brown", code: "108", neighbors: ["Redwood", "Cottonwood", "Watonwan", "Blue Earth", "Nicollet", "Renville"] }],
-        ["x109", { county: "Carlton", code: "109", neighbors: ["Aitkin", "Pine", "St. Louis"], outOfState: [ 54800, 54899 ] }],
-        ["x110", { county: "Carver", code: "110", neighbors: ["Wright", "Hennepin", "Scott", "Sibley", "McLeod"] }],
-        ["x111", { county: "Cass", code: "111", neighbors: ["Beltrami", "Hubbard", "Wadena", "Todd", "Morrison", "Crow Wing", "Aitkin", "Itasca"] }],
-        ["x112", { county: "Chippewa", code: "112", neighbors: ["Swift", "Lac Qui Parle", "Yellow Medicine", "Renville", "Kandiyohi"] }],
-        ["x113", { county: "Chisago", code: "113", neighbors: ["Pine", "Kanabec", "Isanti", "Anoka", "Washington"], outOfState: [ 54000, 54899 ] }],
-        ["x114", { county: "Clay", code: "114", neighbors: ["Wilkin", "Otter Tail", "Becker", "Norman"], outOfState: [ 58000, 58099 ] }],
-        ["x115", { county: "Clearwater", code: "115", neighbors: ["Pennington", "Polk", "Mahnomen", "Becker", "Hubbard", "Beltrami"] }],
-        ["x116", { county: "Cook", code: "116", neighbors: ["Lake"] }],
-        ["x117", { county: "Cottonwood", code: "117", neighbors: ["Redwood", "Murray", "Nobles", "Jackson", "Martin", "Watonwan", "Brown"] }],
-        ["x118", { county: "Crow Wing", code: "118", neighbors: ["Cass", "Morrison", "Mille Lacs", "Aitkin"] }],
-        ["x119", { county: "Dakota", code: "119", neighbors: ["Goodhue", "Rice", "Scott", "Hennepin", "Ramsey", "Washington"], outOfState: [ 54000, 54799 ] }],
-        ["x120", { county: "Dodge", code: "120", neighbors: ["Rice", "Steele", "Freeborn", "Mower", "Olmsted", "Goodhue"] }],
-        ["x121", { county: "Douglas", code: "121", neighbors: ["Otter Tail", "Grant", "Stevens", "Pope", "Stearns", "Todd"] }],
-        ["x122", { county: "Faribault", code: "122", neighbors: ["Blue Earth", "Martin", "Freeborn", "Waseca"], outOfState: [ 50400, 50599 ] }],
-        ["x123", { county: "Fillmore", code: "123", neighbors: ["Olmsted", "Mower", "Houston", "Winona"], outOfState: [ 50450, 52199 ] }],
-        ["x124", { county: "Freeborn", code: "124", neighbors: ["Waseca", "Faribault", "Mower", "Dodge", "Steele"], outOfState: [ 50440, 50479] }],
-        ["x125", { county: "Goodhue", code: "125", neighbors: ["Wabasha", "Olmsted", "Dodge", "Steele", "Rice", "Dakota"], outOfState: [ 54000, 54799 ] }],
-        ["x126", { county: "Grant", code: "126", neighbors: ["Wilkin", "Traverse", "Stevens", "Pope", "Douglas", "Otter Tail"] }],
-        ["x127", { county: "Hennepin", code: "127", neighbors: ["Sherburne", "Wright", "Carver", "Scott", "Dakota", "Ramsey", "Anoka", "Sherburne"] }],
-        ["x128", { county: "Houston", code: "128", neighbors: ["Winona", "Fillmore"], outOfState: [ 52100, 54799 ] }],
-        ["x129", { county: "Hubbard", code: "129", neighbors: ["Clearwater", "Becker", "Wadena", "Cass", "Beltrami"] }],
-        ["x130", { county: "Isanti", code: "130", neighbors: ["Mille Lacs", "Sherburne", "Anoka", "Chisago", "Pine", "Kanabec"] }],
-        ["x131", { county: "Itasca", code: "131", neighbors: ["Beltrami", "Cass", "Aitkin", "St. Louis", "Koochiching"] }],
-        ["x132", { county: "Jackson", code: "132", neighbors: ["Murray", "Nobles", "Martin", "Watonwan", "Cottonwood"], outOfState: [ 50400, 51369 ] }],
-        ["x133", { county: "Kanabec", code: "133", neighbors: ["Mille Lacs", "Isanti", "Chisago", "Pine", "Aitkin"] }],
-        ["x134", { county: "Kandiyohi", code: "134", neighbors: ["Pope", "Swift", "Chippewa", "Renville", "Meeker", "Stearns"] }],
-        ["x135", { county: "Kittson", code: "135", neighbors: ["Marshall", "Roseau"], outOfState: [ 58200, 58299 ] }],
-        ["x136", { county: "Koochiching", code: "136", neighbors: ["Lake of the Woods", "Beltrami", "Itasca", "St. Louis"] }],
-        ["x137", { county: "Lac qui Parle", code: "137", neighbors: ["Yellow Medicine", "Chippewa", "Swift", "Big Stone"], outOfState: [ 57200, 57299 ] }],
-        ["x138", { county: "Lake", code: "138", neighbors: ["Cook", "St. Louis"] }],
-        ["x139", { county: "Lake of the Woods", code: "139", neighbors: ["Roseau", "Beltrami", "Koochiching"] }],
-        ["x140", { county: "Le Sueur", code: "140", neighbors: ["Sibley", "Nicollet", "Blue Earth", "Waseca", "Rice", "Scott"] }],
-        ["x141", { county: "Lincoln", code: "141", neighbors: ["Pipestone", "Murray", "Lyon", "Yellow Medicine"], outOfState: [ 57000, 57299 ] }],
-        ["x142", { county: "Lyon", code: "142", neighbors: ["Yellow Medicine", "Lincoln", "Pipestone", "Murray", "Redwood"] }],
-        ["x143", { county: "McLeod", code: "143", neighbors: ["Meeker", "Renville", "Sibley", "Carver", "Wright"] }],
-        ["x144", { county: "Mahnomen", code: "144", neighbors: ["Polk", "Norman", "Becker", "Clearwater"] }],
-        ["x145", { county: "Marshall", code: "145", neighbors: ["Polk", "Pennington", "Beltrami", "Roseau"], outOfState: [ 58200, 58299 ] }],
-        ["x146", { county: "Martin", code: "146", neighbors: ["Cottonwood", "Jackson", "Faribault", "Blue Earth", "Watonwan"], outOfState: [ 50400, 51369 ] }],
-        ["x147", { county: "Meeker", code: "147", neighbors: ["Kandiyohi", "Renville", "McLeod", "Wright", "Stearns"] }],
-        ["x148", { county: "Mille Lacs", code: "148", neighbors: ["Crow Wing", "Morrison", "Benton", "Sherburne", "Isanti", "Kanabec", "Aitkin"] }],
-        ["x149", { county: "Morrison", code: "149", neighbors: ["Cass", "Todd", "Stearns", "Benton", "Mille Lacs", "Crow Wing"] }],
-        ["x150", { county: "Mower", code: "150", neighbors: ["Steele", "Freeborn", "Fillmore", "Olmsted", "Dodge"], outOfState: [ 50450, 52199 ] }],
-        ["x151", { county: "Murray", code: "151", neighbors: ["Lincoln", "Pipestone", "Rock", "Nobles", "Jackson", "Cottonwood", "Redwood", "Lyon"] }],
-        ["x152", { county: "Nicollet", code: "152", neighbors: ["Renville", "Brown", "Blue Earth", "Le Sueur", "Sibley"] }],
-        ["x153", { county: "Nobles", code: "153", neighbors: ["Pipestone", "Rock", "Jackson", "Cottonwood", "Murray"], outOfState: [ 51369, 54100 ] }],
-        ["x154", { county: "Norman", code: "154", neighbors: ["Polk", "Clay", "Becker", "Mahnomen"], outOfState: [ 58000, 58299 ] }],
-        ["x155", { county: "Olmsted", code: "155", neighbors: ["Goodhue", "Dodge", "Mower", "Fillmore", "Winona", "Wabasha"] }],
-        ["x156", { county: "Otter Tail", code: "156", neighbors: ["Clay", "Wilkin", "Grant", "Douglas", "Todd", "Wadena", "Becker"] }],
-        ["x157", { county: "Pennington", code: "157", neighbors: ["Marshall", "Polk", "Red Lake", "Clearwater", "Beltrami"] }],
-        ["x158", { county: "Pine", code: "158", neighbors: ["Aitkin", "Kanabec", "Isanti", "Chisago", "Carlton"], outOfState: [ 54800, 54899 ] }],
-        ["x159", { county: "Pipestone", code: "159", neighbors: ["Rock", "Nobles", "Murray", "Lyon", "Lincoln"], outOfState: [ 57000, 57099 ] }],
-        ["x160", { county: "Polk", code: "160", neighbors: ["Marshall", "Norman", "Mahnomen", "Clearwater", "Pennington", "Red Lake"], outOfState: [ 58000, 58299 ] }],
-        ["x161", { county: "Pope", code: "161", neighbors: ["Grant", "Stevens", "Swift", "Kandiyohi", "Stearns", "Todd", "Douglas"] }],
-        ["x162", { county: "Ramsey", code: "162", neighbors: ["Washington", "Anoka", "Hennepin", "Dakota"] }],
-        ["x163", { county: "Red Lake", code: "163", neighbors: ["Polk", "Pennington"] }],
-        ["x164", { county: "Redwood", code: "164", neighbors: ["Yellow Medicine", "Lyon", "Murray", "Cottonwood", "Brown", "Renville"] }],
-        ["x165", { county: "Renville", code: "165", neighbors: ["Chippewa", "Yellow Medicine", "Redwood", "Brown", "Nicollet", "Sibley", "McLeod", "Meeker", "Kandiyohi"] }],
-        ["x166", { county: "Rice", code: "166", neighbors: ["Scott", "Le Sueur", "Waseca", "Steele", "Dodge", "Goodhue", "Dakota"] }],
-        ["x167", { county: "Rock", code: "167", neighbors: ["Pipestone", "Murray", "Nobles"], outOfState: [ 51200, 57199 ] }],
-        ["x168", { county: "Roseau", code: "168", neighbors: ["Kittson", "Marshall", "Beltrami", "Lake of the Woods"] }],
-        ["x169", { county: "St. Louis", code: "169", neighbors: ["Lake", "Koochiching", "Itasca", "Aitkin", "Carlton"], outOfState: [ 54800, 54899 ] }],
-        ["x170", { county: "Scott", code: "170", neighbors: ["Carver", "Sibley", "Le Sueur", "Rice", "Dakota", "Hennepin"] }],
-        ["x171", { county: "Sherburne", code: "171", neighbors: ["Stearns", "Wright", "Hennepin", "Anoka", "Isanti", "Mille Lacs", "Benton"] }],
-        ["x172", { county: "Sibley", code: "172", neighbors: ["Renville", "Nicollet", "Le Sueur", "Scott", "Carver", "McLeod"] }],
-        ["x173", { county: "Stearns", code: "173", neighbors: ["Douglas", "Pope", "Kandiyohi", "Meeker", "Wright", "Sherburne", "Benton", "Morrison", "Todd"] }],
-        ["x174", { county: "Steele", code: "174", neighbors: ["Waseca", "Freeborn", "Mower", "Dodge", "Goodhue", "Rice"] }],
-        ["x175", { county: "Stevens", code: "175", neighbors: ["Traverse", "Big Stone", "Swift", "Pope", "Douglas", "Grant"] }],
-        ["x176", { county: "Swift", code: "176", neighbors: ["Stevens", "Big Stone", "Lac Qui Parle", "Chippewa", "Kandiyohi", "Pope"] }],
-        ["x177", { county: "Todd", code: "177", neighbors: ["Otter Tail", "Douglas", "Pope", "Stearns", "Morrison", "Cass", "Wadena"] }],
-        ["x178", { county: "Traverse", code: "178", neighbors: ["Big Stone", "Stevens", "Grant", "Wilkin"], outOfState: [ 57200, 58099 ] }],
-        ["x179", { county: "Wabasha", code: "179", neighbors: ["Goodhue", "Olmsted", "Winona"], outOfState: [ 54000, 54799 ] }],
-        ["x180", { county: "Wadena", code: "180", neighbors: ["Becker", "Otter Tail", "Todd", "Cass", "Hubbard"] }],
-        ["x181", { county: "Waseca", code: "181", neighbors: ["Blue Earth", "Faribault", "Freeborn", "Steele", "Rice", "Le Sueur"] }],
-        ["x182", { county: "Washington", code: "182", neighbors: ["Chisago", "Anoka", "Ramsey", "Dakota"], outOfState: [ 54000, 54799 ] }],
-        ["x183", { county: "Watonwan", code: "183", neighbors: ["Brown", "Cottonwood", "Jackson", "Martin", "Blue Earth"] }],
-        ["x184", { county: "Wilkin", code: "184", neighbors: ["Traverse", "Grant", "Otter Tail", "Clay"], outOfState: [ 57200, 58099 ] }],
-        ["x185", { county: "Winona", code: "185", neighbors: ["Wabasha", "Olmsted", "Fillmore", "Houston"], outOfState: [ 54000, 54799 ] }],
-        ["x186", { county: "Wright", code: "186", neighbors: ["Stearns", "Meeker", "McLeod", "Carver", "Hennepin", "Anoka", "Sherburne"] }],
-        ["x187", { county: "Yellow Medicine", code: "187", neighbors: ["Lac Qui Parle", "Lincoln", "Lyon", "Redwood", "Renville", "Chippewa"], outOfState: [ 57000, 57299 ] }],
-        ["x192", { county: "White Earth Nation", code: "192", neighbors: ["Polk", "Norman", "Becker", "Clearwater", "Mahnomen"] }],
-        ["x194", { county: "Red Lake Nation", code: "194", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods", "Beltrami"] }],
-    ]).get(countyInfo.info.userIdNumber?.slice(0, 4).toLowerCase());
 //======================== Case_History Section_Start =================================
 !function caseHistoryDatalist() {
-    if (iFramed || !newTabField || !countyInfo.userSettings.caseHistory) { return };
+    if (iFramed || !newTabField instanceof HTMLElement || !countyInfo.userSettings.caseHistory) { return };
     try {
         const caseHistory = localStorage.getItem('MECH2.caseHistoryLS') ? sanitize.json(localStorage.getItem('MECH2.caseHistoryLS')) : []
         if (pageTitle === pageTitle.toUpperCase() && thisPageNameHtm.indexOf('Provider') !== 0 && caseId && !editMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
@@ -946,7 +854,7 @@ const userCountyObj = new Map([
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
         };
         let viewHistory = sanitize.json(localStorage.getItem('MECH2.caseHistoryLS'))
-        let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block;" class="hidden">'
+        let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block; visibility: hidden;">'
         + viewHistory.map(item => '<div class="caseHistoryEntry" id="history' + parseInt(item.caseIdNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdNumber) + '</span></div>').join('')
         + '</datalist>'
         newTabField.insertAdjacentHTML('afterend', viewHistoryDatalist)
@@ -954,12 +862,11 @@ const userCountyObj = new Map([
         newTabField.addEventListener('focus', focusEvent => {
             filterHistory(focusEvent.target.value, undefined)
             document.addEventListener('click', hideHistoryClick)
-            // newTabField.addEventListener('keydown', hideHistoryEscape)
         })
         newTabField.addEventListener('input', inputEvent => { filterHistory(inputEvent.target.value, inputEvent.inputType) });
         history.addEventListener('click', clickEvent => {
             if ( !["SPAN", "DIV"].includes(clickEvent.target.nodeName) ) { return }
-            unhideElement(history, false)
+            toggleVisible(history, false)
             newTabField.value = Number(clickEvent.target.closest('div.caseHistoryEntry').id.split('history')[1])
             newTabField.select()
         });
@@ -967,36 +874,122 @@ const userCountyObj = new Map([
             if (!inputValue) {
                 unhideElement(historyList, true)
                 if (inputType && inputType === 'deleteByCut') {
-                    unhideElement(history, false);
+                    toggleVisible(history, false);
                     newTabField.blur();
                     return;
                 }
-                unhideElement(history, true)
+                toggleVisible(history, true)
                 return
             }
             let inputMatch = historyList.filter( ele => ele.id.includes(inputValue) )
             if (inputMatch.length) {
-                unhideElement(history, true)
+                toggleVisible(history, true)
                 historyList.forEach(ele => inputMatch.includes(ele) ? unhideElement(ele, true) : unhideElement(ele, false) )
-            } else { unhideElement(history, false) }
+            } else { toggleVisible(history, false) }
         }
         function hideHistoryClick(clickEvent) {
             if ( clickEvent.target.closest('#newTabInputDiv') ) { return };
             hideHistory()
         }
-        // function hideHistoryEscape(keydownEvent) {
-        //     // conflicts with newTabFieldButtons() - no prop;
-        //     if (keydownEvent.key !== "Escape") { return };
-        //     hideHistory()
-        // }
         function hideHistory() {
-            unhideElement(history, false)
+            toggleVisible(history, false)
             document.removeEventListener('click', hideHistoryClick)
-            // newTabField.removeEventListener('click', hideHistoryEscape)
         }
     }
     catch (err) { console.trace(err) }
 }(); //======================== Case_History Section_End ===================================//
+//
+const userCountyObj = new Map([
+    ["x101", { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] }],
+    ["x102", { county: "Anoka", code: "102", neighbors: ["Sherburne", "Wright", "Hennepin", "Ramsey", "Washington", "Chisago", "Isanti"] }],
+    ["x103", { county: "Becker", code: "103", neighbors: ["Norman", "Clay", "Otter Tail", "Wadena", "Hubbard", "Clearwater", "Mahnomen"] }],
+    ["x104", { county: "Beltrami", code: "104", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods"] }],
+    ["x105", { county: "Benton", code: "105", neighbors: ["Morrison", "Stearns", "Sherburne", "Mille Lacs"] }],
+    ["x106", { county: "Big Stone", code: "106", neighbors: ["Lac Qui Parle", "Swift", "Stevens", "Traverse"], outOfState: [ 57200, 57299 ] }],
+    ["x107", { county: "Blue Earth", code: "107", neighbors: ["Brown", "Watonwan", "Martin", "Faribault", "Waseca", "Le Sueur", "Nicollet"] }],
+    ["x108", { county: "Brown", code: "108", neighbors: ["Redwood", "Cottonwood", "Watonwan", "Blue Earth", "Nicollet", "Renville"] }],
+    ["x109", { county: "Carlton", code: "109", neighbors: ["Aitkin", "Pine", "St. Louis"], outOfState: [ 54800, 54899 ] }],
+    ["x110", { county: "Carver", code: "110", neighbors: ["Wright", "Hennepin", "Scott", "Sibley", "McLeod"] }],
+    ["x111", { county: "Cass", code: "111", neighbors: ["Beltrami", "Hubbard", "Wadena", "Todd", "Morrison", "Crow Wing", "Aitkin", "Itasca"] }],
+    ["x112", { county: "Chippewa", code: "112", neighbors: ["Swift", "Lac Qui Parle", "Yellow Medicine", "Renville", "Kandiyohi"] }],
+    ["x113", { county: "Chisago", code: "113", neighbors: ["Pine", "Kanabec", "Isanti", "Anoka", "Washington"], outOfState: [ 54000, 54899 ] }],
+    ["x114", { county: "Clay", code: "114", neighbors: ["Wilkin", "Otter Tail", "Becker", "Norman"], outOfState: [ 58000, 58099 ] }],
+    ["x115", { county: "Clearwater", code: "115", neighbors: ["Pennington", "Polk", "Mahnomen", "Becker", "Hubbard", "Beltrami"] }],
+    ["x116", { county: "Cook", code: "116", neighbors: ["Lake"] }],
+    ["x117", { county: "Cottonwood", code: "117", neighbors: ["Redwood", "Murray", "Nobles", "Jackson", "Martin", "Watonwan", "Brown"] }],
+    ["x118", { county: "Crow Wing", code: "118", neighbors: ["Cass", "Morrison", "Mille Lacs", "Aitkin"] }],
+    ["x119", { county: "Dakota", code: "119", neighbors: ["Goodhue", "Rice", "Scott", "Hennepin", "Ramsey", "Washington"], outOfState: [ 54000, 54799 ] }],
+    ["x120", { county: "Dodge", code: "120", neighbors: ["Rice", "Steele", "Freeborn", "Mower", "Olmsted", "Goodhue"] }],
+    ["x121", { county: "Douglas", code: "121", neighbors: ["Otter Tail", "Grant", "Stevens", "Pope", "Stearns", "Todd"] }],
+    ["x122", { county: "Faribault", code: "122", neighbors: ["Blue Earth", "Martin", "Freeborn", "Waseca"], outOfState: [ 50400, 50599 ] }],
+    ["x123", { county: "Fillmore", code: "123", neighbors: ["Olmsted", "Mower", "Houston", "Winona"], outOfState: [ 50450, 52199 ] }],
+    ["x124", { county: "Freeborn", code: "124", neighbors: ["Waseca", "Faribault", "Mower", "Dodge", "Steele"], outOfState: [ 50440, 50479] }],
+    ["x125", { county: "Goodhue", code: "125", neighbors: ["Wabasha", "Olmsted", "Dodge", "Steele", "Rice", "Dakota"], outOfState: [ 54000, 54799 ] }],
+    ["x126", { county: "Grant", code: "126", neighbors: ["Wilkin", "Traverse", "Stevens", "Pope", "Douglas", "Otter Tail"] }],
+    ["x127", { county: "Hennepin", code: "127", neighbors: ["Sherburne", "Wright", "Carver", "Scott", "Dakota", "Ramsey", "Anoka", "Sherburne"] }],
+    ["x128", { county: "Houston", code: "128", neighbors: ["Winona", "Fillmore"], outOfState: [ 52100, 54799 ] }],
+    ["x129", { county: "Hubbard", code: "129", neighbors: ["Clearwater", "Becker", "Wadena", "Cass", "Beltrami"] }],
+    ["x130", { county: "Isanti", code: "130", neighbors: ["Mille Lacs", "Sherburne", "Anoka", "Chisago", "Pine", "Kanabec"] }],
+    ["x131", { county: "Itasca", code: "131", neighbors: ["Beltrami", "Cass", "Aitkin", "St. Louis", "Koochiching"] }],
+    ["x132", { county: "Jackson", code: "132", neighbors: ["Murray", "Nobles", "Martin", "Watonwan", "Cottonwood"], outOfState: [ 50400, 51369 ] }],
+    ["x133", { county: "Kanabec", code: "133", neighbors: ["Mille Lacs", "Isanti", "Chisago", "Pine", "Aitkin"] }],
+    ["x134", { county: "Kandiyohi", code: "134", neighbors: ["Pope", "Swift", "Chippewa", "Renville", "Meeker", "Stearns"] }],
+    ["x135", { county: "Kittson", code: "135", neighbors: ["Marshall", "Roseau"], outOfState: [ 58200, 58299 ] }],
+    ["x136", { county: "Koochiching", code: "136", neighbors: ["Lake of the Woods", "Beltrami", "Itasca", "St. Louis"] }],
+    ["x137", { county: "Lac qui Parle", code: "137", neighbors: ["Yellow Medicine", "Chippewa", "Swift", "Big Stone"], outOfState: [ 57200, 57299 ] }],
+    ["x138", { county: "Lake", code: "138", neighbors: ["Cook", "St. Louis"] }],
+    ["x139", { county: "Lake of the Woods", code: "139", neighbors: ["Roseau", "Beltrami", "Koochiching"] }],
+    ["x140", { county: "Le Sueur", code: "140", neighbors: ["Sibley", "Nicollet", "Blue Earth", "Waseca", "Rice", "Scott"] }],
+    ["x141", { county: "Lincoln", code: "141", neighbors: ["Pipestone", "Murray", "Lyon", "Yellow Medicine"], outOfState: [ 57000, 57299 ] }],
+    ["x142", { county: "Lyon", code: "142", neighbors: ["Yellow Medicine", "Lincoln", "Pipestone", "Murray", "Redwood"] }],
+    ["x143", { county: "McLeod", code: "143", neighbors: ["Meeker", "Renville", "Sibley", "Carver", "Wright"] }],
+    ["x144", { county: "Mahnomen", code: "144", neighbors: ["Polk", "Norman", "Becker", "Clearwater"] }],
+    ["x145", { county: "Marshall", code: "145", neighbors: ["Polk", "Pennington", "Beltrami", "Roseau"], outOfState: [ 58200, 58299 ] }],
+    ["x146", { county: "Martin", code: "146", neighbors: ["Cottonwood", "Jackson", "Faribault", "Blue Earth", "Watonwan"], outOfState: [ 50400, 51369 ] }],
+    ["x147", { county: "Meeker", code: "147", neighbors: ["Kandiyohi", "Renville", "McLeod", "Wright", "Stearns"] }],
+    ["x148", { county: "Mille Lacs", code: "148", neighbors: ["Crow Wing", "Morrison", "Benton", "Sherburne", "Isanti", "Kanabec", "Aitkin"] }],
+    ["x149", { county: "Morrison", code: "149", neighbors: ["Cass", "Todd", "Stearns", "Benton", "Mille Lacs", "Crow Wing"] }],
+    ["x150", { county: "Mower", code: "150", neighbors: ["Steele", "Freeborn", "Fillmore", "Olmsted", "Dodge"], outOfState: [ 50450, 52199 ] }],
+    ["x151", { county: "Murray", code: "151", neighbors: ["Lincoln", "Pipestone", "Rock", "Nobles", "Jackson", "Cottonwood", "Redwood", "Lyon"] }],
+    ["x152", { county: "Nicollet", code: "152", neighbors: ["Renville", "Brown", "Blue Earth", "Le Sueur", "Sibley"] }],
+    ["x153", { county: "Nobles", code: "153", neighbors: ["Pipestone", "Rock", "Jackson", "Cottonwood", "Murray"], outOfState: [ 51369, 54100 ] }],
+    ["x154", { county: "Norman", code: "154", neighbors: ["Polk", "Clay", "Becker", "Mahnomen"], outOfState: [ 58000, 58299 ] }],
+    ["x155", { county: "Olmsted", code: "155", neighbors: ["Goodhue", "Dodge", "Mower", "Fillmore", "Winona", "Wabasha"] }],
+    ["x156", { county: "Otter Tail", code: "156", neighbors: ["Clay", "Wilkin", "Grant", "Douglas", "Todd", "Wadena", "Becker"] }],
+    ["x157", { county: "Pennington", code: "157", neighbors: ["Marshall", "Polk", "Red Lake", "Clearwater", "Beltrami"] }],
+    ["x158", { county: "Pine", code: "158", neighbors: ["Aitkin", "Kanabec", "Isanti", "Chisago", "Carlton"], outOfState: [ 54800, 54899 ] }],
+    ["x159", { county: "Pipestone", code: "159", neighbors: ["Rock", "Nobles", "Murray", "Lyon", "Lincoln"], outOfState: [ 57000, 57099 ] }],
+    ["x160", { county: "Polk", code: "160", neighbors: ["Marshall", "Norman", "Mahnomen", "Clearwater", "Pennington", "Red Lake"], outOfState: [ 58000, 58299 ] }],
+    ["x161", { county: "Pope", code: "161", neighbors: ["Grant", "Stevens", "Swift", "Kandiyohi", "Stearns", "Todd", "Douglas"] }],
+    ["x162", { county: "Ramsey", code: "162", neighbors: ["Washington", "Anoka", "Hennepin", "Dakota"] }],
+    ["x163", { county: "Red Lake", code: "163", neighbors: ["Polk", "Pennington"] }],
+    ["x164", { county: "Redwood", code: "164", neighbors: ["Yellow Medicine", "Lyon", "Murray", "Cottonwood", "Brown", "Renville"] }],
+    ["x165", { county: "Renville", code: "165", neighbors: ["Chippewa", "Yellow Medicine", "Redwood", "Brown", "Nicollet", "Sibley", "McLeod", "Meeker", "Kandiyohi"] }],
+    ["x166", { county: "Rice", code: "166", neighbors: ["Scott", "Le Sueur", "Waseca", "Steele", "Dodge", "Goodhue", "Dakota"] }],
+    ["x167", { county: "Rock", code: "167", neighbors: ["Pipestone", "Murray", "Nobles"], outOfState: [ 51200, 57199 ] }],
+    ["x168", { county: "Roseau", code: "168", neighbors: ["Kittson", "Marshall", "Beltrami", "Lake of the Woods"] }],
+    ["x169", { county: "St. Louis", code: "169", neighbors: ["Lake", "Koochiching", "Itasca", "Aitkin", "Carlton"], outOfState: [ 54800, 54899 ] }],
+    ["x170", { county: "Scott", code: "170", neighbors: ["Carver", "Sibley", "Le Sueur", "Rice", "Dakota", "Hennepin"] }],
+    ["x171", { county: "Sherburne", code: "171", neighbors: ["Stearns", "Wright", "Hennepin", "Anoka", "Isanti", "Mille Lacs", "Benton"] }],
+    ["x172", { county: "Sibley", code: "172", neighbors: ["Renville", "Nicollet", "Le Sueur", "Scott", "Carver", "McLeod"] }],
+    ["x173", { county: "Stearns", code: "173", neighbors: ["Douglas", "Pope", "Kandiyohi", "Meeker", "Wright", "Sherburne", "Benton", "Morrison", "Todd"] }],
+    ["x174", { county: "Steele", code: "174", neighbors: ["Waseca", "Freeborn", "Mower", "Dodge", "Goodhue", "Rice"] }],
+    ["x175", { county: "Stevens", code: "175", neighbors: ["Traverse", "Big Stone", "Swift", "Pope", "Douglas", "Grant"] }],
+    ["x176", { county: "Swift", code: "176", neighbors: ["Stevens", "Big Stone", "Lac Qui Parle", "Chippewa", "Kandiyohi", "Pope"] }],
+    ["x177", { county: "Todd", code: "177", neighbors: ["Otter Tail", "Douglas", "Pope", "Stearns", "Morrison", "Cass", "Wadena"] }],
+    ["x178", { county: "Traverse", code: "178", neighbors: ["Big Stone", "Stevens", "Grant", "Wilkin"], outOfState: [ 57200, 58099 ] }],
+    ["x179", { county: "Wabasha", code: "179", neighbors: ["Goodhue", "Olmsted", "Winona"], outOfState: [ 54000, 54799 ] }],
+    ["x180", { county: "Wadena", code: "180", neighbors: ["Becker", "Otter Tail", "Todd", "Cass", "Hubbard"] }],
+    ["x181", { county: "Waseca", code: "181", neighbors: ["Blue Earth", "Faribault", "Freeborn", "Steele", "Rice", "Le Sueur"] }],
+    ["x182", { county: "Washington", code: "182", neighbors: ["Chisago", "Anoka", "Ramsey", "Dakota"], outOfState: [ 54000, 54799 ] }],
+    ["x183", { county: "Watonwan", code: "183", neighbors: ["Brown", "Cottonwood", "Jackson", "Martin", "Blue Earth"] }],
+    ["x184", { county: "Wilkin", code: "184", neighbors: ["Traverse", "Grant", "Otter Tail", "Clay"], outOfState: [ 57200, 58099 ] }],
+    ["x185", { county: "Winona", code: "185", neighbors: ["Wabasha", "Olmsted", "Fillmore", "Houston"], outOfState: [ 54000, 54799 ] }],
+    ["x186", { county: "Wright", code: "186", neighbors: ["Stearns", "Meeker", "McLeod", "Carver", "Hennepin", "Anoka", "Sherburne"] }],
+    ["x187", { county: "Yellow Medicine", code: "187", neighbors: ["Lac Qui Parle", "Lincoln", "Lyon", "Redwood", "Renville", "Chippewa"], outOfState: [ 57000, 57299 ] }],
+    ["x192", { county: "White Earth Nation", code: "192", neighbors: ["Polk", "Norman", "Becker", "Clearwater", "Mahnomen"] }],
+    ["x194", { county: "Red Lake Nation", code: "194", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods", "Beltrami"] }],
+]).get(countyInfo.info.userIdNumber?.slice(0, 4).toLowerCase());
 //======================== Actual_Date Section_Start =================================
 const actualDate = {
     dateField: document.getElementById('actualDate') ?? document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate, #applicationReceivedDate, #bSfEffectiveDate') ?? document.getElementById('effectiveDate') ?? undefined,
@@ -1397,7 +1390,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             countyInfo.updateInfo('closedCaseBank', "delete")
             transferWorker.value = ''
             removeTableButtons()
-            flashRedBorder.animate(transferWorker)
+            flashRedOutline(transferWorker)
         }
     }
     document.getElementById('inActiveCaseTable').addEventListener('click', clickEvent => {
@@ -1791,6 +1784,7 @@ if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
             }
         })
 // SECTION_END Delete_all_alerts
+
 // SECTION_START Alert_Type_Based_Action
         let categoryButtonsOuterHTML = '<div id="baseCategoryButtonsDiv" class="form-group-no-margins form-group-button-parent">'
         + '<div id="caseCategoriesButtonsDiv" class="hidden"></div>'
@@ -3123,6 +3117,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Case_Parent;
 !function CasePaymentHistory() {
     if (!("CasePaymentHistory.htm").includes(thisPageNameHtm)) { return };
+    document.querySelectorAll('#paymentHistoryTable thead tr td').forEach(ele => { ele.textContent = '' })
     document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(2)').textContent = "Transact ID"
     document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(5)').textContent = "Recoup"
     document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr td:nth-child(8)').textContent = "Payment"
@@ -3423,7 +3418,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             testedWorkerId = ''
             countyInfo.updateInfo('closedCaseBank', "delete")
             document.getElementById('transferWorker').placeholder = 'Invalid #'
-            flashRedBorder.animate(document.getElementById('transferWorker'))
+            flashRedOutline(document.getElementById('transferWorker'))
             eleFocus('#transferWorker')
         }
         return testedWorkerId
@@ -3719,7 +3714,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }
 }(); // SECTION_END Funding_Availability;
 !function Login_ChangePassword() {
-    if (!["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm) && !("/ChildCare/").includes(thisPageName)) { return }; // Looks dumb, but catches if there's no Page.htm, which can only happen for logging in.
+    if (!["Login.htm", "ChangePassword.htm"].includes(thisPageNameHtm) && !("/ChildCare/").includes(thisPageName)) { return }; // Looks dumb, but catches if there's no Page.htm, which can only happen when logging in.
     let userId = document.getElementById('userId'), terms = document.getElementById('terms'), password = document.getElementById('password')
     if (rederrortextContent.find(arrItem => arrItem.indexOf("Password has expired.") > -1)) {
         focusEle = password
@@ -3790,7 +3785,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     if (editMode) {
-        save?.addEventListener('click', saveEvent => maxRowColumnCheck({ textbox: noteStringText, maxColumns: 100, maxRows: 30, saveEvent }) )
+        // save?.addEventListener('click', saveEvent => textareaWordWrap({ textbox: noteStringText, maxColumns: 100, maxRows: 30, saveEvent }) )
         document.querySelector('.dataTables_scrollBody').style.maxHeight = "170px"
     }
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
@@ -3809,7 +3804,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             noteSummary.value = "Click the 'New' button first 🡇"
             noteStringText.value = "Click the 'New' button first 🡇"
             document.getElementById('noteCreator').value = "X1D10T"
-            flashRedBorder.animate(newButton)
+            flashRedOutline(newButton)
         } else {
             const noteCategoryObj = {
                 Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
@@ -4016,7 +4011,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             eleFocus(save)
         }
         document.addEventListener('paste', pasteEventAHK )
-        save?.addEventListener('click', saveEvent => maxRowColumnCheck({ textbox, maxColumns: 60, maxRows: 30, saveEvent }) )
+        // save?.addEventListener('click', saveEvent => textareaWordWrap({ textbox, maxColumns: 60, maxRows: 30, saveEvent }) )
         if ( ["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) ) { // || ("CaseNotices.htm".includes(thisPageNameHtm) && document.getElementById('textbox2')?.disabled === false) ) {
             let textareaButtonText = {
                 jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
@@ -4223,7 +4218,6 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 if (providerData.status.indexOf("Inactive") > -1) { providerSearchTableTbodyChildren[providerData.selectedRowIndex].classList.add('inactiveToggle') } // adding inactive
                 if ( !localCounties.neighborsAndSelf?.includes(countyName) ) { // not local county
                     let providerZip = providerData.address.split("  ")[1].split("<")[0].slice(0, 5)
-                    console.log(providerZip, localCounties.outOfState[0], localCounties.outOfState[1], inRange(providerZip, localCounties.outOfState[0], localCounties.outOfState[1]))
                     if (countyName === "Out-of-State" && localCounties.outOfState) { if ( inRange(providerZip, localCounties.outOfState[0], localCounties.outOfState[1]) ) { continue } } // skip zip codes within the ranges from userCountyObj.outOfState
                     providerSearchTableTbodyChildren[providerData.selectedRowIndex].classList.add('outOfAreaToggle')
                 }
@@ -4939,16 +4933,36 @@ function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) 
         return tempStringArray.join('\n')
     }
 };
-function maxRowColumnCheck({ textbox, maxColumns=60, maxRows=30, saveEvent } = {}) {
-    let totalRows = splitStringAtWordBoundary({ textbox, maxColumns, maxRows })
-    if (totalRows > maxRows) {
-        if (!document.getElementById('maxRowsExceeded')) {
-            saveEvent.preventDefault()
-            document.querySelector('form')?.insertAdjacentHTML('afterbegin', '<div class="error_alertbox_new" id="maxRowsExceeded"><strong class="rederrortext">Warning: Number of lines of text (' + totalRows + ') exceeds maximum textbox lines (' + maxRows + ') and you will be logged out if you save.</strong></div>');
-            textbox.addEventListener('keydown', () => { document.getElementById('maxRowsExceeded')?.remove(); }, { once: true })
-        }
-    }
-};
+!function wrapTextArea() {
+    const editableTextareas = [...document.querySelectorAll('textarea:not(:read-only)')]
+    if (!editableTextareas.length) { return };
+    const maxRowsTable = {}
+    editableTextareas.forEach(textbox => {
+        let maxColumns = Math.round(textbox.cols/10)*10, maxRows = 30
+        gbl.eles.save?.addEventListener('click', saveEvent => {
+            let totalRows = splitStringAtWordBoundary({ textbox, maxColumns, maxRows })
+            if (totalRows > maxRows) {
+                if (!document.getElementById('maxRowsExceeded')) {
+                    saveEvent.preventDefault()
+                    document.querySelector('form')?.insertAdjacentHTML('afterbegin', '<div class="error_alertbox_new" id="maxRowsExceeded"><strong class="rederrortext">Warning: Number of lines of text (' + totalRows + ') exceeds maximum textbox lines (' + maxRows + ') and you will be logged out if you save.</strong></div>');
+                    let maxRowsExceeded = document.getElementById('maxRowsExceeded')
+                    flashRedOutline(maxRowsExceeded)
+                    textbox.addEventListener('keydown', () => { maxRowsExceeded?.remove(); }, { once: true })
+                }
+            }
+        })
+    })
+// function textareaWordWrap({ textbox, maxColumns=60, maxRows=30, saveEvent } = {}) {
+//     let totalRows = splitStringAtWordBoundary({ textbox, maxColumns, maxRows })
+//     if (totalRows > maxRows) {
+//         if (!document.getElementById('maxRowsExceeded')) { // mec2functions added element;
+//             saveEvent.preventDefault()
+//             document.querySelector('form')?.insertAdjacentHTML('afterbegin', '<div class="error_alertbox_new" id="maxRowsExceeded"><strong class="rederrortext">Warning: Number of lines of text (' + totalRows + ') exceeds maximum textbox lines (' + maxRows + ') and you will be logged out if you save.</strong></div>');
+//             textbox.addEventListener('keydown', () => { document.getElementById('maxRowsExceeded')?.remove(); }, { once: true })
+//         }
+//     }
+// };
+}();
 //           return value to operate on page;
 function createSlider({ label, title, id: sliderId, defaultOn: isChecked, font: sliderFontSize, classes: extraClasses, styles: extraStyles} = {}) {
     isChecked = isChecked ? "checked" : ''
@@ -4983,13 +4997,13 @@ function doToggle(elOrArray) {
 };
 function doUnwrap(ele) { ele = sanitize.query(ele); ele.parentElement.outerHTML = ele.outerHTML };
 function unhideElement(element, trueFalse) { // true to remove hidden, false to add hidden;
-    if (element instanceof HTMLElement) { addRemoveHidden(element, trueFalse) }
-    else if (element instanceof NodeList) { element = [...element] }
-    else if (Array.isArray(element)) {
-        [...element].forEach( ele => addRemoveHidden(sanitize.query(ele), trueFalse) )
-    }
-    function addRemoveHidden(ele2, trueFalse) { trueFalse ? ele2.classList.remove('hidden') : ele2.classList.add('hidden') }
+    element = Array.isArray(element) ? element : element instanceof NodeList ? [...element] : [element]
+    element.forEach( ele => { ele = sanitize.query(ele); trueFalse ? ele.classList.remove('hidden') : ele.classList.add('hidden') } );
 };
+function toggleVisible(element, trueFalse) {
+    element = Array.isArray(element) ? element : element instanceof NodeList ? [...element] : [element]
+    element.forEach( ele => { ele = sanitize.query(ele); ele.style.visibility = trueFalse ? 'visible' : 'hidden' } );
+}
 function tbodiesFocus(elementToFocus) {
     elementToFocus = sanitize.query(elementToFocus)
     if (!elementToFocus) { return }
@@ -5098,12 +5112,7 @@ function preventKeys(keyArray, ms=1500) {
         } else if (keydownEvent.ctrlKey) {
             if (keydownEvent.target.classList.contains('hasDatepicker') || ['ssnReq'].includes(keydownEvent.target.id) || !["v", "s", "w" ].includes(keydownEvent.key)) { return };
             if (keydownEvent.target.nodeName === "INPUT" && keydownEvent.key === "v" && keydownEvent.target.closest('.panel-box-format')) {
-                keydownEvent.preventDefault()
-                let clipboardContents = await getClipboardText()
-                clipboardContents = clipboardContents.trim().replace(/(?<=\d),(?=\d)/g, '')
-                keydownEvent.target.value = clipboardContents
-                doKeydown(keydownEvent.target)
-                doChange(keydownEvent.target)
+                pasteInput(keydownEvent)
             } else if ([ "s", "w" ].includes(keydownEvent.key)) {
                 keydownEvent.preventDefault()
                 switch (keydownEvent.key) {
@@ -5113,7 +5122,14 @@ function preventKeys(keyArray, ms=1500) {
                 }
             }
         }
-    })
+    });
+    async function pasteInput(event) {
+        event.preventDefault()
+        let clipboardContents = await getClipboardText()
+        insertTextAndMoveCursor(clipboardContents.trim().replace(/(?<=\d),(?=\d)|\$/g, ''), event.target)
+        doKeydown(event.target)
+        doChange(event.target)
+    };
 }();
 !function openIdOnPasteFromAnywhere() {
     try {
