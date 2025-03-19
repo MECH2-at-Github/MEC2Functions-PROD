@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.90
+// @version      0.5.91
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -3810,8 +3810,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
                 Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
             }
-            let noteDetails = {}
-            noteDetails = JSON.parse(pastedText.split('AHKJSON')[1])
+            let noteDetails = convertFromAHK(pastedText)
             noteCategory.value = noteDetails.noteElig !== '' ? noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig] : noteDetails.noteDocType
             noteSummary.value = noteDetails.noteTitle
             noteStringText.value = noteDetails.noteText
@@ -4000,8 +3999,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             if (pastedText.indexOf("LetterTextFromAHKJSON") < 0) { return }
             pasteEvent.preventDefault()
             pasteEvent.stopImmediatePropagation()
-            let letterObj = {}
-            letterObj = JSON.parse(pastedText.split('AHKJSON')[1])
+            let letterObj = convertFromAHK(pastedText)
             if (status) {
                 status.value = letterObj.CaseStatus
                 void doChange(status)
@@ -4963,6 +4961,10 @@ function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) 
 //     }
 // };
 }();
+function convertFromAHK(ahkString) {
+    ahkString = sanitize.json(JSON.stringify(ahkString.split('AHKJSON')[1]))
+    return typeof ahkString === "string" ? sanitize.json(ahkString) : ahkString
+}
 //           return value to operate on page;
 function createSlider({ label, title, id: sliderId, defaultOn: isChecked, font: sliderFontSize, classes: extraClasses, styles: extraStyles} = {}) {
     isChecked = isChecked ? "checked" : ''
