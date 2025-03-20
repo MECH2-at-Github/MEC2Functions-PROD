@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.93
+// @version      0.5.94
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -156,7 +156,7 @@ const submitButton = document.querySelector('#submit, #caseInputSubmit, #alertIn
 //
 !function primaryNavigationButtonDivs() {
     let greenline = document.querySelector("div.container:has(.line_mn_green)") ?? undefined
-    if (!greenline || !gbl.eles.pageWrap || !thisPageNameHtm || thisPageNameHtm.indexOf('Log') === 0) { return };
+    if (!thisPageNameHtm || thisPageNameHtm.indexOf('Log') === 0) { return };
     greenline?.insertAdjacentHTML('afterend', `
 <nav class="navigation container">
   <div class="primary-navigation">
@@ -167,6 +167,7 @@ const submitButton = document.querySelector('#submit, #caseInputSubmit, #alertIn
   <div id="secondaryActionArea"><div id="duplicateButtons" class="db-container"></div></div>
 </nav>
 `)
+    if (!gbl.eles.pageWrap) { return };
     greenline?.insertAdjacentElement('afterend', gbl.eles.pageWrap);
     gbl.eles.pageWrap?.classList.add('container')
 }();
@@ -537,6 +538,7 @@ const mec2functionFeatures = [
     };
     navMaps.setWorkerRole()
     let buttonDivTwo = document.getElementById('buttonPanelTwo'), buttonDivOneNTF = document.getElementById("buttonPanelOneNTF");
+    if (!buttonDivTwo) { return };
     !function createNavButtons() {
         navMaps.rowMap.forEach((valueArray, row) => {
             if (row === "rowOne") {
@@ -5202,20 +5204,22 @@ function preventKeys(keyArray, ms=1500) {
 !function openIdOnPasteFromAnywhere() {
     try {
         let caseOrProviderInput = caseIdElement ?? providerIdElement
-        if (editMode || iFramed || !caseOrProviderInput || caseOrProviderInput.disabled) { return }
+        if (editMode || iFramed || caseOrProviderInput?.disabled) { return }
+        if (!caseOrProviderInput) {}
         window.addEventListener('paste', async () => {
             navigator.clipboard.readText()
                 .then(text => {
                 text = text.trim()
                 if (!(/^[0-9]{1,8}$/).test(text)) { return }
                 if (!["TEXT", "INPUT"].includes(document.activeElement.nodeName) || document.activeElement.id === caseOrProviderInput.id) {
+                    if (!caseOrProviderInput) { window.open('/ChildCare/CaseNotes.htm?parm2=' + text, '_blank'); return; }
                     caseOrProviderInput.value = text
                     submitButton.click()
                 }
             })
         })
-    } catch (error) { console.trace(error) }; // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
-}();
+    } catch (error) { console.trace(error) };
+}(); // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
 //           personal amusement;
 !function starFall() {
     if (!countyInfo.userSettings.starFall) { return };
@@ -5299,7 +5303,7 @@ function mec2enhancements() {
         firstVisibleOfSelector.scrollIntoView(false, { behavior: "smooth", })
         firstVisibleOfSelector.addEventListener( 'animationend', () => { styleSheet.replaceSync(""); }, { once: true } )
         styleSheet.replaceSync( selector + " { animation: shake-top 3.5s cubic-bezier(0.455, 0.030, 0.515, 0.955) 1 both; box-shadow: var(--highlightFocus) !important; }" );
-        // helpStyleSheet.replaceSync( selector + " { animation: pulsate 0.5s linear 5 both; box-shadow: var(--highlightFocus) !important; }" );
+        // helpStyleSheet.replaceSync( selector + " { animation: pulsate 0.5s linear 5 both; box-shadow: var(--highlightFocus) !important; }" ); ; alternative animation;
     };
 };
 !function postLoadChanges() {
