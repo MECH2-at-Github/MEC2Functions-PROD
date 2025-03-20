@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.91
+// @version      0.5.92
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -89,9 +89,9 @@ const countyInfo = {
         localStorage.setItem( 'MECH2.userSettings', JSON.stringify(this.userSettings) )
     },
 }; // function_and_values
-document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="#" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info.navOnly ? " Nav Only" : "") + '</a>'
+document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="#" title="Click to copy version numbers" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info.navOnly ? " Nav Only" : "") + '</a>'
                                                     + '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>');
-document.getElementById('versionNumber').addEventListener('click', clickEvent => { let versionText = clickEvent.target.innerText + window.getComputedStyle(clickEvent.target, ':after').content.replace(/"/g, ''); copy( versionText, versionText ) })
+document.getElementById('versionNumber')?.addEventListener('click', clickEvent => { let versionText = clickEvent.target.innerText + window.getComputedStyle(clickEvent.target, ':after').content.replace(/"/g, ''); copy( versionText, versionText ) })
 document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
 //
 const newFeatureNotice = {
@@ -848,7 +848,7 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
         function addToCaseHistoryArray() {
             const caseName = nameFuncs.commaNameReorder(pageTitle), caseIdTest = (entry) => entry.caseIdNumber === caseId, foundDuplicate = caseHistory.findIndex(caseIdTest)
             if (foundDuplicate > -1) { caseHistory.splice(foundDuplicate, 1) }
-            let timestamp = dateFuncs.formatDate(new Date(), "mmddhm"), newEntry = { caseIdNumber: caseId, caseName: caseName, time: timestamp };
+            let timestamp = dateFuncs.formatDate(new Date(), "mmddhm"), newEntry = { caseIdNumber: Number(caseId), caseName: caseName, time: timestamp };
             while (caseHistory.length > 9) { caseHistory.pop() }
             caseHistory.unshift(newEntry)
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
