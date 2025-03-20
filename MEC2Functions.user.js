@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.92
+// @version      0.5.93
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -57,20 +57,14 @@ const clearStorageItems = (storage = "both") => {
     if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
     if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote|providerEndings/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
 };
-if ("Logout.htm".includes(thisPageNameHtm)) { clearStorageItems(); return; };
 if ( "Welcome.htm".includes(thisPageNameHtm) ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
-const mec2functionFeatures = [
-        { title: 'Primary Navigation', desc: 'Buttons added to replace the drop-down menus for navigating MEC2.', selector: '.primary-navigation' },
-        { title: 'User Settings', desc: 'Settings menu for mec2functions.', selector: '#mec2functionsMenu' },
-        { title: 'Open Case in New Tab', desc: 'An input field for a case number, with buttons that open the case in Notes or Overview. Pressing Enter opens Overview, and N opens Notes.', selector: '#buttonPanelOneNTF' },
-        { title: 'Case History', desc: 'A list of the last 10 cases opened. Includes the case name, number, and date with time.', selector: '#newTabField' },
-        { title: 'Addtional Footer Links', desc: 'Links added to the footer of sites commonly used by CCAP workers. Some links are only added to specific pages, such as on the CaseTransfer page.', selector: '#footer_links' },
-        { title: 'Hotkeys', desc: 'Hotkeys to operate buttons. Hotkey combinations are "Alt" plus:<br><u>N</u>ew, <u>S</u>ave, <u>E</u>dit, <u>D</u>elete, <u>O</u>k, <u>C</u>ancel, <u>R</u>esend, <u>R</u>eturn, <u>W</u>rap-Up, <u>←</u> (previous), <u>→</u> (next).<br>Hotkey is typically the first letter of the button.' },
-        { title: 'Auto-Focus', desc: 'When loading a page, or with certain page changes, an item on the page is automatically "focused" so that it can be interacted with immediately. The selected item is designed to be the item most likely needing interaction.' },
-        { title: 'Theme colors', desc: 'Using the Stylus extension and MEC2Stylus, MEC2 theme colors are changed to beige and light grays or black and dark grays. This follows the "color" setting in "System Colors" in Windows.' },
-        // {title: "TITLE", desc: "DESCRIPTION", selector: "OPTIONAL"},
-        { separator: true },
-];
+
+const gbl = {
+    eles: {
+        pageWrap: document.getElementById('page-wrap'), save: document.getElementById('save'), quit: document.getElementById('quit'), submitButton: document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitProviderId, #providerIdSubmit'),
+        caseIdElement: document.querySelector('#caseId:not([type=hidden])'), providerIdElement: document.querySelector('#providerInput > #providerId:not([type=hidden])'), selectPeriod: document.getElementById('selectPeriod'), wrapUp: document.getElementById('wrapUp'),
+    },
+}
 //
 const countyInfo = {
     info: { ...sanitize.json( localStorage.getItem('MECH2.countyInfo') ) } ?? {},
@@ -89,10 +83,17 @@ const countyInfo = {
         localStorage.setItem( 'MECH2.userSettings', JSON.stringify(this.userSettings) )
     },
 }; // function_and_values
-document.getElementById('help')?.insertAdjacentHTML('afterend', '<a id="versionNumber" href="#" title="Click to copy version numbers" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info.navOnly ? " Nav Only" : "") + '</a>'
-                                                    + '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>');
-document.getElementById('versionNumber')?.addEventListener('click', clickEvent => { let versionText = clickEvent.target.innerText + window.getComputedStyle(clickEvent.target, ':after').content.replace(/"/g, ''); copy( versionText, versionText ) })
-document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
+!function versionAndTooltips() {
+    let versionAndTooltipsHome = document.getElementById('help')
+    ? { ele: document.getElementById('help'), placement: "afterend", tooltip: true }
+    : { ele: document.querySelector('form') ?? document.querySelector('div.panel-invisibleBorder > div.content_8pad-20top'), placement: "afterbegin", tooltip: false }
+    let tooltipHTML = versionAndTooltipsHome.tooltip ? '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>' : ''
+    let versionAndTooltipsHTML = '<a id="versionNumber" href="#" title="Click to copy version numbers" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info.navOnly ? " Nav Only" : "") + '</a>' + tooltipHTML
+    versionAndTooltipsHome.ele?.insertAdjacentHTML(versionAndTooltipsHome.placement, versionAndTooltipsHTML);
+    document.getElementById('versionNumber')?.addEventListener('click', clickEvent => { let versionText = clickEvent.target.innerText + window.getComputedStyle(clickEvent.target, ':after').content.replace(/"/g, ''); copy( versionText, versionText ) })
+    document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
+}();
+if ("Logout.htm".includes(thisPageNameHtm)) { clearStorageItems(); return; };
 //
 const newFeatureNotice = {
     newNoticesToUsers: [ // ["lsValue", [ "Description_of_setting. Default: On_Off" ], trueIsOn_falseIsOff_omitForNonSettingNotices],
@@ -137,16 +138,8 @@ const newFeatureNotice = {
 }; // function_and_values
 newFeatureNotice.noticeToUsersBuildHTML();
 //
-const gbl = {
-    eles: {
-        pageWrap: document.getElementById('page-wrap'), save: document.getElementById('save'), quit: document.getElementById('quit'), submitButton: document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitProviderId, #providerIdSubmit'),
-        caseIdElement: document.querySelector('#caseId:not([type=hidden])'), providerIdElement: document.querySelector('#providerInput > #providerId:not([type=hidden])'), selectPeriod: document.getElementById('selectPeriod'), wrapUp: document.getElementById('wrapUp'),
-    },
-}
 const rederrortextContent = [...document.querySelectorAll('strong.rederrortext:not(div.error_alertbox_new > strong.rederrortext, #memberHelpDeskPanel strong)'), ...document.querySelectorAll('.error_alertbox_new:has(> strong)')].map(ele => ele.innerText.trim()).filter(ele => ele);
 const noResultsForCase = rederrortextContent?.find(ele => ele.includes('No results for case'));
-// const pageWrap = document.getElementById('page-wrap')
-const save = document.getElementById('save'), quit = document.getElementById('quit');
 const editMode = (!gbl.eles.pageWrap && !noResultsForCase), appModeNotEdit = (gbl.eles.quit && gbl.eles.save?.disabled);
 const iFramed = window.location !== window.parent.location;
 let focusEle = "blank";
@@ -162,22 +155,20 @@ const pageTitle = document.querySelector('title').innerText;
 const submitButton = document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitProviderId, #providerIdSubmit');
 //
 !function primaryNavigationButtonDivs() {
-    try {
-        let greenline = document.querySelector("div.container:has(.line_mn_green)") ?? undefined
-        greenline?.insertAdjacentHTML('afterend', `
-        <nav class="navigation container">
-          <div class="primary-navigation">
-            <div class="primary-navigation-row"> <div id="buttonPanelOne"></div> <div id="buttonPanelOneNTF"></div> </div>
-            <div class="primary-navigation-row"> <div id="buttonPanelTwo"></div> </div>
-            <div class="primary-navigation-row"> <div id="buttonPanelThree"></div> </div>
-          </div>
-          <div id="secondaryActionArea"><div id="duplicateButtons" class="db-container"></div></div>
-        </nav>
-		`)
-        if (!gbl.eles.pageWrap) { return }
-        greenline?.insertAdjacentElement('afterend', gbl.eles.pageWrap);
-        gbl.eles.pageWrap?.classList.add('container')
-    } catch(error) { console.trace(error) }
+    let greenline = document.querySelector("div.container:has(.line_mn_green)") ?? undefined
+    if (!greenline || !gbl.eles.pageWrap || !thisPageNameHtm || thisPageNameHtm.indexOf('Log') === 0) { return };
+    greenline?.insertAdjacentHTML('afterend', `
+<nav class="navigation container">
+  <div class="primary-navigation">
+    <div class="primary-navigation-row"> <div id="buttonPanelOne"></div> <div id="buttonPanelOneNTF"></div> </div>
+    <div class="primary-navigation-row"> <div id="buttonPanelTwo"></div> </div>
+    <div class="primary-navigation-row"> <div id="buttonPanelThree"></div> </div>
+  </div>
+  <div id="secondaryActionArea"><div id="duplicateButtons" class="db-container"></div></div>
+</nav>
+`)
+    greenline?.insertAdjacentElement('afterend', gbl.eles.pageWrap);
+    gbl.eles.pageWrap?.classList.add('container')
 }();
 const secondaryActionArea = document.getElementById('secondaryActionArea'), duplicateButtons = document.getElementById('duplicateButtons');
 // gbl.eles.secondaryActionArea = document.getElementById('secondaryActionArea');
@@ -369,10 +360,24 @@ function docReady(fn) {
         })
     })
 }();
+//
+const mec2functionFeatures = [
+        { title: 'Primary Navigation', desc: 'Buttons added to replace the drop-down menus for navigating MEC2.', selector: '.primary-navigation' },
+        { title: 'User Settings', desc: 'Settings menu for mec2functions.', selector: '#mec2functionsMenu' },
+        { title: 'Open Case in New Tab', desc: 'An input field for a case number, with buttons that open the case in Notes or Overview. Pressing Enter opens Overview, and N opens Notes.', selector: '#buttonPanelOneNTF' },
+        { title: 'Case History', desc: 'A list of the last 10 cases opened. Includes the case name, number, and date with time.', selector: '#newTabField' },
+        { title: 'Addtional Footer Links', desc: 'Links added to the footer of sites commonly used by CCAP workers. Some links are only added to specific pages, such as on the CaseTransfer page.', selector: '#footer_links' },
+        { title: 'Hotkeys', desc: 'Hotkeys to operate buttons. Hotkey combinations are "Alt" plus:<br><u>N</u>ew, <u>S</u>ave, <u>E</u>dit, <u>D</u>elete, <u>O</u>k, <u>C</u>ancel, <u>R</u>esend, <u>R</u>eturn, <u>W</u>rap-Up, <u>←</u> (previous), <u>→</u> (next).<br>Hotkey is typically the first letter of the button.' },
+        { title: 'Auto-Focus', desc: 'When loading a page, or with certain page changes, an item on the page is automatically "focused" so that it can be interacted with immediately. The selected item is designed to be the item most likely needing interaction.' },
+        { title: 'Theme colors', desc: 'Using the Stylus extension and MEC2Stylus, MEC2 theme colors are changed to beige and light grays or black and dark grays. This follows the "color" setting in "System Colors" in Windows.' },
+        // {title: "TITLE", desc: "DESCRIPTION", selector: "OPTIONAL"},
+        { separator: true },
+];
 // ========================================================================================================================================================================================================
 // ///////////////////////////////////////////////////////////////////// SECTION_START CUSTOM_NAVIGATION \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ///////////////////////////////////////////////////////////////// PRIMARY_NAVIGATION_BUTTONS SECTION_START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 !function primaryNavigation() {
+    if (iFramed || !thisPageNameHtm || thisPageNameHtm.indexOf('Log') === 0) { return }
     const searchIcon = "<span style='font-size: 80%; margin-left: 2px;'>🔍</span>";
     const navMaps = {
         rowMap: new Map([
@@ -530,134 +535,128 @@ function docReady(fn) {
             };
         },
     };
-    if (iFramed) { return }
     navMaps.setWorkerRole()
-    try {
-        let buttonDivOne = document.getElementById('buttonPanelOne'), buttonDivTwo = document.getElementById('buttonPanelTwo'), buttonDivThree = document.getElementById('buttonPanelThree'), buttonDivOneNTF = document.getElementById("buttonPanelOneNTF");
-        !function createNavButtons() {
-            navMaps.rowMap.forEach((valueArray, row) => {
-                if (row === "rowOne") {
-                    buttonDivOne.insertAdjacentHTML( 'afterbegin', valueArray.map(page => '<button id="' + page + '" class="cButton nav">' + navMaps.allPagesMap.get(page).label + '</button>').join('') )
-                } else if (row === "rowTwo") {
-                    buttonDivTwo.insertAdjacentHTML( 'afterbegin', valueArray.map(label => '<button id="' + label + '" class="cButton nav">' + label.replaceAll(/_/g,' ').split(".")[0] + '</button>').join('') )
-                }
-            })
-        }();
-        //
-        !function highlightNavOnPageLoad() {
-            let thisPageNameMap = navMaps.allPagesMap.get(thisPageNameHtm)
-            if (!thisPageNameMap) { return }
-            if ( thisPageNameMap.row === "1" ) {
-                document.getElementById(thisPageNameHtm).classList.add('open-page')
-            } else if ( thisPageNameMap.row === "3" ) {
-                populateNavRowThree(thisPageNameMap.rowTwoParent)
-                document.getElementById(thisPageNameMap.rowTwoParent).classList.add('open-page')
+    let buttonDivTwo = document.getElementById('buttonPanelTwo'), buttonDivOneNTF = document.getElementById("buttonPanelOneNTF");
+    !function createNavButtons() {
+        navMaps.rowMap.forEach((valueArray, row) => {
+            if (row === "rowOne") {
+                document.getElementById('buttonPanelOne').insertAdjacentHTML( 'afterbegin', valueArray.map(page => '<button id="' + page + '" class="cButton nav">' + navMaps.allPagesMap.get(page).label + '</button>').join('') )
+            } else if (row === "rowTwo") {
+                buttonDivTwo.insertAdjacentHTML( 'afterbegin', valueArray.map(label => '<button id="' + label + '" class="cButton nav">' + label.replaceAll(/_/g,' ').split(".")[0] + '</button>').join('') )
             }
-        }();
-        //
-        function populateNavRowThree(rowTwoCategory) {
-            buttonDivThree.innerHTML = navMaps.rowPagesMap.get(rowTwoCategory).map(mapPageName => {
-                let classList = "cButton nav"
-                if (thisPageNameHtm === mapPageName) { classList += " open-page" }
-                if (rowTwoCategory === "Eligibility.btn" && !reviewingEligibility && !["CaseEligibilityResultSelection.htm", "CaseCreateEligibilityResults.htm", ].includes(mapPageName) ) { classList += " hidden" }
-                return '<button class="' + classList + '" id="' + mapPageName + '">' + navMaps.allPagesMap.get(mapPageName).label + '</button>'
-            }).join('')
-        }
-        //
-        function openNav(allPagesMapKey, target) {
-            let destinationIsListPage = navMaps.listPageList.includes(allPagesMapKey)
-            let qMarkParameters = ""
-            let isListPage = navMaps.listPageList.includes(thisPageNameHtm)
-            if (!destinationIsListPage && isListPage) {
-                qMarkParameters = allPagesMapKey.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? ''
-                if (target === "_self") { document.body.style.opacity = ".8" }
-                window.open('/ChildCare/' + allPagesMapKey + qMarkParameters, target)
-                return
-            }
-            if (!editMode) {
-                let targetPage = navMaps.allPagesMap.get(allPagesMapKey)?.parentId?.replace(/ /g, '\ ')
-                if (!targetPage) { return }
-                if (target === "_self") { document.body.style.opacity = ".8" }
-                window.open( document.getElementById(targetPage).firstElementChild.href, target )
-            } else if (editMode) {
-                qMarkParameters = caseId ? "?parm2=" + caseId : ''
-                window.open('/ChildCare/' + allPagesMapKey + qMarkParameters, "_blank")
-            }
-        }
-        //
-        function clickRowTwo(clickTarget) {
-            buttonDivTwo.querySelectorAll('.cButton.nav.browsing').forEach(ele => ele.classList.remove('browsing'))
-            populateNavRowThree(sanitize.string(clickTarget.id))
-            clickTarget.classList.add('browsing')
-        }
-        document.querySelector('.primary-navigation').addEventListener('click', eventClick => {
-            if (gbl.eles.wrapUp && !editMode && gbl.eles.wrapUp.disabled) { clearStorageItems('session') }
-            let eventClickTarget = eventClick.target
-            if ( eventClickTarget.parentElement === buttonDivOneNTF || eventClickTarget.nodeName !== "BUTTON") { return };
-            if ( eventClickTarget.parentElement === buttonDivTwo ) { clickRowTwo(eventClickTarget); return };
-            if (editMode) { openNav(sanitize.string(eventClickTarget.id), "_blank"); return };
-            openNav(sanitize.string(eventClickTarget.id), "_self")
-            eventClickTarget.classList.add('open-page')
         })
-        document.querySelector('.primary-navigation').addEventListener('contextmenu', eventContextMenu => {
-            let parentDiv = eventContextMenu.target.closest('div')
-            if ( eventContextMenu.target.nodeName !== "BUTTON" ) { return }
-            eventContextMenu.preventDefault();
-            if ( parentDiv === buttonDivTwo ) {
-                clickRowTwo(eventContextMenu.target)
-                return
-            }
-            openNav(eventContextMenu.target.id, "_blank")
-        })
+    }();
+    //
+    !function highlightNavOnPageLoad() {
+        let thisPageNameMap = navMaps.allPagesMap.get(thisPageNameHtm)
+        if (!thisPageNameMap) { return }
+        if ( thisPageNameMap.row === "1" ) {
+            document.getElementById(thisPageNameHtm).classList.add('open-page')
+        } else if ( thisPageNameMap.row === "3" ) {
+            populateNavRowThree(thisPageNameMap.rowTwoParent)
+            document.getElementById(thisPageNameMap.rowTwoParent).classList.add('open-page')
+        }
+    }();
+    //
+    function populateNavRowThree(rowTwoCategory) {
+        document.getElementById('buttonPanelThree').innerHTML = navMaps.rowPagesMap.get(rowTwoCategory).map(mapPageName => {
+            let classList = "cButton nav"
+            if (thisPageNameHtm === mapPageName) { classList += " open-page" }
+            if (rowTwoCategory === "Eligibility.btn" && !reviewingEligibility && !["CaseEligibilityResultSelection.htm", "CaseCreateEligibilityResults.htm", ].includes(mapPageName) ) { classList += " hidden" }
+            return '<button class="' + classList + '" id="' + mapPageName + '">' + navMaps.allPagesMap.get(mapPageName).label + '</button>'
+        }).join('')
+    }
+    //
+    function openNav(allPagesMapKey, target) {
+        let destinationIsListPage = navMaps.listPageList.includes(allPagesMapKey)
+        let qMarkParameters = ""
+        let isListPage = navMaps.listPageList.includes(thisPageNameHtm)
+        if (!destinationIsListPage && isListPage) {
+            qMarkParameters = allPagesMapKey.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? ''
+            if (target === "_self") { document.body.style.opacity = ".8" }
+            window.open('/ChildCare/' + allPagesMapKey + qMarkParameters, target)
+            return
+        }
+        if (!editMode) {
+            let targetPage = navMaps.allPagesMap.get(allPagesMapKey)?.parentId?.replace(/ /g, '\ ')
+            if (!targetPage) { return }
+            if (target === "_self") { document.body.style.opacity = ".8" }
+            window.open( document.getElementById(targetPage).firstElementChild.href, target )
+        } else if (editMode) {
+            qMarkParameters = caseId ? "?parm2=" + caseId : ''
+            window.open('/ChildCare/' + allPagesMapKey + qMarkParameters, "_blank")
+        }
+    }
+    //
+    function clickRowTwo(clickTarget) {
+        buttonDivTwo.querySelectorAll('.cButton.nav.browsing').forEach(ele => ele.classList.remove('browsing'))
+        populateNavRowThree(sanitize.string(clickTarget.id))
+        clickTarget.classList.add('browsing')
+    }
+    document.querySelector('.primary-navigation').addEventListener('click', eventClick => {
+        if (gbl.eles.wrapUp && !editMode && gbl.eles.wrapUp.disabled) { clearStorageItems('session') }
+        let eventClickTarget = eventClick.target
+        if ( eventClickTarget.parentElement === buttonDivOneNTF || eventClickTarget.nodeName !== "BUTTON") { return };
+        if ( eventClickTarget.parentElement === buttonDivTwo ) { clickRowTwo(eventClickTarget); return };
+        if (editMode) { openNav(sanitize.string(eventClickTarget.id), "_blank"); return };
+        openNav(sanitize.string(eventClickTarget.id), "_self")
+        eventClickTarget.classList.add('open-page')
+    })
+    document.querySelector('.primary-navigation').addEventListener('contextmenu', eventContextMenu => {
+        let parentDiv = eventContextMenu.target.closest('div')
+        if ( eventContextMenu.target.nodeName !== "BUTTON" ) { return }
+        eventContextMenu.preventDefault();
+        if ( parentDiv === buttonDivTwo ) { clickRowTwo(eventContextMenu.target); return; }
+        openNav(eventContextMenu.target.id, "_blank")
+    })
 
-        if ("getProviderOverview.htm".includes(thisPageNameHtm)) {
-            let getProviderOverview = document.getElementById('Provider_Info.btn')
-            getProviderOverview.click()
-            getProviderOverview.classList.replace('browsing', 'open-page')
-            document.getElementById('ProviderOverview.htm').classList.add('open-page')
-        }
-        if (["ProviderSearch.htm", "ProviderRegistrationList.htm"].includes(thisPageNameHtm)) { document.getElementById('Provider_Info.btn').click() };
-        // SECTION_START New_Tab_Case_Number_Field
-        !function newTabFieldSetup() {
-            buttonDivOneNTF.insertAdjacentHTML('afterbegin', ''
-                + '<div id="newTabInputDiv"><input id="newTabField" list="" autocomplete="off" class="form-control" placeholder="Case #" pattern="^\\d{1,8}$" style="width: 10ch;"></input></div>'
-                + '<button type="button" data-page-name="CaseNotes" id="FieldNotesNT" class="cButton nav">Notes</button>'
-                + '<button type="button" data-page-name="CaseOverview" id="FieldOverviewNT" class="cButton nav">Overview</button>')
-            newTabField = document.getElementById('newTabField')
-            buttonDivOneNTF.addEventListener('click', clickEvent => {
-                if (clickEvent.target.closest('button')?.nodeName === 'BUTTON') { pageOpenNTF(clickEvent, clickEvent.target.dataset.pageName) };
-            })
-            newTabField.addEventListener('paste', pasteEvent => {
-                pasteEvent.preventDefault();
-                let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-                if ( !/^\d{1,8}$/.test(pastedText) ) { return };
-                newTabField.value = pastedText
-            })
-            newTabField.addEventListener('keydown', keydownEvent => {
-                keydownEvent.stopImmediatePropagation()
-                if (
-                    ( /[0-9]/.test(keydownEvent.key) && /^\d{0,7}$/.test(keydownEvent.target.value) )
-                    || ( keydownEvent.ctrlKey && ['v', 'a', 'x'].includes(keydownEvent.key) )
-                    || [ 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Home', 'End', 'Tab' ].includes(keydownEvent.key)
-                   ) { return; }
-                switch (keydownEvent.key) {
-                    case 'n': pageOpenNTF(keydownEvent, 'CaseNotes'); return;
-                    case 'o':
-                    case 'Enter': pageOpenNTF(keydownEvent, 'CaseOverview'); return;
-                    case 'Escape': toggleVisible(document.getElementById('caseHistory'), false); break;
-                }
-                keydownEvent.preventDefault()
-            })
-            function clearNTF() { newTabField.value = '' }
-            function pageOpenNTF(event, pageNameNTF) {
-                event.preventDefault();
-                if (!/^\d{1,8}$/.test(newTabField.value)) { return; }
-                window.open('/ChildCare/' + (pageNameNTF === "CaseOverview" ? "CaseOverview" : "CaseNotes") + '.htm?parm2=' + newTabField.value, '_blank');
-                clearNTF()
+    if ("getProviderOverview.htm".includes(thisPageNameHtm)) {
+        let getProviderOverview = document.getElementById('Provider_Info.btn')
+        getProviderOverview.click()
+        getProviderOverview.classList.replace('browsing', 'open-page')
+        document.getElementById('ProviderOverview.htm').classList.add('open-page')
+    }
+    if (["ProviderSearch.htm", "ProviderRegistrationList.htm"].includes(thisPageNameHtm)) { document.getElementById('Provider_Info.btn').click() };
+    // SECTION_START New_Tab_Case_Number_Field
+    !function newTabFieldSetup() {
+        let newTabFieldHTML = ''
+        + '<div id="newTabInputDiv"><input id="newTabField" list="" autocomplete="off" class="form-control" placeholder="Case #" pattern="^\\d{1,8}$" style="width: 10ch;"></input></div>'
+        + '<button type="button" data-page-name="CaseNotes" id="FieldNotesNT" class="cButton nav">Notes</button>'
+        + '<button type="button" data-page-name="CaseOverview" id="FieldOverviewNT" class="cButton nav">Overview</button>'
+        buttonDivOneNTF.insertAdjacentHTML('afterbegin', newTabFieldHTML)
+        newTabField = document.getElementById('newTabField')
+        buttonDivOneNTF.addEventListener('click', clickEvent => {
+            if (clickEvent.target.closest('button')?.nodeName === 'BUTTON') { pageOpenNTF(clickEvent, clickEvent.target.dataset.pageName) };
+        })
+        newTabField.addEventListener('paste', pasteEvent => {
+            pasteEvent.preventDefault();
+            let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+            if ( !/^\d{1,8}$/.test(pastedText) ) { return };
+            newTabField.value = pastedText
+        })
+        newTabField.addEventListener('keydown', keydownEvent => {
+            keydownEvent.stopImmediatePropagation()
+            if (
+                ( /[0-9]/.test(keydownEvent.key) && /^\d{0,7}$/.test(keydownEvent.target.value) )
+                || ( keydownEvent.ctrlKey && ['v', 'a', 'x'].includes(keydownEvent.key) )
+                || [ 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Home', 'End', 'Tab' ].includes(keydownEvent.key)
+            ) { return; }
+            switch (keydownEvent.key) {
+                case 'n': pageOpenNTF(keydownEvent, 'CaseNotes'); return;
+                case 'o':
+                case 'Enter': pageOpenNTF(keydownEvent, 'CaseOverview'); return;
+                case 'Escape': toggleVisible(document.getElementById('caseHistory'), false); break;
             }
-        }();
-        editMode && (document.querySelectorAll('#buttonPanelTwo, #buttonPanelThree').forEach(ele => ele.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
-    } catch (error) { console.trace(error) }
+            keydownEvent.preventDefault()
+        })
+        function pageOpenNTF(event, pageNameNTF) {
+            event.preventDefault();
+            if (!/^\d{1,8}$/.test(newTabField.value)) { return; }
+            window.open('/ChildCare/' + (pageNameNTF === "CaseOverview" ? "CaseOverview" : "CaseNotes") + '.htm?parm2=' + newTabField.value, '_blank');
+            newTabField.value = ''
+        }
+    }();
+    editMode && (document.querySelectorAll('#buttonPanelTwo, #buttonPanelThree').forEach(ele => ele.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
 }();
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ PRIMARY_NAVIGATION_BUTTONS SECTION_END  //////////////////////////////////////////////////////////////////
 if (selectPeriod && countyInfo.userSettings.selectPeriodReversal && !editMode) { selectPeriodReversal() };
@@ -841,14 +840,14 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
 };
 //======================== Case_History Section_Start =================================
 !function caseHistoryDatalist() {
-    if (iFramed || !newTabField instanceof HTMLElement || !countyInfo.userSettings.caseHistory) { return };
+    if (iFramed || !(newTabField instanceof HTMLElement) || !countyInfo.userSettings.caseHistory) { return };
     try {
         const caseHistory = localStorage.getItem('MECH2.caseHistoryLS') ? sanitize.json(localStorage.getItem('MECH2.caseHistoryLS')) : []
         if (pageTitle === pageTitle.toUpperCase() && thisPageNameHtm.indexOf('Provider') !== 0 && caseId && !editMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
         function addToCaseHistoryArray() {
             const caseName = nameFuncs.commaNameReorder(pageTitle), caseIdTest = (entry) => entry.caseIdNumber === caseId, foundDuplicate = caseHistory.findIndex(caseIdTest)
             if (foundDuplicate > -1) { caseHistory.splice(foundDuplicate, 1) }
-            let timestamp = dateFuncs.formatDate(new Date(), "mmddhm"), newEntry = { caseIdNumber: Number(caseId), caseName: caseName, time: timestamp };
+            let timestamp = dateFuncs.formatDate(new Date(), "mmddhm"), newEntry = { caseIdNumber: caseId, caseName: caseName, time: timestamp };
             while (caseHistory.length > 9) { caseHistory.pop() }
             caseHistory.unshift(newEntry)
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
@@ -894,6 +893,71 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
         function hideHistory() {
             toggleVisible(history, false)
             document.removeEventListener('click', hideHistoryClick)
+        }
+    }
+    catch (err) { console.trace(err) }
+}(); //======================== Case_History Section_End ===================================//
+!function caseHistoryDatalist() {
+    if (iFramed || !newTabField || !countyInfo.userSettings.caseHistory) { return };
+    try {
+        const caseHistory = localStorage.getItem('MECH2.caseHistoryLS') ? sanitize.json(localStorage.getItem('MECH2.caseHistoryLS')) : []
+        if (pageTitle === pageTitle.toUpperCase() && thisPageNameHtm.indexOf('Provider') !== 0 && caseId && !editMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
+        function addToCaseHistoryArray() {
+            const caseName = nameFuncs.commaNameReorder(pageTitle), caseIdTest = (entry) => entry.caseIdNumber === caseId, foundDuplicate = caseHistory.findIndex(caseIdTest)
+            if (foundDuplicate > -1) { caseHistory.splice(foundDuplicate, 1) }
+            let timestamp = dateFuncs.formatDate(new Date(), "mmddhm"), newEntry = { caseIdNumber: caseId, caseName: caseName, time: timestamp };
+            while (caseHistory.length > 9) { caseHistory.pop() }
+            caseHistory.unshift(newEntry)
+            localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
+        };
+        let viewHistory = sanitize.json(localStorage.getItem('MECH2.caseHistoryLS'))
+        let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block;" class="hidden">'
+        + viewHistory.map(item => '<div class="caseHistoryEntry" id="history' + parseInt(item.caseIdNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdNumber) + '</span></div>').join('')
+        + '</datalist>'
+        newTabField.insertAdjacentHTML('afterend', viewHistoryDatalist)
+        let history = document.getElementById('caseHistory'), historyList = [...history.children]
+        newTabField.addEventListener('focus', focusEvent => {
+            filterHistory(focusEvent.target.value, undefined)
+            document.addEventListener('click', hideHistoryClick)
+            // newTabField.addEventListener('keydown', hideHistoryEscape)
+        })
+        newTabField.addEventListener('input', inputEvent => { filterHistory(inputEvent.target.value, inputEvent.inputType) });
+        history.addEventListener('click', clickEvent => {
+            if ( !["SPAN", "DIV"].includes(clickEvent.target.nodeName) ) { return }
+            unhideElement(history, false)
+            newTabField.value = Number(clickEvent.target.closest('div.caseHistoryEntry').id.split('history')[1])
+            newTabField.select()
+        });
+        function filterHistory(inputValue, inputType) {
+            if (!inputValue) {
+                unhideElement(historyList, true)
+                if (inputType && inputType === 'deleteByCut') {
+                    unhideElement(history, false);
+                    newTabField.blur();
+                    return;
+                }
+                unhideElement(history, true)
+                return
+            }
+            let inputMatch = historyList.filter( ele => ele.id.includes(inputValue) )
+            if (inputMatch.length) {
+                unhideElement(history, true)
+                historyList.forEach(ele => inputMatch.includes(ele) ? unhideElement(ele, true) : unhideElement(ele, false) )
+            } else { unhideElement(history, false) }
+        }
+        function hideHistoryClick(clickEvent) {
+            if ( clickEvent.target.closest('#newTabInputDiv') ) { return };
+            hideHistory()
+        }
+        // function hideHistoryEscape(keydownEvent) {
+        //     // conflicts with newTabFieldButtons() - no prop;
+        //     if (keydownEvent.key !== "Escape") { return };
+        //     hideHistory()
+        // }
+        function hideHistory() {
+            unhideElement(history, false)
+            document.removeEventListener('click', hideHistoryClick)
+            // newTabField.removeEventListener('click', hideHistoryEscape)
         }
     }
     catch (err) { console.trace(err) }
@@ -1017,8 +1081,7 @@ const actualDate = {
         sessionStorage.setItem('actualDateSS', '{"adCaseNum":"' + adCaseNum + '", "adDate":"' + adDate + '"}' )
     },
     _actualDateMatches({ adDate, adCaseNum } = {}) {
-        let quit = document.getElementById('quit')
-        if (editMode && quit) { quit.addEventListener('click', () => { clearStorageItems('session'); return; }) }
+        if (editMode && gbl.eles.quit) { gbl.eles.quit.addEventListener('click', () => { clearStorageItems('session'); return; }) }
         if (submitButton?.id === "caseInputSubmit") { // field for user to manually edit Actual Date;
             submitButton.insertAdjacentHTML('afterend', '<div class="float-right-imp" style="display: flex; align-items: center;"><label>Actual Date: </label><input id="userInputActualDate" class="form-control" style="width: var(--dateInput);"></input></div>')
             let userInputActualDate = document.getElementById('userInputActualDate')
@@ -1040,7 +1103,7 @@ const actualDate = {
         if (!this.dateField.value) { this.dateField.value = adDate } // Actual date field being filled;
         else if ( "CaseAddress.htm".includes(thisPageNameHtm) && document.getElementById('edit').disabled && this.dateField.value !== adDate ) {
             this.dateField.parentElement.insertAdjacentHTML('afterend', '<button type="button" id="useActualDate" style="margin-left: 20px;" class="cButton sidePadding">Use: ' + adDate + '</button>')
-            document.getElementById('useActualDate').addEventListener('click', () => { this.dateField.value = adDate; eleFocus(save) })
+            document.getElementById('useActualDate').addEventListener('click', () => { this.dateField.value = adDate; eleFocus(gbl.eles.save) })
         }
     },
     _dateStorage() {
@@ -1051,7 +1114,7 @@ const actualDate = {
             let inCurrentPeriod = this._inCurrentBWP()
             if (inCurrentPeriod) { this.dateField.value = inCurrentPeriod }
         }
-        save?.addEventListener('click', () => {
+        gbl.eles.save?.addEventListener('click', () => {
             if (this.dateField.value.length !== 10) { return }
             let adCaseId = caseId ?? "noCaseNumberYet"
             this._setActualDate({ adCaseNum: adCaseId, adDate: this.dateField.value })
@@ -1971,7 +2034,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     function enterAlertInfo(message, effectiveDate) {
         document.getElementById('message').value = message
         document.getElementById('effectiveDate').value = effectiveDate
-        save.click();
+        gbl.eles.save.click();
     }
 }(); // SECTION_END Alert_Worker_Created_Alert;
 !function _Application_Pages() {
@@ -2008,7 +2071,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             const matchingPeriod = selectPeriodDatesArray.find(dates => {
                 if ( (sanitize.date(dates.value.slice(13), "number") - appDate ) < 1123200001) {
                     selectPeriod.value = dates.value
-                    eleFocus(save)
+                    eleFocus(gbl.eles.save)
                     return dates.value
                 }
             })
@@ -2017,7 +2080,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     }(); // SECTION_END Case_Application_Initiation;
     !function __CaseReapplicationAddCcap() {
         if (!("CaseReapplicationAddCcap.htm").includes(thisPageNameHtm)) { return };
-        document.getElementById('quit')?.addEventListener('click', () => clearStorageItems("session") )
+        gbl.eles.quit?.addEventListener('click', () => clearStorageItems("session") )
         let unchecked = [...document.querySelectorAll('input[type=checkbox]')].filter(box => box.checked === false).forEach(box2 => { box2.parentElement.style.backgroundColor = 'yellow' })
         }(); // SECTION_END Case_Reapplication_Add_Ccap;
 }();
@@ -2177,7 +2240,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                     function pasteEndingData() {
                         if (ccpEle.providerId?.value?.length) {
                             [ 'primaryEndDate', 'secondaryEndDate', 'carePeriodEndDate', 'careEndReason' ].forEach(item => { ccpEle[item].value = oProviderEndings[item] })
-                            save.click()
+                            gbl.eles.save.click()
                         }
                     }
                 }
@@ -2194,8 +2257,8 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
                         let setValues = ['primaryBeginDate', 'secondaryBeginDate', 'carePeriodBeginDate', 'hoursOfCareAuthorized', 'signedFormReceived', 'providerLivesWithChild', ].forEach(item => { ccpEle[item].value = oProviderStart[item] })
                         let setValuesBlank = ['primaryEndDate', 'secondaryEndDate', 'carePeriodEndDate', 'careEndReason', ].forEach(item => { ccpEle[item].value = '' })
                         if (childDropDown) {
-                            childDropDown.value?.length ? setTimeout(() => { eleFocus(save) }, 800) : setTimeout(() => { eleFocus(childDropDown) }, 800)
-                        } else { eleFocus(save) }
+                            childDropDown.value?.length ? setTimeout(() => { eleFocus(gbl.eles.save) }, 800) : setTimeout(() => { eleFocus(childDropDown) }, 800)
+                        } else { eleFocus(gbl.eles.save) }
                     }
                 }
             })
@@ -2520,10 +2583,10 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             if (memberDescription.value === "PE" || memberDescription.value === "NP") { //extended elig
                 activityEnd.value = activityBegin.value
                 doChange(activityEnd)
-                eleFocus(save)
+                eleFocus(gbl.eles.save)
             }
         })
-        let beforeFirst = rederrortextContent.find(arrItem => arrItem.indexOf('before the first day') > -1) && eleFocus(save)
+        let beforeFirst = rederrortextContent.find(arrItem => arrItem.indexOf('before the first day') > -1) && eleFocus(gbl.eles.save)
         memberDescription.addEventListener('change', changeEvent => {
             const autofillValues = supportAutoFill.get(changeEvent.target.value)
             addValueClassdoChange(verification, autofillValues.verif, false, true)
@@ -2546,7 +2609,7 @@ if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
             keydownEvent.preventDefault()
             keydownEvent.stopPropagation()
             keydownEvent.stopImmediatePropagation()
-            save.click()
+            gbl.eles.save.click()
         })
     }(); // SECTION_END Case_Job_Search_Tracking;
 }(); // SECTION_END _Case_Activity_Pages;
@@ -2624,10 +2687,10 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             document.getElementById('beginDate').value = tempInelig.start
             document.getElementById('allowedExpirationDate').value = tempInelig.end
             $('.hasDatepicker').datepicker("hide")
-            eleFocus(save)
+            eleFocus(gbl.eles.save)
             return false
         }
-        save.addEventListener("click", () => {
+        gbl.eles.save.addEventListener("click", () => {
             let tempInelig = { type: document.getElementById('type').value, reason: document.getElementById('reason').value, start: document.getElementById('beginDate').value, end: document.getElementById('allowedExpirationDate').value }
             sessionStorage.setItem('MECH2.TI.' + caseId, JSON.stringify(tempInelig))
         })
@@ -2720,7 +2783,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         document.getElementById('grossButton').addEventListener('click', () => {
             ceiGrossAllowExps.value = (ceiGrossIncome.value * .5).toFixed(2)
             doChange(ceiGrossAllowExps)
-            eleFocus(save)
+            eleFocus(gbl.eles.save)
         });
     } else if (!editMode) {
         document.getElementById('earnedIncomeMemberTable').addEventListener('click', () => checkEmploymentType() );
@@ -2778,12 +2841,12 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                 copay.value = copayDist.copay
                 recoupment.value = copayDist.recoupment
                 overrideReason.value = copayDist.overrideReason
-                eleFocus(save)
+                eleFocus(gbl.eles.save)
             } else {
                 addValueClassdoChange(overrideReason, 'Copay Distribution Adjustment', 'red-outline', false)
                 eleFocus(copay)
             }
-            save.addEventListener("click", () => {
+            gbl.eles.save.addEventListener("click", () => {
                 let copayDist = {
                     copay: copay.value,
                     recoupment: recoupment.value,
@@ -3209,7 +3272,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 redeterminationDueDate.value = suspendPlus45.delayDate
                 doChange(redeterminationDueDate)
                 sessionStorage.setItem('MECH2.suspendPlus45', 'needsWrapUp')
-                save.click()
+                gbl.eles.save.click()
             }
         }
     } else if (editMode) {
@@ -3219,7 +3282,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             if (!event.target.value || event.target.value.length !== 10) { return }
             if (today - Date.parse(event.target.value) < 31536000000) {
                 preventKeys(["Tab"])
-                eleFocus(save)
+                eleFocus(gbl.eles.save)
                 $('.hasDatepicker').datepicker("hide")
             }
         })
@@ -3407,7 +3470,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         doChange('#caseTransferFromType')
         document.getElementById('caseTransferToWorkerId').value = transferWorkerId
         doChange('#caseTransferToWorkerId')
-        save.click() // disable for testing
+        gbl.eles.save.click() // disable for testing
     };
     function validateTransferWorkerId(testedWorkerId) {
         if ((/[a-z0-9]{7}/i).test(testedWorkerId)) {
@@ -3785,7 +3848,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     if (editMode) {
-        // save?.addEventListener('click', saveEvent => textareaWordWrap({ textbox: noteStringText, maxColumns: 100, maxRows: 30, saveEvent }) )
+        // gbl.eles.save?.addEventListener('click', saveEvent => textareaWordWrap({ textbox: noteStringText, maxColumns: 100, maxRows: 30, saveEvent }) )
         document.querySelector('.dataTables_scrollBody').style.maxHeight = "170px"
     }
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
@@ -3814,7 +3877,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             noteCategory.value = noteDetails.noteElig !== '' ? noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig] : noteDetails.noteDocType
             noteSummary.value = noteDetails.noteTitle
             noteStringText.value = noteDetails.noteText
-            eleFocus(save)
+            eleFocus(gbl.eles.save)
         }
     }
     let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrProviderId] : undefined
@@ -3863,7 +3926,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     noteSummary.value = noteInfo.noteSummary
                     noteStringText.value = noteInfo.noteMessage + "\n=====\n" + signatureName
                     localStorage.removeItem("MECH2.note")
-                    save.click()
+                    gbl.eles.save.click()
                 }, 50)
             }
         }();
@@ -3903,7 +3966,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : storedNoteDetails
                     fillNoteDetails(selectedNoteDetails)
                 })
-                document.getElementById('save')?.addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
+                gbl.eles.save?.addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
                 function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
             }
             function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrProviderId, }; }
@@ -3924,7 +3987,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 let autoFormatSlider = createSlider({ label: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
                 h4objects.note.h4.insertAdjacentHTML('afterend', autoFormatSlider)
                 let autoFormat = document.getElementById('autoFormat')
-                save.addEventListener('click', () => { // fixing spacing around titles
+                gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles
                     if (autoFormat.checked) { noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^(?! *RSDI| *SSI)( *[ A-Z]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') )}
                 })
                 noteStringText.addEventListener('paste', pasteEvent => {
@@ -4006,10 +4069,10 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 queueMicrotask(() => { letterObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
             }
             textbox.value = letterObj.LetterText
-            eleFocus(save)
+            eleFocus(gbl.eles.save)
         }
         document.addEventListener('paste', pasteEventAHK )
-        // save?.addEventListener('click', saveEvent => textareaWordWrap({ textbox, maxColumns: 60, maxRows: 30, saveEvent }) )
+        // gbl.eles.save?.addEventListener('click', saveEvent => textareaWordWrap({ textbox, maxColumns: 60, maxRows: 30, saveEvent }) )
         if ( ["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) ) { // || ("CaseNotices.htm".includes(thisPageNameHtm) && document.getElementById('textbox2')?.disabled === false) ) {
             let textareaButtonText = {
                 jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
@@ -4265,7 +4328,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 // ////////////////////////////////////////////////////////////////////////// PAGE_SPECIFIC_CHANGES SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ======================================================================================================================================================================================================
 !function duplicateFormButtons() { // SECTION_START Duplicate_Form_Buttons_Above_Form
-    if (iFramed || !countyInfo.userSettings.duplicateFormButtons) { return };
+    if (iFramed || !duplicateButtons || !countyInfo.userSettings.duplicateFormButtons) { return };
     if ("CaseWrapUp.htm".includes(thisPageNameHtm) && document.querySelector('.rederrortext')?.innerText === 'Case Wrap-Up successfully submitted.') { return };
     if (thisPageNameHtm.indexOf('List.htm') > -1 || doNotDupe.pages.includes(thisPageNameHtm)) { return; }
     if (thisPageNameHtm.indexOf('Provider') > -1 && rederrortextContent.find(arrItem => arrItem.indexOf("This page is not available") > -1)) { return };
@@ -4427,7 +4490,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                 if (("CaseAddress.htm").includes(thisPageNameHtm)) {
                     tbodyFocusNextEdit()
                     // if (editMode && rederrortextContent.length === 1 && rederrortextContent.find(arrItem => arrItem.indexOf("Warning: Effective date has changed - Review Living Situation") > -1)) {
-                        // doClick(save)
+                        // doClick(gbl.eles.save)
                     // }
                     // else {
                         let previousButton = document.getElementById('previous'), residenceStreet1 = document.getElementById('residenceStreet1')
@@ -4498,7 +4561,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                         })
                     } else if (!localStorage.getItem("MECH2.note")?.length) {
                         let noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber')
-                        noteMemberReferenceNumber.addEventListener( 'focus', () => setTimeout(save.scrollIntoView({ behavior: 'smooth', block: 'end' }), 0) )
+                        noteMemberReferenceNumber.addEventListener( 'focus', () => setTimeout(gbl.eles.save.scrollIntoView({ behavior: 'smooth', block: 'end' }), 0) )
                         focusEle = noteMemberReferenceNumber
                     }
                 };
@@ -4962,8 +5025,11 @@ function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) 
 // };
 }();
 function convertFromAHK(ahkString) {
-    ahkString = sanitize.json(JSON.stringify(ahkString.split('AHKJSON')[1]))
-    return typeof ahkString === "string" ? sanitize.json(ahkString) : ahkString
+    ahkString = ahkString.split('AHKJSON')[1]
+    let ahkObj = sanitize.json(ahkString)
+    if (ahkObj) { return ahkObj }
+    ahkObj = sanitize.json(JSON.stringify(ahkString))
+    return typeof ahkObj === "string" ? sanitize.json(ahkObj) : ahkObj
 }
 //           return value to operate on page;
 function createSlider({ label, title, id: sliderId, defaultOn: isChecked, font: sliderFontSize, classes: extraClasses, styles: extraStyles} = {}) {
