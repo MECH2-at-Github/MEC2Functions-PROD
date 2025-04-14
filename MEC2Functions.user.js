@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.96
+// @version      0.5.97
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -54,8 +54,8 @@ const sanitize = {
     json(obj) { try { if (!obj) { return }; obj = obj; return JSON.parse(obj) } catch (err) { console.log(err, obj); return undefined } },
 };
 const clearStorageItems = (storage = "both") => {
-    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
-    if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote|providerEndings/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
+    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
+    if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
 };
 if ( "Welcome.htm".includes(thisPageNameHtm) ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
 
@@ -2167,7 +2167,7 @@ try {
                     let selectedRow = document.querySelector('.selected')
                     if (ccpEle.carePeriodBeginDate?.value && selectedRow) {
                         let oProviderStart = Object.fromEntries( ['providerId', 'primaryBeginDate', 'secondaryBeginDate', 'carePeriodBeginDate', 'hoursOfCareAuthorized', 'signedFormReceived', 'providerLivesWithChild'].map(ele => [ele, ccpEle[ele].value]) )
-                        sessionStorage.setItem("MECH2.providerStart", JSON.stringify(oProviderStart))
+                        sessionStorage.setItem("MECH2.providerStart" + caseId, JSON.stringify(oProviderStart))
                         snackBar('Copied start data!', 'notitle')
                         eleFocus('#newDB')
                     } else if (!selectedRow) { snackBar('No entry selected') }
@@ -2187,7 +2187,7 @@ try {
             queueMicrotask(() => {
                 let oProviderEndings = sanitize.json(sessionStorage.getItem("MECH2.providerEndings"))
                 if (oProviderEndings !== null) {
-                    document.getElementById('wrapUpDB').insertAdjacentHTML("afterend", "<button type='button' id='pasteEndings' class='form-button'>Autofill Endings</button>")
+                    tertiaryActionArea?.insertAdjacentHTML("afterbegin", "<button type='button' id='pasteEndings' class='form-button'>Autofill Endings</button>")
                     document.getElementById('pasteEndings').addEventListener('click', pasteEndingData)
                     function pasteEndingData() {
                         if (ccpEle.providerId?.value?.length) {
@@ -2945,6 +2945,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                                       .map(item => item.join(" "))].join()
                         childInfoArray.push(array2)
                     }
+                    childInfoArray.unshift(formInfo.caseName + " - CCAP case number: " + formInfo.caseNumber + "\n")
                     let joinedChildInfoArray = childInfoArray.join("\n").replace(/,\n/g, "\n").replace(/,/g, ",   ")
                     joinedChildInfoArray += "\nCopayment for biweekly period " + selectPeriodDates.range + ": $" + formInfo.copayAmount
                     navigator.clipboard.writeText(joinedChildInfoArray)
@@ -2953,100 +2954,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             }
         }
     }();
-    // if (typeof userCountyObj !== undefined && userCountyObj.code === "169") {
-    //     document.getElementById('csicTableData1')?.insertAdjacentHTML('beforebegin', `
-    //         <div style="overflow: hidden" id="billingFormDiv">
-    //             <div class="form-group" style="display: flex; gap: 15px; margin-left: 10px; align-items: center;">
-    //                 <button type="button" class="cButton" tabindex="-1" id="billingForm" style="display: inline-flex;">Create Billing Form</button>
-    //                 <label for="copayAmount" class="control-label" style="display: inline-flex;"> Copay Amount: $</label>
-    //                 <span id="copayAmountGet" style="display: inline-flex; margin-left: -5px;">-</span>
-    //                 <button type="button" class="cButton" tabindex="-1" id="providerAddressButton" style="display: inline-flex;">Copy Provider Address</button>
-    //             </div>
-    //         </div>
-    //     `);
-    // }
-    // status.style.width = "15ch"
-    // status?.closest('.col-lg-4').insertAdjacentHTML('beforeend', '<button type="button" class="cButton float-right-imp" tabindex="-1" id="copySAinfo" style="display: inline-flex;">Copy for Email</button>')
-    // document.getElementById('providerAddressButton')?.addEventListener('click', () => {
-    //     let selectedProviderChildren = providerInfoTable.querySelector('.selected').children, providerIdInTable = selectedProviderChildren[0].textContent, providerNameInTable = selectedProviderChildren[1].textContent
-    //     evalData({ caseProviderNumber: providerIdInTable, pageName: 'ProviderAddress', evalString: '0.0', caseOrProvider: 'provider', }).then(providerAddress => {
-    //         const providerMailToAddress = determineProviderAddress(providerAddress, providerNameInTable)
-    //         copy(providerMailToAddress, providerMailToAddress, 'notitle')
-    //     }).catch(err => { console.trace(err) });
-    // })
-    // function determineProviderAddress(providerAddr, providerName) {
-    //     if (providerAddr.mailingStreet1 === '') { return providerName + "\n" + providerAddr.mailingSiteHomeStreet1 + " " + providerAddr.mailingSiteHomeStreet2 + "\n" + providerAddr.mailingSiteHomeCity + ", " + providerAddr.mailingSiteHomeState + " " + providerAddr.mailingSiteHomeZipCode }
-    //     else { return providerName + "\n" + providerAddr.mailingStreet1 + " " + providerAddr.mailingStreet2 + "\n" + providerAddr.mailingCity + ", " + providerAddr.mailingState + " " + providerAddr.mailingZipCode }
-    // }
-    // document.getElementById('billingForm')?.addEventListener('click', () => fetchCopay("billingForm"))
-    // document.getElementById('copySAinfo')?.addEventListener('click', () => fetchCopay("clipboard"))
-    // async function fetchCopay(destination) {
-    //     let providerNameInTable = document.querySelector('#providerInfoTable > tbody > tr.selected > td:nth-child(2)').textContent
-    //     if (copayAmountManual?.value) { billingFormInfo(copayAmountManual.value, destination) }
-    //     else {
-    //         evalData({ caseProviderNumber: caseId, pageName: 'CaseCopayDistribution', dateRange: selectPeriodDates.parm3, caseOrProvider: 'case', }).then(result => { getCopayFromResult(result, destination) })
-    //             .catch(err => { console.trace(err) });
-    //     }
-    //     function getCopayFromResult(result, destination) {
-    //         let copayAmountGet = document.getElementById('copayAmountGet')
-    //         if (result === undefined) {
-    //             copayAmountGet.outerHTML = '<input class="centered-text form-control" style="height: 22px; width: 40px;" id="copayAmountManual"></input><a href="/ChildCare/CaseCopayDistribution.htm?parm2=' + caseId + '&parm3=' + selectPeriodDates.parm3 + '" target="_blank">Copay Page</a>'
-    //             snackBar('Auto-retrieval of copay failed.', 'notitle')
-    //         } else {
-    //             let { 1: copayArray } = result
-    //             const providerMatch = copayArray.find(provider => {
-    //                 let [ versionA, versionB ] = provider.version.split(' of ')
-    //                 return versionA === versionB && providerNameInTable === sanitize.html(provider.providerName)
-    //             })
-    //             const copayInt = String(parseInt(providerMatch.copay))
-    //             document.getElementById('copayAmountGet').textContent = copayInt
-    //             return saFilterEvalData(copayInt, destination)
-    //         }
-    //     }
-    //     async function saFilterEvalData(integerCopay, destination) {
-    //         evalData().then(({ 0: providers, 1: children } = {}) => {
-    //             const providerMatch = providers.find( saRow => providerNameInTable === sanitize.html(saRow.providerName) )
-    //             return billingFormInfo(children.filter( child => child.providerRowIndex === providerMatch.providerRowIndex ), integerCopay, destination)
-    //         }).catch(err => { console.trace(err) });
-    //     }
-    //     function billingFormInfo(childMatches, integerCopay, destination) {
-    //         let childList = {};
-    //         for (let child in childMatches) {
-    //             let thisChild = childMatches[child]
-    //             childList[child] = { name: nameFuncs.commaNameReorder(thisChild.childName), authHours: thisChild.authorizedHours, ageCat0: thisChild.ageRateCategory, ageCat1: thisChild.ageRateCategory2 }
-    //         }
-    //         let oCaseName = nameFuncs.commaNameObject(pageTitle)
-    //         const formInfo = {
-    //             pdfType: "BillingForm",
-    //             xNumber: countyInfo.info.userIdNumber,
-    //             caseFirstName: oCaseName.first,
-    //             caseLastName: oCaseName.last,
-    //             caseName: oCaseName.full,
-    //             caseNumber: caseId,
-    //             startDate: selectPeriodDates.start,
-    //             providerId: document.querySelector('#providerInfoTable .selected td:nth-child(1)').textContent,
-    //             providerName: document.querySelector('#providerInfoTable .selected td:nth-child(2)').textContent,
-    //             copayAmount: integerCopay ? integerCopay : document.getElementById('copayAmountManual').value,
-    //             children: childList,
-    //         }
-    //         if (formInfo.copayAmount.length && destination === "billingForm") { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank") }
-    //         else if (formInfo.copayAmount.length && destination === "clipboard") {
-    //             let childInfoArray = []
-    //             for (let child in formInfo.children) {
-    //                 let array1 = [[["Child:", formInfo.children[child].name], ["Authorized Hours:", formInfo.children[child].authHours], ["Age Category:", formInfo.children[child].ageCat0 ?? formInfo.children[child].ageCat1], ["Authorization Starts:", childMatches[child].saBegin]]
-    //                               .map(item => item.join(" "))].join()
-    //                 childInfoArray.push(array1)
-    //                 let array2 = [[["Max Rates:", "Hourly: $", childMatches[child].hourly ?? childMatches[child].hourly2], ["Daily: $", childMatches[child].daily ?? childMatches[child].daily2], ["Weekly: $", childMatches[child].weekly ?? childMatches[child].weekly2], ["Provider Primary/Secondary Designation:", childMatches[child].providerDesignation ?? childMatches[child].providerDesignation2], ["\n"]]
-    //                               .map(item => item.join(" "))].join()
-    //                 childInfoArray.push(array2)
-    //             }
-    //             let joinedChildInfoArray = childInfoArray.join("\n").replace(/,\n/g, "\n").replace(/,/g, ",   ")
-    //             joinedChildInfoArray += "\nCopayment for biweekly period " + selectPeriodDates.range + ": $" + formInfo.copayAmount
-    //             navigator.clipboard.writeText(joinedChildInfoArray)
-    //             snackBar('Copied Service Authorization Info!', 'notitle')
-    //         }
-    //     }
-    // }
 }(); // SECTION_END Case SA_Overview Fill_manual_Billing_Forms;
 }();
 !function CaseMember() {
@@ -3908,11 +3815,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 !function _Notes__CaseNotes_ProviderNotes() { // (major_subsection) =====================================================================================================================================;
     if (!["CaseNotes.htm", "ProviderNotes.htm"].includes(thisPageNameHtm)) { return };
     doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
-    // let notesTableData = await evalData()
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     if (editMode) {
-        // gbl.eles.save?.addEventListener('click', saveEvent => textareaWordWrap({ textbox: noteStringText, maxColumns: 100, maxRows: 30, saveEvent }) )
         document.querySelector('.dataTables_scrollBody').style.maxHeight = "170px"
     }
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
@@ -4054,13 +3959,13 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles
                         if (!autoFormat.checked) { return }
                         noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z]{2,8}: +)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') )
-                        // if (autoFormat.checked) { noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^(?! *RSDI| *SSI)( *[ A-Z]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') )}
                     })
                     noteStringText.addEventListener('paste', pasteEvent => {
                         if (!autoFormat.checked) { return }
                         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
                         let formattedPastedText = convertLineBreakToSpace(pastedText)
-                        .replace( /(\w)\(/g, "$1 (" ).replace( /\)(\w)/g, ") $1" )//Spaces around parentheses
+                        .replace(/([a-z]+)([0-9]+)/gi, "").replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\()([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses
+                        // .replace( /(\w)\(/g, "$1 (" ).replace( /\)(\w)/g, ") $1" ) //Spaces around parentheses
                         .replace( /\n\ {0,9}\u0009|\n\ {16}/g, "\n             " ) //excel "tab"
                         .replace(/\u0009/g, "    ")
                         .replace( /\n+/g, "\n" )//Multiple new lines to single new line
@@ -4070,7 +3975,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         }
                     })
                     noteStringText.addEventListener('keydown', keydownEvent => {
-                        if (!["`", 'Tab'].includes(keydownEvent.key) || keydownEvent.shiftKey) { return }
+                        if (keydownEvent.key !== "Tab" || keydownEvent.shiftKey) { return }
                         keydownEvent.preventDefault()
                         let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
                         insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
@@ -4193,7 +4098,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 status.value = letterObj.CaseStatus
                 void doChange(status)
                 queueMicrotask(() => { letterObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
-                // [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ]
+                /* [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ] */
             }
             textbox.value = letterObj.LetterText
             eleFocus(gbl.eles.save)
@@ -4436,7 +4341,6 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 !function _Transfers_ServicingAgency_Incoming_Outgoing() {
     if (!["ServicingAgencyIncomingTransfers.htm", "ServicingAgencyOutgoingTransfers.htm"].includes(thisPageNameHtm)) { return };
     listPageLinksAndList([ {child: 5, pageToLinkTo: "CaseAddress"} ])
-
 }(); // SECTION_END _Transfers_ServicingAgency_Incoming_Outgoing;
 !function _WorkerPages_ProviderRegistrationList() {
     if (!["CaseWorker.htm", "lastUpdateWorker.htm", "WorkerSearch.htm", "ProviderWorker.htm", "ProviderRegistrationList.htm"].includes(thisPageNameHtm)) { return };
@@ -5103,7 +5007,10 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
     const maxRowsTable = {}
     editableTextareas.forEach(textbox => {
         let maxColumns = Math.round(textbox.cols/10)*10, maxRows = 30
+        console.log(maxColumns)
         gbl.eles.save?.addEventListener('click', saveEvent => {
+        // window.addEventListener('keydown', saveEvent => {
+            // if (!saveEvent.altKey || !saveEvent.ctrlKey || saveEvent.key !== "t") { return }
             let totalRows = splitStringAtWordBoundary({ textbox, maxColumns, maxRows })
             if (totalRows > maxRows) {
                 if (!document.getElementById('maxRowsExceeded')) {
@@ -5117,12 +5024,15 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
         })
     })
     function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) {
-        if (textbox.value.indexOf('\n') === -1 && textbox.value.length <= maxColumns) { return 1 }
+        if (textbox.value.indexOf('\n') === -1 && ( textbox.value.length <= maxColumns || (stringIsOneTooLong() && lastCharIsSpace()) )) { return 1 }
+        // if (textbox.value.indexOf('\n') === -1 && textbox.value.length <= maxColumns) { return 1 }
         const splitStringArray = textbox.value.split('\n').map( item => doStringSplitAtBoundary(item) )
         let totalRows = splitStringArray.length
-        textbox.value = splitStringArray.join('\n')
+        textbox.value = splitStringArray.join('\n') // sets textbox value
         return totalRows
-        //
+
+        function stringIsOneTooLong() { return textbox.value.length === (maxColumns+1) }
+        function lastCharIsSpace() { return textbox.value[textbox.value.length-1] === " " }
         function doStringSplitAtBoundary(stringItem) {
             const tempStringArray = []
             while (stringItem.length > maxColumns) {
@@ -5130,17 +5040,14 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
                 tempStringArray.push(stringItem.substring(0, lastSpaceIndex))
                 stringItem = stringItem.substring(lastSpaceIndex + 1)
             }
-            tempStringArray.push(stringItem) // last line;
+            stringItem.length && tempStringArray.push(stringItem) // last line;
             return tempStringArray.join('\n')
         }
     };
 }();
 function convertFromAHK(ahkString) {
-    // ahkString = ahkString.replace(/(?<!\\)(['])/g, "\\$1")
-    // ahkString = ahkString.replace(/(?<!\\)\\(?!\\)/g, "\\\\").replace(/(?<!\\)(['])/g, '\\$1')
     ahkString = ahkString.split('AHKJSON')[1]
     let ahkObj = sanitize.json(ahkString)
-    console.log(ahkObj)
     if (ahkObj) { return ahkObj }
     ahkObj = sanitize.json(JSON.stringify(ahkString))
     return typeof ahkObj === "string" ? sanitize.json(ahkObj) : ahkObj
@@ -5239,6 +5146,7 @@ function listPageLinksAndList(rowAndPageArrays = [{ child: 0 }]) { // listPageLi
 };
 function insertTextAndMoveCursor(textToInsert, activeEle) {
     activeEle = activeEle ? sanitize.query(activeEle) : document.activeElement
+    if (!activeEle) { return }
     let cursorStart = activeEle.selectionStart; // current position of the cursor
     let activeEleText = activeEle.value
     let afterSelection = activeEleText.slice(activeEle.selectionEnd)
