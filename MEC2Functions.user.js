@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.98
+// @version      0.5.99
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -2657,12 +2657,12 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     const eligibilityResults = {}
     function arrayCreatePush(arr, value) { !Array.isArray(arr) ? arr = [value] : arr.unshift(value); return arr }
     eligibilityTableRows.forEach(ele => {
-        let [version, ofVersion] = ele.firstElementChild?.textContent.split(" of ")
+        let [version, ofVersion] = ele.firstElementChild?.textContent.split(" of "), [,,,,, eligStatus, approvalStatus] = ele.children
         if (version === ofVersion) {
             ele.classList.add("current"); eligibilityResults.current = arrayCreatePush(eligibilityResults.current, ele)
-            if (ele.children[5].textContent === "Unapproved") { ele.classList.add("unapproved"); eligibilityResults.unapproved = arrayCreatePush(eligibilityResults.unapproved, ele) }
-            if (ele.children[4].textContent.indexOf("Ineligible") > -1) { ele.classList.add("ineligible"); eligibilityResults.ineligible = arrayCreatePush(eligibilityResults.ineligible, ele) }
-            if (ele.children[4].textContent === "Eligible") { ele.classList.add("eligible"); eligibilityResults.eligible = arrayCreatePush(eligibilityResults.eligible, ele) }
+            if (eligStatus.textContent.indexOf("Ineligible") > -1) { ele.classList.add("ineligible"); eligibilityResults.ineligible = arrayCreatePush(eligibilityResults.ineligible, ele) }
+            if (eligStatus.textContent === "Eligible") { ele.classList.add("eligible"); eligibilityResults.eligible = arrayCreatePush(eligibilityResults.eligible, ele) }
+            if (approvalStatus.textContent === "Unapproved") { ele.classList.add("unapproved"); eligibilityResults.unapproved = arrayCreatePush(eligibilityResults.unapproved, ele) }
         }
     })
     let priorityEligResult = "unapproved" in eligibilityResults ? "eligible" in eligibilityResults ? eligibilityResults.eligible[0] : eligibilityResults.ineligible[0] : eligibilityResults.current[0]
@@ -3768,6 +3768,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Log_in;
 !function MaximumRates() {
     if (!("MaximumRates.htm").includes(thisPageNameHtm)) { return };
+    let wrongSettingsDiv = document.querySelector('.col-lg-16')
+    wrongSettingsDiv.setAttribute("class", "col-lg-6 col-md-6 col-sm-6 col-xs-6 textInherit")
+    wrongSettingsDiv.style.textAlign = "right"
     let maximumRatesCounty = document.getElementById('maximumRatesCounty'), ratesProviderType = document.getElementById('ratesProviderType'), providerType = ratesProviderType.value, maxRatesTable = document.querySelector('table'), maximumRatesPeriod = document.getElementById('maximumRatesPeriod'), firstNonBlankPeriod = maximumRatesPeriod.children[1]
     let ageDefinitions = providerType === "Child Care Center" ? '<div><label>Infant:</label><span> Birth until 16 months.</span></div> <div><label>Toddler:</label><span> 16 months until 33 months.</span></div> <div><label>Preschooler:</label><span> 33 months until the August prior to the Kindergarten date.</span></div>'
     : '<div><label>Infant:</label><span> Birth until 12 months.</span></div> <div><label>Toddler:</label><span> 12 months until 24 months.</span></div> <div><label>Preschooler:</label><span> 24 months until the August prior to the Kindergarten date.</span></div>'
