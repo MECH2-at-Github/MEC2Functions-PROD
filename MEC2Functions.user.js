@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.97
+// @version      0.5.98
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -1617,7 +1617,7 @@ try {
             extendedEligExpiring: { textIncludes: /activity extended eligibility/, noteCategory: "Activity Change", noteSummary: [/The (\w+)(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseEmploymentActivity", "CaseSupportActivity"], },
             homelessExpiring: { textIncludes: /The Homeless 3 month period will expire/, noteCategory: "Application", noteSummary: [/(?:[A-Za-z0-9 ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI"], omniPageButtons: ["autonoteButton", "CaseAction"], },
             homelessMissing: { textIncludes: /Homeless case has one or more missing/, noteCategory: "Application", noteSummary: "Homeless case has missing verifications", omniPageButtons: ["autonoteButton"], },
-            goodCauseReview: { textIncludes: /The Next Good Cause Review/, noteCategory: "Child Support Note", omniPageButtons: ["autonoteButton"], },
+            goodCauseReview: { textIncludes: /The Next Good Cause Review/, noteCategory: "Child Support Note", omniPageButtons: ["autonoteButton", "CaseCSE"], },
             disabilityExpires: { textIncludes: /The allowed disability period/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseDisability"], },
         },
         provider: {
@@ -2653,6 +2653,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 !function __CaseEligibilityResultSelection() {
     if (!("CaseEligibilityResultSelection.htm").includes(thisPageNameHtm)) { return };
     let eligibilityTableRows = [...document.querySelector('#caseEligibilitySelectionTable > tbody').children]
+    if (!eligibilityTableRows) { return };
     const eligibilityResults = {}
     function arrayCreatePush(arr, value) { !Array.isArray(arr) ? arr = [value] : arr.unshift(value); return arr }
     eligibilityTableRows.forEach(ele => {
@@ -3964,7 +3965,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         if (!autoFormat.checked) { return }
                         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
                         let formattedPastedText = convertLineBreakToSpace(pastedText)
-                        .replace(/([a-z]+)([0-9]+)/gi, "").replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\()([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses
+                        .replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses
                         // .replace( /(\w)\(/g, "$1 (" ).replace( /\)(\w)/g, ") $1" ) //Spaces around parentheses
                         .replace( /\n\ {0,9}\u0009|\n\ {16}/g, "\n             " ) //excel "tab"
                         .replace(/\u0009/g, "    ")
