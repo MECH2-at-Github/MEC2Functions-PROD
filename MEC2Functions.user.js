@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.5.99
+// @version      0.6.00
 // ==/UserScript==
 /* globals jQuery, $, waitForKeyElements */
 
@@ -737,7 +737,7 @@ docReady( document.body?.addEventListener('submit', () => { document.body.style.
             const additionalFooterLinks = [
                 ["https://owa.dhssir.cty.dhs.state.mn.us/owa/", "_blank", "SIR Mail"],
                 ["https://owa.dhssir.cty.dhs.state.mn.us/csedforms/MMR/TSS_General_Request.asp", "_blank", "Help Desk"],
-                ["https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_146163", "_blank", "Resources"],
+                ["https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_146163", "_blank", "Resources", "Memos & Bulletins, PolicyLink, etc."],
                 ["https://policyquest.dhs.state.mn.us/", "_blank", "PolicyQuest"],
                 ["https://www.mnworkforceone.com/", "_blank", "WF1"],
                 ["https://owa.dhssir.cty.dhs.state.mn.us/csedforms/ccforms/TSS_PMI_Merge_Request.aspx", "_blank", "PMI Merge"],
@@ -749,7 +749,7 @@ docReady( document.body?.addEventListener('submit', () => { document.body.style.
                 let separatorSpan = '<span class="footer">ı</span>'
                 for (let link in additionalFooterLinks) {
                     let linkArray = additionalFooterLinks[link]
-                    footerLinks += separatorSpan + '<a href="' + linkArray[0] + '" target="' + linkArray[1] + '">' + linkArray[2] + '</a>'
+                    footerLinks += separatorSpan + '<a href="' + linkArray[0] + '" target="' + linkArray[1] + '"' + (linkArray[3] ? ' title="' + linkArray[3] + '"' : "") + '>' + linkArray[2] + '</a>'
                 }
                 return footerLinks
             }
@@ -3069,9 +3069,10 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 !function CaseOverview() {
     if (!("CaseOverview.htm").includes(thisPageNameHtm)) { return };
     $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order
-    let redetDate = document.querySelector('label[for="redeterminationDueDate"]').parentElement.nextElementSibling?.nextElementSibling?.innerText
+    let redetLabel = document.querySelectorAll('div.visible-lg > label[for=servicingAgency]')[1], redetDate = redetLabel?.parentElement.nextElementSibling?.nextElementSibling?.innerText
+    // let redetDate = document.querySelector('label[for="redeterminationDueDate"]').parentElement.nextElementSibling?.nextElementSibling?.innerText
     if (redetDate) {
-        submitButton.insertAdjacentHTML('afterend', '<button type="button" id="copyFollowUpButton" class="cButton afterH4" tabindex="-1">Follow Up Date</button>');
+        submitButton.insertAdjacentHTML('afterend', '<button type="button" id="copyFollowUpButton" class="cButton afterH4" tabindex="-1">Redet Follow Up Date</button>');
         document.getElementById('copyFollowUpButton').addEventListener('click', () => {
             let redetPlus = dateFuncs.formatDate( dateFuncs.addDays(redetDate, 44), "mmddyyyy")
             copy(redetPlus, redetPlus, 'notitle')
@@ -3079,15 +3080,15 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     }
     let programInformationData = document.getElementById('programInformationData')
     waitForElmHeight('#programInformationData > tbody > tr > td').then(() => {
-        let programInformationDataTbody = programInformationData.querySelector('tbody'), programInformationTrows = [...programInformationDataTbody.children], trLength = programInformationTrows.length
-        let stickyTrs = programInformationTrows.filter( ele => ["MFIP", "DWP", "FS"].includes(ele.firstElementChild.innerText) )
+        let programInformationDataTbody = programInformationData?.querySelector('tbody'), programInformationTrows = [...programInformationDataTbody?.children] || [], trLength = programInformationTrows.length
+        let stickyTrs = programInformationTrows.filter( ele => ["MFIP", "DWP", "FS"].includes(ele.firstElementChild?.innerText) )
         if (programInformationTrows.length > 20) {
             programInformationTrows.slice(20).forEach(ele => {
                 if (!["MFIP", "DWP", "FS"].includes(ele.firstElementChild.innerText)) {
                     ele.classList.add('hiddenRow')
                 }
             })
-            programInformationData.classList.add('toggledTable')
+            programInformationData?.classList.add('toggledTable')
             let overviewStyle = cssStyle()
             const invisEle = document.createElement('div')
             overviewStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
@@ -3110,11 +3111,10 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     })
     function calculateAndSetBottomHeight(tableElement, tableRowCount, elementQuery) {
         tableElement = sanitize.query(tableElement)
-        let heightDivByCount = tableElement.getBoundingClientRect().height / tableRowCount
         elementQuery = Array.isArray(elementQuery) ? elementQuery : sanitize.query(elementQuery)
-        let bottomHeights = [...elementQuery].reverse().forEach((ele, index) => { ele.classList.add('stickyRow'); ele.style.bottom = index * heightDivByCount + 'px' });
+        let bottomHeights = [...elementQuery].reverse().forEach((ele, index) => { ele.classList.add('stickyRow'); ele.style.bottom = index + 'lh' });
     };
-    programInformationData.addEventListener('click', () => {
+    programInformationData?.addEventListener('click', () => {
         let providerTableTr = document.querySelector('#providerInformationData > tbody').children
         let addLinksToProviders = [...providerTableTr].forEach(ele => {
             let childTd = ele.firstElementChild
@@ -3612,7 +3612,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Client_Search;
 !function ContactInformation() {
     if (!"ContactInformation.htm".includes(thisPageNameHtm)) { return };
-    [...document.querySelector('.content_40pad').querySelectorAll('br')].forEach(ele => { if (ele.previousSibling?.nodeType === 3) { doWrap({ ele: ele.previousSibling }) } })
+    [...document.querySelector('.content_40pad').querySelectorAll('br')].forEach(ele => { let textNode = ele.previousSibling; if (textNode?.nodeType === 3 && textNode?.length > 5) { doWrap({ ele: textNode }) } })
 }(); // SECTION_END Contact Information;
 !function _Financial_Billing_Pages() {
     !function __ElectronicBills() {
@@ -5073,9 +5073,10 @@ function doClick(ele) {
     let clickEvent = new MouseEvent('click')
     ele.dispatchEvent(clickEvent);
 };
-function doWrap({ ele, type='div', classList} = {}) {
-    ele = sanitize.query(ele)
-    if (!ele) { return }
+function doWrap({ ele, type='div', classList=''} = {}) {
+    ele = ele.nodeType === 3 ? ele : sanitize.query(ele)
+    // ele = sanitize.query(ele)
+    // if (!ele) { return }
     const wrappingElement = document.createElement(type);
     classList !== '' && wrappingElement.setAttribute('class', classList)
     ele.replaceWith(wrappingElement);
