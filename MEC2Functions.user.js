@@ -5,9 +5,9 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.00
+// @version      0.6.01
 // ==/UserScript==
-/* globals jQuery, $, waitForKeyElements */
+/* globals jQuery, $ */
 
 'use strict';
 // ("global strings list", "selectPeriodValue, editMode, iFramed, focusEle, caseId, providerId (provider pages), caseOrProviderId, reviewingEligibility, thisPageName, thisPageNameHtm, doNotDupe, ")
@@ -17,6 +17,7 @@
 const pageName = window.location.pathname.slice(11, window.location.pathname.lastIndexOf(".htm")), thisPageName = pageName.indexOf("/") === 0 ? pageName.slice(1) : pageName, thisPageNameHtm = thisPageName + ".htm";
 //
 console.time('mec2functions load time');
+let verboseMode = 1
 const sanitize = {
     evalText(text) { return String(text)?.replace(/\\/g,'').trim() },
     query(query, all = 0) {
@@ -3962,7 +3963,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     let autoFormat = document.getElementById('autoFormat')
                     gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles
                         if (!autoFormat.checked) { return }
-                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z]{2,8}: +)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') )
+                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z]{2,8}:(?: +|\n))/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') )
                     })
                     noteStringText.addEventListener('paste', pasteEvent => {
                         if (!autoFormat.checked) { return }
@@ -4369,12 +4370,13 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     try {
         document.querySelectorAll('tbody').forEach(table => { table.addEventListener( 'click', () => checkDBclickability() ) })
         let doNotDupeButtons = doNotDupe.buttons.length ? ', ' + doNotDupe.buttons.join() : ''
-        document.querySelectorAll('input.form-button:not(.panel-box-format input.form-button, form > div.form-group input.form-button, .modal-button, .modal .form-button, [hidden]' + doNotDupeButtons + ')').forEach(ele2 => {
-            if (ele2.value) {
-                let idName = ele2.id + "DB";
-                let underlineFirst = !doNotDupe.doNotUnderline.includes(ele2.id) ? ' ulfl' : ''
-                duplicateButtons.insertAdjacentHTML('beforeend', '<button type="button" class="form-button mutable' + underlineFirst + '" id="' + idName + '" disabled="disabled">' + ele2.value + '</button>');
-            };
+        let dupeButtons = document.querySelectorAll('input.form-button:not(.panel-box-format input.form-button, form > div.form-group input.form-button, .modal-button, .modal .form-button, [hidden]' + doNotDupeButtons + ')')
+        verbose('Duplicated buttons:', dupeButtons)
+        dupeButtons.forEach(button => {
+            if (!button.value) { return };
+            let idName = button.id + "DB";
+            let underlineFirst = !doNotDupe.doNotUnderline.includes(button.id) ? ' ulfl' : ''
+            duplicateButtons.insertAdjacentHTML('beforeend', '<button type="button" class="form-button mutable' + underlineFirst + '" id="' + idName + '" disabled="disabled">' + button.value + '</button>');
         })
         !duplicateButtons.children.length && (duplicateButtons.classList.add('hidden'))
         duplicateButtons.addEventListener('click', clickEvent => {
@@ -5245,6 +5247,10 @@ function preventKeys(keyArray, ms=1500) {
         })
     } catch (error) { console.trace(error) };
 }(); // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field.
+function verbose() {
+    if (!verboseMode) { return };
+    console.log(...arguments)
+}
 //           personal amusement;
 !function starFall() {
     if (!countyInfo.userSettings.starFall) { return };
