@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.01
+// @version      0.6.02
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -17,7 +17,7 @@
 const pageName = window.location.pathname.slice(11, window.location.pathname.lastIndexOf(".htm")), thisPageName = pageName.indexOf("/") === 0 ? pageName.slice(1) : pageName, thisPageNameHtm = thisPageName + ".htm";
 //
 console.time('mec2functions load time');
-let verboseMode = 1
+let verboseMode = 0
 const sanitize = {
     evalText(text) { return String(text)?.replace(/\\/g,'').trim() },
     query(query, all = 0) {
@@ -52,10 +52,10 @@ const sanitize = {
                 break
         }
     },
-    json(obj) { try { if (!obj) { return }; obj = obj; return JSON.parse(obj) } catch (err) { console.log(err, obj); return undefined } },
+    json(obj) { try { if (!obj || obj.indexOf('{') < 0) { return undefined }; obj = obj; return JSON.parse(obj) } catch (err) { console.log(err, obj); return undefined } },
 };
 const clearStorageItems = (storage = "both") => {
-    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
+    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart|storePMIandCSnotes|storeOldNotes/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
     if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
 };
 if ( "Welcome.htm".includes(thisPageNameHtm) ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
@@ -222,16 +222,16 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
     function setupSettingsMenu() {
         let isNavOnlyScript = GM_info.script.name === "mec2navigation" ? '<div>Notice: Some settings, while available to change here, only apply to the full version (mec2functions)</div>' : ''
         const settingsDivs = [
-            { title: "Automatic field focus on page load", shortText: "Page Load Focus", id: "eleFocus" },
+            { title: "Automatic field focus on page load", shortText: "Automatic field focus on page load", id: "eleFocus" },
             { title: "Creates duplicated form \"Action\" buttons at top of page. e.g., Save, Edit.", shortText: "Duplicated Form Action Buttons", id: "duplicateFormButtons" },
             { title: "Sets Period Order drop-downs so that newest dates are on top.", shortText: "Descending Period Order", id: "selectPeriodReversal" },
-            { title: "Displays last 10 unique cases in the Navigation Buttons \"Case #\" field.", shortText: "Case History", id: "caseHistory" },
+            { title: "Displays last 10 unique cases in the Navigation Area \"Case #\" field.", shortText: "Case History", id: "caseHistory" },
             { title: "Fills Actual Date and Start Date fields, if date known.", shortText: "Actual Date Auto-Fill", id: "actualDateStorage" },
-            { title: "Auto-selects Yes on the Funding Availability page.", shortText: "Funds Available: Yes", id: "fundsAvailable" },
-            { title: "Auto-hide the date picker calendar popup until a date field is clicked. Resets to saved setting when a page is loaded.", shortText: "Auto-hide datepicker calendar", id: "autoHideDatePicker" },
+            { title: "Auto-selects Yes on the Funding Availability page.", shortText: "Funds Available: Yes (auto-select)", id: "fundsAvailable" },
+            { title: "Auto-hide the date picker calendar popup until a date field is clicked. Resets to saved setting when a page is loaded.", shortText: "Auto-hide Datepicker Calendar on Keypress", id: "autoHideDatePicker" },
             { title: "User accessibility features will be active (e.g., table headers access using tab)", shortText: "User Accessibility functionality", id: "userAccessibility" },
-            { title: "Add a custom title to your signature name. Turn off and back on to change the title.", shortText: "Custom signature title", id: "promptUserNameTitle" },
-            { title: "Pretty stars appear when the cursor is moved. MECH2 is not responsible for lost work time due to Starfall.", shortText: "Starfall ✨", id: "starFall" },
+            { title: "Add a custom title to your signature name. Turn off and back on to change the title.", shortText: "Custom Signature Title", id: "promptUserNameTitle" },
+            { title: "Pretty stars appear when the cursor is moved. MECH2 is not responsible for lost work time due to Starfall.", shortText: "Starfall ✨ ✨ ✨ 🖱", id: "starFall" },
             // { title: "", shortText: "", id: "" },
         ].map(({ title, shortText, id } = {}) => '<div class="settings-div"><label class="settings-label" for="' + id + '" title="' + title + '">' + shortText + '</label><label class="switch"><input type="checkbox" id="' + id + '"><span class="slider round"></span></label></div>').join('')
         document.body.insertAdjacentHTML('beforeend', ''
@@ -275,6 +275,10 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
         }
     }
     // } catch (error) { console.trace(error) }
+    if (!countyInfo.userSettings) {
+        // localStorage.setItem('MECH2.userSettings', '{"eleFocus":true,"caseHistory":true,"actualDateStorage":true,"selectPeriodReversal":true,"duplicateFormButtons":true,"fundsAvailable":true,"autoHideDatePicker":true,"userAccessibility":true,"starFall":false,"promptUserNameTitle":false,"navOnly":false}')
+        snackBar('No user-defined-settings found. Set to default values, review settings.', 'notitle')
+    }
 }();
 //
 const h4objects = h4list();
@@ -1540,12 +1544,21 @@ try {
     //alertsByCategories reduction code, untested.
     //minify code: .replace(/(?:\n {20})(\w)/g, " $1").replace(/(?:\n {16})(},\n)/g, " $1")
     //unminify code: .replace(/(?:{)( \w+: )g, "\n                   $1").replace(/(: {|",|\/,) (\w+: )/g, "$1\n                    $2").replace(/, },\n/g, ",\n                },")
+    const noteCategoryLookup = {
+        abps: ["NCP Information"],
+        hhChange: ["Household Change"],
+        other: ["Other"],
+        redet: ["Redetermination"],
+        app: ["Application"],
+        activity: ["Activity Change"],
+    }
     const alertsByCategories = {
         // textIncludes: regex search to match alert; // noteCategory: Notes page category; // noteSummary: Note page summary. Regex to replace text; %# to auto-replace text with summaryFetchedData; omit to use first 50 characters of noteMessage;
         // summaryFetchData: Data fetched from another page using evalData(); // noteMsgFunc: if not blank, sends through switch. if noteMsgFetchData exists, fetches (eval)Data first; request format: ["pageNameWithoutHtm:key.key.key"]
         // createAlert (not implemented yet, might get moved to __Notes.htm): if true, will open WorkerCreateAlert and auto-fill;
         childsupport: {
             ncpAddress: { textIncludes: /Absent Parent of Child Ref #\d{2} has an address/, noteCategory: "NCP Information", noteSummary: [/(?:[A-Za-z\- ]+)(\#\d{2})(?:[a-z\- ]+)(.+?\d{5})(?:\d{0,4})\./, "ABPS of $1 address: $2"], noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
+            ncpInHH: { textIncludes: /Absent Parent of Child Ref #\d{2} is living with/, noteCategory: "NCP Information", noteSummary: [/(?:[A-Za-z\- ]+)(\#\d{2})(?:[a-z\- ]+)(.+?\d{5})(?:\d{0,4})\./, "ABPS of $1 address: $2"], noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
             cpAddress: { textIncludes: /Parentally Responsible Individual Ref #\d{2} add/, noteCategory: "Household Change", noteSummary: [/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[a-z- +]+)(.+)(\d{5})(?:\d{0,4})/i, "HH address per PRISM: $1$2"], omniPageButtons: ["CaseAddress"], },
             csInterface: { textIncludes: /Complete Child Support Interface win/, noteCategory: "Child Support Note", omniPageButtons: ["CaseCSIA"], },
             csCSES: { textIncludes: /CSES\: Parentage|CSES\: Residence Address|CSES\: Birthdate|CSES\: Employer\'s name for Absent Parent|CSES\: Child support amount|CSES\: Support payment frequency|Absent Parent of Child Ref #\d{2} has an SSN change to/, noteSummary: "CSES Messages", noteCategory: "NCP Information", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["delete"], },
@@ -3823,11 +3836,11 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     if (editMode) {
-        document.querySelector('.dataTables_scrollBody').style.maxHeight = "170px"
+        let noteTable = document.querySelector('.dataTables_scrollBody'); noteTable && (document.querySelector('.dataTables_scrollBody').style.maxHeight = "170px")
     }
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
-        document.getElementById('noteCreateDate').closest('div.panel-box-format').classList.add('hidden')
-        let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]').parentElement.children], noteSummaryRow = noteSummary.closest('.row')
+        document.getElementById('noteCreateDate')?.closest('div.panel-box-format').classList.add('hidden')
+        let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = noteSummary?.closest('.row')
         noteCreatorChildren.forEach(ele => noteSummaryRow.append(ele))
         tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
     }
@@ -3856,6 +3869,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }
     }
     let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrProviderId] : undefined
+    // let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrProviderId] : undefined
     evalData().then( ({ 0: notesTableData}) => {
         if (noteInfo) {
             !function doAutoNote() { // Auto_Case_Noting
@@ -3961,19 +3975,18 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     let autoFormatSlider = createSlider({ label: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
                     h4objects.note.h4.insertAdjacentHTML('afterend', autoFormatSlider)
                     let autoFormat = document.getElementById('autoFormat')
-                    gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles
+                    gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles;
                         if (!autoFormat.checked) { return }
-                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z]{2,8}:(?: +|\n))/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') )
+                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories;
                     })
                     noteStringText.addEventListener('paste', pasteEvent => {
                         if (!autoFormat.checked) { return }
                         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
                         let formattedPastedText = convertLineBreakToSpace(pastedText)
-                        .replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses
-                        // .replace( /(\w)\(/g, "$1 (" ).replace( /\)(\w)/g, ") $1" ) //Spaces around parentheses
+                        .replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
                         .replace( /\n\ {0,9}\u0009|\n\ {16}/g, "\n             " ) //excel "tab"
                         .replace(/\u0009/g, "    ")
-                        .replace( /\n+/g, "\n" )//Multiple new lines to single new line
+                        .replace( /\n+/g, "\n" )//Multiple new lines to single new line;
                         if (pastedText !== formattedPastedText) {
                             pasteEvent.preventDefault()
                             insertTextAndMoveCursor(formattedPastedText)
@@ -5237,12 +5250,10 @@ function preventKeys(keyArray, ms=1500) {
             navigator.clipboard.readText()
                 .then(pastedText => {
                 pastedText = pastedText.trim()
-                if (!(/^[0-9]{1,8}$/).test(pastedText)) { return }
+                if (["TEXTAREA", "INPUT"].includes(document.activeElement.nodeName) || !(/^[0-9]{1,8}$/).test(pastedText)) { return } // || document.activeElement === caseOrProviderInput // should be covered by "INPUT"
                 if (!caseOrProviderInput) { window.open('/ChildCare/CaseNotes.htm?parm2=' + pastedText, '_blank'); return; }
-                if (!["TEXT", "INPUT"].includes(document.activeElement.nodeName) || document.activeElement === caseOrProviderInput) {
-                    caseOrProviderInput.value = pastedText
-                    submitButton.click()
-                }
+                caseOrProviderInput.value = pastedText
+                submitButton.click()
             })
         })
     } catch (error) { console.trace(error) };
