@@ -1,7 +1,4 @@
 # Installation
-This script includes all user functions for MEC2 including the navigation menu and is not meant to be used with [MEC2Navigation](https://github.com/MECH2-at-Github/MEC2Navigation-PROD). If MEC2Navigation is installed, disable or uninstall it before using this script or it will cause double navigation bars.
-
-Install instructions:
 
 Tip: Right click links and then click "Open link in new tab". Tabs can be closed after doing the install.
 
@@ -14,51 +11,53 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
 
 # Features
 * Primary Navigation buttons:
-  * 3 rows of buttons are available to navigate MEC2. All buttons can be used to open a page in a new tab by right clicking on the button.
-  * Row 1: Static, directly opens a page. The [ Case # ] field on the right is for a case number, and clicking [ Notes ] or [ Overview ] buttons opens the respective page in a new tab. Pressing enter opens CaseOverview.
-  * Row 2: (Categories) Static, loads row 3 buttons. Does not directly open a page.
-  * Row 3: (Page) Dynamic based on row 2 button. Directly opens a page.
-	  * On page load, the category button and page button are highlighted.
+  * 3 rows of buttons are available to navigate MEC2. All pages can be opened in a new tab by right clicking on the button. When MEC2 is in 'editing' mode, only Row 1 will be displayed.
+    * Row 1: GENERAL: Directly opens a page. The [ Case # ] field on the right is for a case number, and clicking [ Notes ] or [ Overview ] buttons opens the respective page in a new tab. Pressing enter opens CaseOverview.
+    * Row 2: CATEGORIES: Loads buttons in row 3. (The button order is set by worker role, which can be changed in the mec2functions dropdown that is located on the right end of the navigation dropdwn.)
+    * Row 3: PAGE: Dynamic buttons based on the Row 2 button clicked. Directly opens a page.
+      * On page load, the Category and Page buttons are highlighted.
 
 * Focus on page load:
   * Almost all pages have a default field or button that is 'focused' on page load to allow for quicker data entry or button press. By default, spacebar 'pushes' a focused button.
 
 * New! Massive rework done to style rules to prevent a page from 'bouncing' before the page is fully loaded.
 
-* New! Load a case or provider by pasting the case number or provider ID from anywhere on the page, not just in the "Case:" or "Provider:" field (as long as the page has a Case or Provided # field)
+* New! Load a case or provider by pasting the case number or provider ID from anywhere on the page, not just in the "Case:" or "Provider:" field. Pages that lack this field will load the Case Notes page for the pasted number.
 
-* New! The top Navigation buttons can now be used from Alerts and the CaseLoad/ProviderList pages.
+* New! Navigation buttons can now be used from Alerts and the CaseLoad/ProviderList pages to load specific pages. 
 
 * Dark Mode will be selected if your Windows "Colors" theme is set to Dark.
 
 * Pages with addresses have buttons to copy the mailing address to the clipboard.
 
-* Period Selection dropdown has buttons on each side. Single arrow buttons change the selection 1 period per click. Double arrow buttons change the selection 1 period and then load that period.
-  * « ‹ [Daterange - Dropdown] › »   (Previous+Submit, Previous [Dropdown] Next, Next+Submit)
+* "Period Selection" dropdown has buttons added to each side. Single arrow buttons (‹ ›) change the selection 1 period per click. Double arrow buttons (« ») change the selection 1 period and then load that period.
+  * « ‹ [Daterange - Dropdown] › »
 
 * Hotkeys are available! ALT + ?:
-  * N (new), W (wrap-up), S (save), C (cancel), E (edit), R (resend), ArrowLeft (previous), ArrowRight (next)
+  * N (new), W (wrap-up), S (save), C (cancel), E (edit), R (resend/return), A (add), D (delete), ArrowLeft (previous), ArrowRight (next)
+  * Where possible, buttons will have the letter for the hotkey button underlined.
 
 * Footer Links:
-  * Many new sites added to the Footer. User Manual is renamed "Incomplete User Manual" and a link for the old manual is added.
+  * Many new sites added to the Footer. The new but incomplete User Manual is renamed '"New" User Manual' and a link for the old manual is added.
 
 * CaseNotes & ProviderNotes pages: 
-  * A "Duplicate" button has been added to the upper 'mimic' button row. This will store the Category, Summary, and Text of the note. When a new note is created, the button will change to Autofill. 
-    * For CaseNotes, if the category is Application or Redetermination, the summary will change to "______ Update" 
-  * The "`" key (located left of the 1 key typically) will insert an indent into a note that matches the Application/Redetermination category indent.
-  * A 'green box' section of the page is removed and the "Worker" label and field is now located next to "Summary:". The only hidden field is "Created" which is the "Date" in the table.
-  * "Note" size increased to 30 lines so that 100% of a note can be viewed at once. (Default site setting is 15 lines (50%).)
+  * [_Duplicate_] button has been added to the upper duplicated button row. Clicking will store the Category, Summary, and Text of the shown note. When a new note is created, the button will change to Autofill. 
+    * For CaseNotes, if the category is Application or Redetermination, the summary will change to "______ Update" and the category will change to "____ incomplete".
+  * 'Tab' will insert an indent into a note that matches the Application/Redetermination category indent.
+  * The "Created" section of the page is removed and the "Worker" label and field is now located next to "Summary:". The only hidden field is the date field "Created". Creation date can be found in the notes table.
+  * "Note" text area height increased to 30 lines so that 100% of a note can be viewed at once. (Default site setting is 15 lines (50%).)
   * For CaseNotes:
     * "PMI/SMI Merge" and "Disbursed child care support arrears" are filtered. If the case has these notes, a button will appear above the table labeled [ Show # Extra Rows ]. Clicking toggles the filter.
 
 * Maximum Rates: 
   * The link from the drop-down opens in a new window, fills the drop downs with SLC, Center, and the most recent rate period. Page also calculates the 15% and 20% amounts.
+  * Button added to copy the table as shown for easy pasting into an email.
 
 * CaseAddress: 
-  * Blank mailing fields are hidden.
+  * Mailing Address and Phone 2/3 fields are hidden when blank.
 
 * Alerts:
-  * [ Delete All ] will change to [ Deleting... ] and clicking [ Deleting... ] will stop the Delete All process (may still delete 1 or 2 alerts after clicking)
+  * [ Delete All ] will change to [ Deleting... ], and clicking [ Deleting... ] will stop the Delete All process (may still delete 1 or 2 alerts after clicking)
   * [ Create Alert ] moved next to [ Delete ].
   * Duplicate [ Delete ] created next to the alert count.
   * [ Automated Note ] will create a case/provider note based on the "Explanation:". 
