@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.06
+// @version      0.6.07
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -62,8 +62,8 @@ if ( "Welcome.htm".includes(thisPageNameHtm) ) { clearStorageItems(); location.a
 
 const gbl = {
     eles: {
-        pageWrap: document.getElementById('page-wrap'), save: document.getElementById('save'), quit: document.getElementById('quit'), submitButton: document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitproviderId, #providerIdSubmit'),
-        caseIdElement: document.querySelector('#caseId:not([type=hidden])'), providerIdElement: document.querySelector('#providerInput > #providerId:not([type=hidden])'), selectPeriod: document.getElementById('selectPeriod'), wrapUp: document.getElementById('wrapUp'),
+        pageWrap: document.getElementById('page-wrap'), save: document.getElementById('save'), quit: document.getElementById('quit'), submitButton: document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitproviderId, #providerIdSubmit, #search'),
+        caseIdElement: document.querySelector('#caseId:not([type=hidden])'), providerIdElement: document.querySelector('#providerInput > #providerId:not([type=hidden])'), selectPeriod: document.querySelector('#selectPeriod, #searchDateRange'), wrapUp: document.getElementById('wrapUp'), //document.getElementById('selectPeriod')
     },
 }
 //
@@ -319,7 +319,8 @@ function h4list() { // h4elementText: { h4element, indexNumber, siblings }
 }();
 //
 const reviewingEligibility = (thisPageNameHtm.indexOf("CaseEligibilityResult") > -1 && thisPageNameHtm.indexOf("CaseEligibilityResultSelection.htm") < 0);
-const selectPeriod = document.getElementById('selectPeriod'), selectPeriodValue = selectPeriod?.value;
+const selectPeriod = document.getElementById('selectPeriod')
+const selectPeriodValue = gbl.eles.selectPeriod?.value;
 const selectPeriodDates = selectPeriodValue?.length ? { range: selectPeriodValue, parm3: selectPeriodValue.replace(/ - |\//g, ''), start: selectPeriodValue.slice(0, 10), end: selectPeriodValue.slice(13) } : {};
 const getListAndAlertTableParameters = { // Parameters for navigating from Alerts or Lists, and the column
     parameterTwo(tableData) {
@@ -683,7 +684,7 @@ const mec2functionFeatures = [
     editMode && (document.querySelectorAll('#buttonPanelTwo, #buttonPanelThree').forEach(ele => ele.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
 }();
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ PRIMARY_NAVIGATION_BUTTONS SECTION_END  //////////////////////////////////////////////////////////////////
-function selectPeriodReversal(selectPeriodEleToReverse = selectPeriod) { // don't iife
+function selectPeriodReversal(selectPeriodEleToReverse = gbl.eles.selectPeriod) { // don't iife
     selectPeriodEleToReverse = sanitize.query(selectPeriodEleToReverse)
     if (!selectPeriodEleToReverse || selectPeriodEleToReverse.disabled) { return };
     selectPeriodEleToReverse.innerHTML = [...selectPeriodEleToReverse.children].reverse().map(ele => ele.outerHTML).join('')
@@ -694,43 +695,43 @@ function selectOption(selectElement, selectedOptionValue) {
     if (originallySelectedOption !== selectedOptionValue) { originallySelectedOption.removeAttribute('selected'); selectedOption.setAttribute('selected', 'selected') }
 }
 !function nextPrevPeriodButtons() {
-    if (iFramed || !selectPeriod || !sanitize.query(selectPeriod) || !document.querySelector('#selectPeriod:not([disabled], [readonly], [type=hidden])')) { return }
+    if (iFramed || editMode || !gbl.eles.selectPeriod || !sanitize.query(gbl.eles.selectPeriod) || gbl.eles.selectPeriod.disabled || gbl.eles.selectPeriod.readOnly || gbl.eles.selectPeriod.type === "hidden" || reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
     try {
-        if (!editMode) {
-            if (reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
+        // if (!editMode) {
+            // if (reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
             let selectPeriodReversed = countyInfo.userSettings.selectPeriodReversal
-            let lastAvailablePeriod = selectPeriod.firstElementChild.value
+            let lastAvailablePeriod = gbl.eles.selectPeriod.firstElementChild.value
             let prevPeriodButtons = '<span id="prevButtons"><button id="backGoSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Go" class="npp-button">«</button><button id="backSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Stay" class="npp-button">‹</button></span>',
                 nextPeriodButtons = '<span id="nextButtons"><button id="forwardSelect" tabindex="-1" type="button" data--next-or-prev="Next" data--stay-or-go="Stay" class="npp-button">›</button><button id="forwardGoSelect" tabindex="-1" type="button" data--next-or-prev="Next" data--stay-or-go="Go" class="npp-button">»</button></span>'
-            selectPeriod.insertAdjacentHTML('beforebegin', prevPeriodButtons)
-            selectPeriod.insertAdjacentHTML('afterend', nextPeriodButtons)
+            gbl.eles.selectPeriod.insertAdjacentHTML('beforebegin', prevPeriodButtons)
+            gbl.eles.selectPeriod.insertAdjacentHTML('afterend', nextPeriodButtons)
             let nextButtons = document.getElementById('nextButtons')
-            function checkPeriodMobility() {
-                nextButtons.style.opacity = selectPeriod.value === lastAvailablePeriod ? ".5" : ""
-            }
             checkPeriodMobility()
 
-            selectPeriod.parentElement.addEventListener('click', clickEvent => {
+            gbl.eles.selectPeriod.parentElement.addEventListener('click', clickEvent => {
                 if (clickEvent.target.nodeName !== "BUTTON") { return; }
                 checkPeriodMobility()
                 let clickedButton = clickEvent.target.closest('button')
                 selectNextPrev(clickedButton.id, clickedButton.dataset.NextOrPrev, clickedButton.dataset.StayOrGo)
             })
+            function checkPeriodMobility() {
+                nextButtons.style.opacity = gbl.eles.selectPeriod.value === lastAvailablePeriod ? ".5" : ""
+            }
             function selectNextPrev(buttonId, nextOrPrev, stayOrGo) {
                 if (nextOrPrev === "Next") {
-                    if (selectPeriod.selectedIndex === 0) { // top of list
+                    if (gbl.eles.selectPeriod.selectedIndex === 0) { // top of list
                         if (stayOrGo === "Go") { gbl.eles.submitButton.click() }
                         return
                     }
-                    selectPeriodReversed ? selectPeriod.selectedIndex-- : selectPeriod.selectedIndex++; //Subtracting goes up;
+                    selectPeriodReversed ? gbl.eles.selectPeriod.selectedIndex-- : gbl.eles.selectPeriod.selectedIndex++; //Subtracting goes up;
                     if (stayOrGo === "Go") { gbl.eles.submitButton.click() }
                 } else if (nextOrPrev === "Prev") {
-                    selectPeriodReversed ? selectPeriod.selectedIndex++ : selectPeriod.selectedIndex--;
+                    selectPeriodReversed ? gbl.eles.selectPeriod.selectedIndex++ : gbl.eles.selectPeriod.selectedIndex--;
                     if (stayOrGo === "Go") { gbl.eles.submitButton.click() }
                 }
                 checkPeriodMobility()
             };
-        }
+        // }
     } catch (error) { console.trace("nextPrevPeriodButtons", error) }
 }();
 function findContaningPeriod(selectElement, compareDate=Date.now()) {
@@ -745,7 +746,7 @@ function inCurrentBWP( compareDate = Date.now() ) {
     if ( inRange( compareDate, sanitize.date(selectPeriodDates.start, "number"), sanitize.date(selectPeriodDates.end, "number") ) ) { return dateFuncs.formatDate(compareDate, "mmddyyyy") }
     else { return false }
 }
-if (selectPeriod && countyInfo.userSettings.selectPeriodReversal && !editMode) { selectPeriodReversal() };
+if (gbl.eles.selectPeriod && countyInfo.userSettings.selectPeriodReversal && !editMode) { selectPeriodReversal() };
 docReady( document.body?.addEventListener('submit', () => { document.body.style.opacity = ".8" }) ); // Dim_Page_On_Submit
 // docReady (document.querySelectorAll('form input.form-control:read-write').forEach(ele => { ele.spellcheck = false }) )
 !function footerLinks() {
@@ -3660,15 +3661,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 !function _Financial_Billing_Pages() {
     !function __ElectronicBills() {
         if (!"ElectronicBills.htm".includes(thisPageNameHtm)) { return };
-        if (countyInfo.userSettings.selectPeriodReversal) {
-            const searchDateRange = document.getElementById('searchDateRange')
-            selectPeriodReversal(searchDateRange)
-            if (searchDateRange.querySelector('[selected]').value === "") {
-                const twoWeeksAgo = Date.now() - (dateFuncs.dayInMs * 14)
-                const chosenPeriodValue = findContaningPeriod(searchDateRange, twoWeeksAgo)
-                selectOption(searchDateRange, chosenPeriodValue)
-            }
-        }
+        gbl.eles.selectPeriod.insertAdjacentElement('afterbegin', gbl.eles.selectPeriod.querySelector('[value=""]'))
     }(); // SECTION_END Electronic_Bills;
     if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     !function __FinancialAbsentDayHolidayTracking() {
