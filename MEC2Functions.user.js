@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.11
+// @version      0.6.12
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -152,6 +152,9 @@ const doNotDupe = {
 const caseIdVal = gbl.eles.caseIdElement?.value, providerIdVal = gbl.eles.providerIdElement?.value;
 const caseOrproviderIdVal = caseIdVal ?? providerIdVal;
 const pageTitle = document.querySelector('title').innerText;
+const reviewingEligibility = (thisPageNameHtm.indexOf("CaseEligibilityResult") > -1 && thisPageNameHtm.indexOf("CaseEligibilityResultSelection.htm") < 0);
+const selectPeriod = document.getElementById('selectPeriod'), selectPeriodValue = gbl.eles.selectPeriod?.value;
+const selectPeriodDates = selectPeriodValue?.length ? { range: selectPeriodValue, parm3: selectPeriodValue.replace(/ - |\//g, ''), start: selectPeriodValue.slice(0, 10), end: selectPeriodValue.slice(13) } : {};
 // const gbl.eles.submitButton = document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitproviderId, #providerIdSubmit');
 //
 !function primaryNavigationButtonDivs() {
@@ -318,10 +321,6 @@ function h4list() { // h4elementText: { h4element, indexNumber, siblings }
     } catch(err) { console.trace(err) }
 }();
 //
-const reviewingEligibility = (thisPageNameHtm.indexOf("CaseEligibilityResult") > -1 && thisPageNameHtm.indexOf("CaseEligibilityResultSelection.htm") < 0);
-const selectPeriod = document.getElementById('selectPeriod')
-const selectPeriodValue = gbl.eles.selectPeriod?.value;
-const selectPeriodDates = selectPeriodValue?.length ? { range: selectPeriodValue, parm3: selectPeriodValue.replace(/ - |\//g, ''), start: selectPeriodValue.slice(0, 10), end: selectPeriodValue.slice(13) } : {};
 const getListAndAlertTableParameters = { // Parameters for navigating from Alerts or Lists, and the column
     parameterTwo(tableData) {
         let [ tableId, childNum ] = tableData.get(thisPageNameHtm) ?? ['table > tbody', 0]
@@ -406,6 +405,8 @@ const mec2functionFeatures = [
 !function primaryNavigation() {
     if (iFramed || !thisPageNameHtm || thisPageNameHtm.indexOf('Log') === 0) { return }
     const searchIcon = "<span style='font-size: 80%; margin-left: 2px;'>🔍</span>";
+    // const providerPages = [ ...navMaps.rowPagesMap.get("Provider_Info.btn"), ...navMaps.rowPagesMap.get("Provider_Notices.btn") ]
+    // const casePages = [ ...navMaps.rowPagesMap.get("Member.btn"), ...navMaps.rowPagesMap.get("Case.btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"),  ]
     const navMaps = {
         rowMap: new Map([
             [ "rowOne", [ "Alerts.htm", "CaseNotes.htm", "CaseOverview.htm", "CasePageSummary.htm", "ClientSearch.htm", "ProviderSearch.htm", "ActiveCaseList.htm", "PendingCaseList.htm", "InactiveCaseList.htm", "CaseApplicationInitiation.htm", ] ],
@@ -435,7 +436,7 @@ const mec2functionFeatures = [
             [ "ActiveCaseList.htm", { label: "Active", target: "_self", parentId: "Active Caseload List", row: "1" }, ],
             [ "PendingCaseList.htm", { label: "Pending", target: "_self", parentId: "Pending Case List", row: "1" }, ],
             [ "InactiveCaseList.htm", { label: "Inactive", target: "_self", parentId: "Inactive Case List", row: "1" }, ],
-            [ "CaseApplicationInitiation.htm", { label: "New App", target: "_self", parentId: "Case Application Initiation", row: "1" }, ],
+            [ "CaseApplicationInitiation.htm", { label: "New App", target: "_self", parentId: "Application Initiation", row: "1" }, ],
 
             [ "CaseMember.htm", { label: "Member I", target: "_self", parentId: "Member", rowTwoParent: "Member.btn", row: "3", }, ],
             [ "CaseMemberII.htm", { label: "Member II", target: "_self", parentId: "Member II", rowTwoParent: "Member.btn", row: "3", }, ],
@@ -587,15 +588,47 @@ const mec2functionFeatures = [
             return '<button class="' + classList + '" id="' + mapPageName + '">' + (navMaps.allPagesMap.get(mapPageName)?.label ?? 'error') + '</button>'
         }).join('')
     };
+//     function openNav(mapPageName, target) {
+//         let destinationIsListPage = navMaps.listPageList.includes(mapPageName), isListPage = navMaps.listPageList.includes(thisPageNameHtm)
+//         let qMarkParams = getSearchParams()
+//         function getSearchParams() {
+//             if (isListPage && !destinationIsListPage) {
+//                 return mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? ''
+//             }
+//             if (gbl.eles.caseIdElement || gbl.eles.providerIdElement) {
+//                 if (!caseOrproviderIdVal) { return '' }
+//                 if (providerIdVal) { return "?providerId=" + providerIdVal }
+//                 let [ parm2, parm3, parm4 ] = window.location.search.split("&")
+//             }
+
+//         }
+//         //gbl.eles.caseIdElement, gbl.eles.providerIdElement, !caseOrproviderIdVal
+//         : window.location.search ? window.location.search
+//         : providerIdVal ? "?providerId=" + providerIdVal
+//         : caseIdVal ? "?parm2=" + caseIdVal + "&parm3=" + selectPeriodDates.parm3 : ''
+//         target = editMode ? "_blank" : target
+//         if (target === "_self") { document.body.style.opacity = ".8" }
+//         window.open('/ChildCare/' + mapPageName + qMarkParams, target)
+    //     };
     function openNav(mapPageName, target) {
-        let destinationIsListPage = navMaps.listPageList.includes(mapPageName), isListPage = navMaps.listPageList.includes(thisPageNameHtm)
-        let qMarkParameters = (isListPage && !destinationIsListPage) ? (mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? '')
-        : window.location.search ? window.location.search
-        : providerIdVal ? "?providerId=" + providerIdVal
-        : caseIdVal ? "?parm2=" + caseIdVal : ''
-        target = editMode ? "_blank" : target
-        if (target === "_self") { document.body.style.opacity = ".8" }
-        window.open('/ChildCare/' + mapPageName + qMarkParameters, target)
+        let destinationIsListPage = navMaps.listPageList.includes(mapPageName)
+        let qMarkParameters = ""
+        let isListPage = navMaps.listPageList.includes(thisPageNameHtm)
+        if (!destinationIsListPage && isListPage) {
+            qMarkParameters = mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? ''
+            if (target === "_self") { document.body.style.opacity = ".8" }
+            window.open('/ChildCare/' + mapPageName + qMarkParameters, target)
+            return
+        }
+        if (!editMode) {
+            let targetPage = navMaps.allPagesMap.get(mapPageName)?.parentId?.replace(/ /g, '\ ')
+            if (!targetPage) { return }
+            if (target === "_self") { document.body.style.opacity = ".8" }
+            window.open( document.getElementById(targetPage).firstElementChild.href, target )
+        } else if (editMode) {
+            qMarkParameters = caseIdVal ? "?parm2=" + caseIdVal : ''
+            window.open('/ChildCare/' + mapPageName + qMarkParameters, "_blank")
+        }
     };
     function clickRowTwo(clickTarget) {
         buttonDivTwo?.querySelectorAll('.cButton.nav.browsing').forEach(ele => ele.classList.remove('browsing'))
