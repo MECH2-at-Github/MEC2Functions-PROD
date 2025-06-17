@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.07
+// @version      0.6.08
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -588,24 +588,12 @@ const mec2functionFeatures = [
         }).join('')
     };
     function openNav(mapPageName, target) {
-        let destinationIsListPage = navMaps.listPageList.includes(mapPageName)
-        let qMarkParameters = ""
-        let isListPage = navMaps.listPageList.includes(thisPageNameHtm)
-        if (!destinationIsListPage && isListPage) {
-            qMarkParameters = mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? ''
-            if (target === "_self") { document.body.style.opacity = ".8" }
-            window.open('/ChildCare/' + mapPageName + qMarkParameters, target)
-            return
-        }
-        if (!editMode) {
-            let targetPage = navMaps.allPagesMap.get(mapPageName)?.parentId?.replace(/ /g, '\ ')
-            if (!targetPage) { return }
-            if (target === "_self") { document.body.style.opacity = ".8" }
-            window.open( document.getElementById(targetPage).firstElementChild.href, target )
-        } else if (editMode) {
-            qMarkParameters = caseIdVal ? "?parm2=" + caseIdVal : ''
-            window.open('/ChildCare/' + mapPageName + qMarkParameters, "_blank")
-        }
+        let destinationIsListPage = navMaps.listPageList.includes(mapPageName), isListPage = navMaps.listPageList.includes(thisPageNameHtm)
+        let qMarkParameters = (isListPage && !destinationIsListPage) ? (mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? '')
+        : caseIdVal ? "?parm2=" + caseIdVal : ''
+        target = editMode ? "_blank" : target
+        target === "_self" && ( document.body.style.opacity = ".8" )
+        window.open('/ChildCare/' + mapPageName + qMarkParameters, target)
     };
     function clickRowTwo(clickTarget) {
         buttonDivTwo?.querySelectorAll('.cButton.nav.browsing').forEach(ele => ele.classList.remove('browsing'))
@@ -836,12 +824,12 @@ const dateFuncs = {
     formatDate(date, format = "mmddyy") {
         date = date instanceof Date ? date : new Date(date)
         if ( date === "12/31/1969" || isNaN(date) ) { return undefined };
-        switch (format) {
+        switch (format.toLowerCase()) {
             case "mmddyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" });
             case "mdyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" });
             case "mmddyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
             case "mmddhm": return date.toLocaleDateString('en-US', { hour: "numeric", minute: "2-digit", month: "2-digit", day: "2-digit" });
-            case "utc": return Date.UTC();
+            case "utc": return Date.UTC(date.getFullYear(), date.getMonth(), date.getDay());
             default: return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
         }
     },
@@ -1172,7 +1160,6 @@ try {
         }
         async function checkResidence() {
             forAwaitMultiCaseEval(caseListArray, "CaseAddress").then(result => {
-                verbose(result)
                 for (let caseNum in result) {
                     let residenceCity = nameFuncs.toTitleCase(result[caseNum][0][0].residenceCity)
                     let mailingCity = result[caseNum][0][0].mailingCity?.length ? " / " + nameFuncs.toTitleCase(result[caseNum][0][0].mailingCity) : ''
@@ -1359,7 +1346,6 @@ try {
         }
         function excelifyData(evalDataToExcelify) {
             let excelData = JSON.stringify(evalDataToExcelify)
-            verbose(excelData)
             let excelifiedData = excelData
             .replace(/\{|\]\],/g, "\n\t")
             .replace(/\[\[|\]\,\[/g, "\n\t\t")
@@ -2214,7 +2200,6 @@ try {
                 }
                 let oProviderStart = sanitize.json(sessionStorage.getItem("MECH2.providerStart"))
                 if (oProviderStart !== null) {
-                    verbose(oProviderStart)
                     const childDropDown = document.getElementById('memberReferenceNumberNewMember')
                     tertiaryActionArea?.insertAdjacentHTML('afterbegin', "<button type='button' id='pasteStart' class='form-button'>Autofill Start</button>")
                     document.getElementById('pasteStart').addEventListener('click', pasteStartData)
@@ -3240,7 +3225,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             providerNameList.forEach(provider => {
                 providerResult.forEach(thisRow => {
                     if (thisRow.providerName !== provider) { return };
-                    verbose(thisRow, thisRow.issuanceAmount.replace(/[\$,]/g, ''))
                     concatPaymentHTML.providerPaymentsTotal += Number( thisRow.issuanceAmount.replace(/[\$,]/g, '') * 100 )
                     if (providerDateArray.includes(thisRow.billingPeriod)) {
                         let match = providerPaymentTableArray.find(pptaArr => pptaArr[0] === thisRow.billingPeriod);
@@ -3293,7 +3277,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         let today = Date.now()
         $('#receiveDate').on('keyup change', event => { //jQuery
             if (!event.target.value || event.target.value.length !== 10) { return }
-            if (today - Date.parse(event.target.value) < 31536000000) {
+            if (today - Date.parse(event.target.value) < 31536000000) { //365 days
                 preventKeys(["Tab"])
                 eleFocus(gbl.eles.save)
                 $('.hasDatepicker').datepicker("hide")
@@ -3661,6 +3645,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 !function _Financial_Billing_Pages() {
     !function __ElectronicBills() {
         if (!"ElectronicBills.htm".includes(thisPageNameHtm)) { return };
+        doNotDupe.buttons.push('#reset, #search')
         gbl.eles.selectPeriod.insertAdjacentElement('afterbegin', gbl.eles.selectPeriod.querySelector('[value=""]'))
     }(); // SECTION_END Electronic_Bills;
     if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
@@ -3688,6 +3673,49 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             cappingInfoDiv.style.verticalAlign = "text-bottom"
             const allowedRegistrationFeeTable = document.getElementById('allowedRegistrationFeeTable_wrapper'); allowedRegistrationFeeTable.style.margin = "0"; allowedRegistrationFeeTable.closest('.form-group').style.lineHeight = "unset";
         }();
+        evalData().then( ({ 0: providerData, 1: billedData } = {}) => {
+            const periodStart = Date.parse(selectPeriodDates.start), periodEnd = Date.parse(selectPeriodDates.end)
+            const providerList = {}
+            const childList = {}
+            const issuesList = {}
+            providerData.forEach(providers => {
+                providerList[providers.rowIndex] = {
+                    providerName: providers.providerName.replace(/\\/g, ''), // providerList by numbers //
+                    childrenInCare: [],
+                }
+                issuesList[providers.rowIndex] = {}
+            })
+            billedData.forEach(child => {
+                childList[child.referenceNumber] = { childName: child.childName }
+                !providerList[child.rowIndex2].childrenInCare.includes(child.referenceNumber) && providerList[child.rowIndex2].childrenInCare.push(child.referenceNumber)
+            })
+            billedData.forEach(child => {
+                childList[child.referenceNumber][child.rowIndex2] = {
+                    providerName: providerList[child.rowIndex2].providerName,
+                    childName: child.childName,
+                    totalHoursOfCareAuthorized: Number(child.totalHoursOfCareAuthorized),
+                    totalHoursBilled: (Number(child.totalHoursBilledWeekOne) + Number(child.totalHoursBilledWeekTwo)),
+                    startDate: Date.parse(child.effectiveStartDate.slice(0, 10)),
+                    endDate: Date.parse(child.effectiveEndDate.slice(0, 10)),
+                    referenceNumber: child.referenceNumber,
+                }
+                let currentChild = childList[child.referenceNumber][child.rowIndex2]
+                if (currentChild.startDate > periodStart) { addToNewArray(issuesList, currentChild.referenceNumber, "Service Authorization start date is after the first date of the period.") }
+                if (currentChild.endDate < periodEnd) { addToNewArray(issuesList, currentChild.referenceNumber, "Service Authorization end date is before the last date of the period.") }
+                if (currentChild.totalHoursBilled > currentChild.totalHoursOfCareAuthorized) { addToNewArray(issuesList, currentChild.referenceNumber, currentChild.childName + ": Provider billed more hours than authorized. " + currentChild.totalHoursBilled + " billed vs " + currentChild.totalHoursOfCareAuthorized + " authorized.") }
+            })
+            function addToNewArray(obj, arrayName, value) {
+                if (!obj[arrayName]) { obj[arrayName] = []}
+                obj[arrayName].push(value)
+            }
+            verbose(issuesList)
+            // button.addEventListener('clickEvent', () => {
+            // let selectedProviderRow = '"' + table0.querySelector('selected').rowIndex + '"'
+            // providerList[selectedProviderRow].childrenInCare.forEach(childMemNum => {
+            // childList[childMemNum][selectedProviderRow]
+            // })
+            // })
+        })
         let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody')
         let totalHoursBilledWeekOne = document.getElementById('totalHoursBilledWeekOne'), totalHoursBilledWeekTwo = document.getElementById('totalHoursBilledWeekTwo'), totalHoursOfCareAuthorized = document.getElementById('totalHoursOfCareAuthorized'), totalHours = [ totalHoursBilledWeekOne, totalHoursBilledWeekTwo, totalHoursOfCareAuthorized ]
         let daysArray = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], weekOneDays = weekHtmlCollection('weekOne'), weekTwoDays = weekHtmlCollection('weekTwo'), weekOneMonday = weekOneDays[0]
@@ -3789,7 +3817,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         function fourWeekStart(date) {
             let [ month, day, year ] = date.split('/')
             let baseParseDate = 1702252800000 // Date.UTC(2023, 12-1, 11); // month is -1 indexed;
-            let num = ( (Date.UTC(year, month-1, day) - baseParseDate) / 2419200000)
+            let num = ( (Date.UTC(year, month-1, day) - baseParseDate) / 2419200000) // 28 days;
             return ( num - Math.floor(num) )
         }
         function reorderFamilyProviderName(misorderedName) {
@@ -4029,16 +4057,16 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     let autoFormat = document.getElementById('autoFormat')
                     gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles;
                         if (!autoFormat.checked) { return }
-                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories;
+                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories;
                     })
                     noteStringText.addEventListener('paste', pasteEvent => {
                         if (!autoFormat.checked) { return }
                         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
                         let formattedPastedText = convertLineBreakToSpace(pastedText)
                         .replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
-                        .replace( /\n\ {0,9}\u0009|\n\ {16}/g, "\n             " ) //excel "tab"
-                        .replace(/\u0009/g, "    ")
-                        .replace( /\n+/g, "\n" )//Multiple new lines to single new line;
+                        // .replace(/^\ {0,9}\u0009|\n\ {16}/g, "\n             ") //excel "tab"
+                        .replace(/\u0009/g, "    ") //excel "tab"
+                        .replace(/^\n+/g, "\n")//Multiple new lines to single new line;
                         if (pastedText !== formattedPastedText) {
                             pasteEvent.preventDefault()
                             insertTextAndMoveCursor(formattedPastedText)
@@ -4336,21 +4364,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     !function __ProviderRegistrationAndRenewal() {
         if (!("ProviderRegistrationAndRenewal.htm").includes(thisPageNameHtm)) { return };
         doNotDupe.buttons.push('#providerIdSubmit')
-        if (!editMode) {
-            if (typeof userCountyObj !== undefined) {
-                let userCountyRow = [...document.querySelectorAll('#providerRegistrationAndRenewalTable > tbody > tr')].find(ele => ele.innerText.includes(userCountyObj?.county + ' County') );
-                if (userCountyRow) {
-                    userCountyRow.click()
-                    focusEle = '#editDB'
-                }
-            } else { focusEle = '#newDB' }
-        } else { focusEle = '#nextRenewalDue' }
     }(); // SECTION_END Provider_Registration_and_Renewal;
-    !function __ProviderRegistrationList() {
-        if (!("ProviderRegistrationList.htm").includes(thisPageNameHtm)) { return };
-        let searchServicingAgencyCode = document.getElementById('searchServicingAgencyCode')
-        searchServicingAgencyCode.prepend( searchServicingAgencyCode.querySelector('option[value="' + userCountyObj.code.slice(1) + '"]') )
-    }(); // SECTION_END Provider_Registration_List;
     !function __ProviderTraining() {
         if (!("ProviderTraining.htm").includes(thisPageNameHtm)) { return };
         document.querySelector('div#providerTrainingData > div.form-group').insertAdjacentHTML('beforebegin', '<div style="text-align: right;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=CCAP_110909" target="_blank">CCAP Policy Manual - Legal Non-Licensed Provider Trainings</a></div>')
@@ -5081,7 +5095,6 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
     if (!editableTextareas.length) { return };
     const maxRowsTable = {}
     let saveButton = gbl.eles.save ?? gbl.eles.submitButton
-    verbose(saveButton)
     saveButton?.addEventListener('click', saveEvent => {
         editableTextareas.forEach(textbox => {
             let maxColumns = Math.round(textbox.cols/10)*10, maxRows = 30 // rounding because they set casenotes to be 97 instead of coding the html/css correctly;
