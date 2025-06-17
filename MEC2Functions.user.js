@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.10
+// @version      0.6.11
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -590,8 +590,9 @@ const mec2functionFeatures = [
     function openNav(mapPageName, target) {
         let destinationIsListPage = navMaps.listPageList.includes(mapPageName), isListPage = navMaps.listPageList.includes(thisPageNameHtm)
         let qMarkParameters = (isListPage && !destinationIsListPage) ? (mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? '')
-        : reviewingEligibility ? window.location.search
-        : caseIdVal ? window.location.search || "?parm2=" + caseIdVal : ''
+        : window.location.search ? window.location.search
+        : providerIdVal ? "?providerId=" + providerIdVal
+        : caseIdVal ? "?parm2=" + caseIdVal : ''
         target = editMode ? "_blank" : target
         if (target === "_self") { document.body.style.opacity = ".8" }
         window.open('/ChildCare/' + mapPageName + qMarkParameters, target)
