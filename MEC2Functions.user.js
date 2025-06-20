@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.12
+// @version      0.6.13
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -1665,7 +1665,8 @@ try {
             disabilityExpires: { textIncludes: /The allowed disability period/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseDisability"], },
         },
         provider: {
-            parentAwareRatingStartEnd: { textIncludes: /Parent Aware/, noteCategory: "Provider Change", omniPageButtons: ["CaseServiceAuthorizationApproval"], },
+            parentAwareRatingStartEnd: { textIncludes: /Parent Aware/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationApproval"], },
+            accreditationStartEnd: { textIncludes: /Provider's accreditation/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationApproval"], },
             providerUnsafe: { textIncludes: /Provider has been deactivated for unsafe care./, noteCategory: "Provider Change", noteSummary: "Provider has been deactivated for unsafe care.", fetchData: ["CaseServiceAuthorizationOverview:1"], pageFilter: "Provider No Longer Eligible", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
             providerDeactivatedRenewal: { textIncludes: /Provider has been deactivated.  Renewal/, noteCategory: "Provider Change", noteSummary: "Provider deactivated. Renewal was not received.", fetchData: ["CaseServiceAuthorizationOverview:1"], pageFilter: "Provider No Longer Eligible", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
             providerRegistrationClosed: { textIncludes: /Provider's Registration Status is closed/, noteCategory: "Provider Change", noteSummary: "Provider's Registration Status is closed.", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationOverview"], },
@@ -2741,7 +2742,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     let ceiAddressLabelsAndDivs = [...ceiAddressLabels, ...ceiAddressLabels.map(ele => ele.nextElementSibling) ]
     let ceiAddressGroups = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.getElementById(ele)?.closest('.form-group'))
     h4objects.actualincome.h4.click();
-    tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome')
+    tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome, #ceiPaymentChange')
     function checkEmploymentType() {
         let ceiIncomeTypeValue = ceiIncomeType?.value
         if (ceiIncomeTypeValue === "Self-employment") {
@@ -2764,7 +2765,6 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             addValueClassdoChange(ceiEmpCountry, 'USA', false, true)
         })
         ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', '#ceiPaymentEnd')
-        document.getElementById('ceiPaymentChange').tabIndex = '-1'
         let ceiGrossIncome = document.getElementById('ceiGrossIncome'), ceiGrossAllowExps = document.getElementById('ceiGrossAllowExps')
         ceiGrossIncome.parentElement.insertAdjacentHTML('afterend', '<div id="autoFiftyPercent"><div id="fiftyPercent"></div><button type="button" id="grossButton" class="cButton">Use 50%</button></div>');
         let fiftyPercent = document.getElementById('fiftyPercent')
@@ -3980,15 +3980,14 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }
     }
     let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrproviderIdVal] : undefined
-    // let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrproviderIdVal] : undefined
     evalData().then( ({ 0: notesTableData} = []) => {
+        if (notesTableData === undefined) { return };
         if (noteInfo) {
             !function doAutoNote() { // Auto_Case_Noting
                 if (!editMode) {
                     !function checkForDuplicates() {
                         let continueToMakeNote = 1
                         let firstTenAlerts = notesTableData.slice(0, 10)
-                        if (firstTenAlerts.length === 1) { return };
                         let todayValue = Date.now(), twoMonthsValue = 5270400000
                         firstTenAlerts.forEach(alert => {
                             let alertDateValue = sanitize.date(alert.noteCreateDate, "number")
@@ -4098,7 +4097,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         if (!autoFormat.checked) { return }
                         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
                         let formattedPastedText = convertLineBreakToSpace(pastedText)
-                        .replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
+                        .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
                         // .replace(/^\ {0,9}\u0009|\n\ {16}/g, "\n             ") //excel "tab"
                         .replace(/\u0009/g, "    ") //excel "tab"
                         .replace(/^\n+/g, "\n")//Multiple new lines to single new line;
@@ -4899,9 +4898,10 @@ function addDateControls(increment, ...eles) {
     })
 };
 //           highly specific operations;
-function ifNoPersonUntabEndAndDisableChange(member, end, change) {
+function ifNoPersonUntabEndAndDisableChange(member, end, change='') {
     if (member = sanitize.query(member)) {
         sanitize.query(end).tabIndex = "-1"
+        if (!change) { return };
         change = sanitize.query(change)
         change.readOnly = true
         change.tabIndex = "-1"
@@ -5132,6 +5132,7 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
     let saveButton = gbl.eles.save ?? gbl.eles.submitButton
     saveButton?.addEventListener('click', saveEvent => {
         editableTextareas.forEach(textbox => {
+            textbox.value = textbox.value.replace(/–|—/g, '-').replace(/“|”/g, '"')
             let maxColumns = Math.round(textbox.cols/10)*10, maxRows = 30 // rounding because they set casenotes to be 97 instead of coding the html/css correctly;
             let totalRows = splitStringAtWordBoundary({ textbox, maxColumns, maxRows })
             if (totalRows > maxRows) {
