@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.13
+// @version      0.6.14
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -2948,7 +2948,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     let { 1: copayArray } = result
                     const providerMatch = copayArray.find(provider => {
                         let [ versionA, versionB ] = provider.version.split(' of ')
-                        return versionA === versionB && providerNameInTable === sanitize.html(provider.providerName)
+                        return (versionA === versionB) && providerNameInTable === sanitize.html(provider.providerName)
                     })
                     const copayInt = String(parseInt(providerMatch.copay))
                     document.getElementById('copayAmountGet').textContent = copayInt
@@ -2981,7 +2981,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     copayAmount: integerCopay ? integerCopay : document.getElementById('copayAmountManual').value,
                     children: childList,
                 }
-                if (formInfo.copayAmount.length && destination === "billingForm") { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank") }
+                if (formInfo.copayAmount.length && destination === "billingForm") { window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + encodeURIComponent(JSON.stringify(formInfo)), "_blank") }
                 else if (formInfo.copayAmount.length && destination === "clipboard") {
                     let childInfoArray = [formInfo.caseName + " - CCAP case number: " + formInfo.caseNumber + "\n", "Copayment for biweekly period " + selectPeriodDates.range + ": $" + formInfo.copayAmount]
                     for (let child in formInfo.children) {
@@ -3974,8 +3974,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             let noteCategoryRegExp = new RegExp(noteDetails.noteDocType + "(?:.*?)" + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig], "i")
             noteCategory.value = [...document.getElementById('noteCategory').children]?.find( ele => ele.innerText.match(noteCategoryRegExp) ).value
             // noteCategory.value = noteDetails.noteElig === '' ? noteDetails.noteDocType : noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig]
-            noteSummary.value = noteDetails.noteTitle
-            noteStringText.value = noteDetails.noteText
+            noteSummary.value = decodeURIComponent(noteDetails.noteTitle)
+            noteStringText.value = decodeURIComponent(noteDetails.noteText)
             eleFocus(gbl.eles.save)
         }
     }
@@ -4227,12 +4227,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             pasteEvent.stopImmediatePropagation()
             let letterObj = convertFromAHK(pastedText)
             if (status) {
-                status.value = letterObj.CaseStatus
+                status.value = decodeURIComponent(letterObj.CaseStatus)
                 void doChange(status)
                 queueMicrotask(() => { letterObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
                 /* [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ] */
             }
-            textbox.value = letterObj.LetterText
+            textbox.value = decodeURIComponent(letterObj.LetterText)
             eleFocus(gbl.eles.save)
         }
         document.addEventListener('paste', pasteEventAHK )
@@ -5132,7 +5132,7 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
     let saveButton = gbl.eles.save ?? gbl.eles.submitButton
     saveButton?.addEventListener('click', saveEvent => {
         editableTextareas.forEach(textbox => {
-            textbox.value = textbox.value.replace(/–|—/g, '-').replace(/“|”/g, '"')
+            textbox.value = textbox.value.replace(/–|—/g, '-').replace(/“|”/g, '"').replace(/‘|’/g, "'")
             let maxColumns = Math.round(textbox.cols/10)*10, maxRows = 30 // rounding because they set casenotes to be 97 instead of coding the html/css correctly;
             let totalRows = splitStringAtWordBoundary({ textbox, maxColumns, maxRows })
             if (totalRows > maxRows) {
