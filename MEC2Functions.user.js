@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.14
+// @version      0.6.15
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -3939,14 +3939,13 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     document.querySelector('div.panel-box-format > div.form-group').insertAdjacentHTML('afterend', '<div id="ageCategories">' + ageDefinitions + '</div>')
     document.getElementById('footer_links').insertAdjacentHTML('beforeend', '<span class="footer" tabindex="-1">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=CCAP_0927" target="_blank">Accreditations</a>')
 }(); // SECTION_END Maximum_Rates;
-!function _Notes__CaseNotes_ProviderNotes() { // (major_subsection) =====================================================================================================================================;
+!function CaseNotes() { // (major_subsection) =====================================================================================================================================;
     if (!["CaseNotes.htm", "ProviderNotes.htm"].includes(thisPageNameHtm)) { return };
     doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
-    if (editMode) {
-        let noteTable = document.querySelector('.dataTables_scrollBody'); noteTable && (document.querySelector('.dataTables_scrollBody').style.maxHeight = "170px")
-    }
+    let noteTable = document.querySelector('.dataTables_scrollBody'), noteTableStyle = editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"
+    noteTable && (document.querySelector('.dataTables_scrollBody').setAttribute('style', noteTableStyle))
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
         document.getElementById('noteCreateDate')?.closest('div.panel-box-format').classList.add('hidden')
         let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = noteSummary?.closest('.row')
@@ -3956,7 +3955,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     document.addEventListener('paste', pasteEventAHK )
     function pasteEventAHK(event) { //pasted from AHK
         let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-        if (pastedText.indexOf("CaseNoteFromAHKJSON") < 0) { return };
+        if (pastedText.indexOf("FromAHKJSON") < 0) { return };
+        // if (pastedText.indexOf("CaseNoteFromAHKJSON") < 0) { return };
         event.preventDefault()
         event.stopImmediatePropagation()
         if (!editMode) {
@@ -3970,12 +3970,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
                 Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
             }
-            let noteDetails = convertFromAHK(pastedText)
-            let noteCategoryRegExp = new RegExp(noteDetails.noteDocType + "(?:.*?)" + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig], "i")
+            let ahkObj = convertFromAHK(pastedText)
+            let noteCategoryRegExp = new RegExp(ahkObj.noteDocType + "(?:.*?)" + noteCategoryObj[ahkObj.noteDocType][ahkObj.noteElig], "i")
             noteCategory.value = [...document.getElementById('noteCategory').children]?.find( ele => ele.innerText.match(noteCategoryRegExp) ).value
             // noteCategory.value = noteDetails.noteElig === '' ? noteDetails.noteDocType : noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig]
-            noteSummary.value = decodeURIComponent(noteDetails.noteTitle)
-            noteStringText.value = decodeURIComponent(noteDetails.noteText)
+            noteSummary.value = decodeURIComponent(ahkObj.noteTitle)
+            noteStringText.value = decodeURIComponent(ahkObj.noteText)
             eleFocus(gbl.eles.save)
         }
     }
@@ -4203,85 +4203,11 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }
     }).catch(err => { console.trace(err) });
 }(); // SECTION_END _Notes__CaseNotes_ProviderNotes (major_subsection) =============================================================;
-!function _Notices_SpecialLetter_Memo__Case_Provider() {
-    if (!["CaseSpecialLetter.htm", "CaseMemo.htm", "ProviderMemo.htm", "ProviderSpecialLetter.htm", "CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) { return };
-    let textbox = document.querySelector('textarea:not([disabled])')
-    if (textbox) {
-        let status = document.getElementById('status')
-        if (status) {
-            status.value = "Application"
-            void doChange(status)
-            status.value = ""
-        }
-        document.querySelector('.panel-default.panel-box-format')?.addEventListener('click', clickEvent => { //click checkbox if clicking label
-            if (clickEvent.target.nodeName !== "STRONG") { return }
-            let checkboxParent = clickEvent.target.closest('div.col-lg-4')
-            checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
-        })
-        document.querySelector('#caseData input#other')?.addEventListener('click', clickEvent => { document.getElementById('otherTextbox').value = clickEvent.target.checked ? 'See Worker Comments below' : '' })
-        document.querySelectorAll('div.col-lg-offset-3')?.forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
-        function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKJSON{"IdList":"List, comma separated", "CaseStatus":"status", "LetterText":"letter text"}
-            let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-            if (pastedText.indexOf("LetterTextFromAHKJSON") < 0) { return }
-            pasteEvent.preventDefault()
-            pasteEvent.stopImmediatePropagation()
-            let letterObj = convertFromAHK(pastedText)
-            if (status) {
-                status.value = decodeURIComponent(letterObj.CaseStatus)
-                void doChange(status)
-                queueMicrotask(() => { letterObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
-                /* [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ] */
-            }
-            textbox.value = decodeURIComponent(letterObj.LetterText)
-            eleFocus(gbl.eles.save)
-        }
-        document.addEventListener('paste', pasteEventAHK )
-        if ( ["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) && textbox) {
-            let textareaButtonText = {
-                jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
-                    + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
-                extEligEnds() { return 'Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,'
-                    + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
-                closingUnpaidCopay() { return 'Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n'
-                    + 'If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility.' },
-                abpsInHh() {
-                    let abpsInput = prompt("What is the absent parent's name?")
-                    return 'I have been notified that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is now residing in your household, please submit the following verifications:'
-                        + '\n1. Verification of ' + abpsInput + '\'s work schedule, which must include the days of the week and start/end times\n2. Most recent 30 days income for ' + abpsInput + '\n3. ID for ' + abpsInput + '\n'
-                        + 'If this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days.' },
-                lnlSfsTraining() {
-                    const providerWorkerPhone = countyInfo.info.pwPhone ?? countyInfo.countyInfoPrompt("What is the phone number for provider registrations?", 'pwPhone'), providerWorkerPhoneText = providerWorkerPhone ? ' at ' + providerWorkerPhone : ''
-                    return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n'
-                        + 'and search for Course Title:\n "Supervising for Safety Legally Nonlicensed"\nContact the Provider Worker' + providerWorkerPhoneText + ' with questions about trainings and your registration.' },
-                deniedOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.' },
-                fosterChildCcap() { return 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)' },
-            }
-            let textareaButtonsDivHTML = ''
-            + '<div class="float-right-imp" id="textareaButtonsDiv" style="display: flex; flex-direction: column; gap: 8px;">'
-            + '<button type="button" class="cButton" tabindex="-1" id="jsHoursUsed">JS Hours Used</button>'
-            + '<button type="button" class="cButton" tabindex="-1" id="extEligEnds">Ext Elig Ends</button>'
-            + '<button type="button" class="cButton" tabindex="-1" id="abpsInHh">ABPS in HH</button>'
-            + '<button type="button" class="cButton" tabindex="-1" id="fosterChildCcap">CCAP for Foster</button>'
-            + '<button type="button" class="cButton" tabindex="-1" id="deniedOpen">Denied, Case Open</button>'
-            + '<button type="button" class="cButton" tabindex="-1" id="closingUnpaidCopay">Closing, Unpaid Copay</button>'
-            + ("CaseMemo.htm".includes(thisPageNameHtm) ? '<button type="button" class="cButton" tabindex="-1" id="lnlSfsTraining">LNL SfS Training</button>' : '')
-            + '</div>'
-            !function addTextareaButtons() {
-                let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
-                : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').firstElementChild
-                : textbox.closest('.col-lg-12')
-                targetDiv?.insertAdjacentHTML('beforeend', textareaButtonsDivHTML)
-                document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
-                    if (clickEvent.target.nodeName !== "BUTTON") { return }
-                    insertTextAndMoveCursor( (textbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), textbox )
-                        let keyboardEvent = new KeyboardEvent('keyup')
-                        textbox.dispatchEvent(keyboardEvent);
-                })
-            }();
-        }
-    }
+!function Notices_Case_Provider() {
     if (!["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) { return };
-    if (!editMode) { addDateControls("month", '#selectionBeginDate', '#selectionEndDate') }
+    if (!editMode) {
+         addDateControls("month", '#selectionBeginDate', '#selectionEndDate')
+    }
     !function Notices_PdfExport() {
         let textbox1 = document.getElementById('textbox1'), textbox2 = document.getElementById('textbox2')
         if ( textbox2?.disabled ) {
@@ -4320,6 +4246,83 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             document.getElementById('downloadAsPdf').addEventListener( 'click', () => createPdfThenDownload(mergeTextboxesText(), pageTitle + " " + caseOrproviderIdVal) )
         } else if ( textbox2?.disabled === false ) { focusEle = textbox2 }
     }(); // SECTION_END Notices__Export_to_PDF;
+}
+!function CaseNotices_CaseSpecialLetter_CaseMemo() {
+    if (!["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) || !editMode) { return };
+    let textbox = document.querySelector('textarea:not([disabled])')
+    if (!textbox) { return };
+    let status = document.getElementById('status')
+    if (status) {
+        status.value = "Application"
+        void doChange(status)
+        status.value = ""
+    }
+    document.querySelector('.panel-default.panel-box-format')?.addEventListener('click', clickEvent => { //click checkbox if clicking label
+        if (clickEvent.target.nodeName !== "STRONG") { return }
+        let checkboxParent = clickEvent.target.closest('div.col-lg-4')
+        checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
+    })
+    document.querySelector('#caseData input#other')?.addEventListener('click', clickEvent => { document.getElementById('otherTextbox').value = clickEvent.target.checked ? 'See Worker Comments below' : '' })
+    document.querySelectorAll('div.col-lg-offset-3')?.forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
+    function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKJSON{"IdList":"List, comma separated", "CaseStatus":"status", "LetterText":"letter text"}
+        let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+        if (pastedText.indexOf("FromAHKJSON") < 0) { return }
+        // if (pastedText.indexOf("LetterTextFromAHKJSON") < 0) { return }
+        pasteEvent.preventDefault()
+        pasteEvent.stopImmediatePropagation()
+        let ahkObj = convertFromAHK(pastedText)
+        if (status) {
+            status.value = decodeURIComponent(ahkObj.CaseStatus)
+            void doChange(status)
+            queueMicrotask(() => { ahkObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
+            /* [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ] */
+        }
+        textbox.value = decodeURIComponent(ahkObj.LetterText)
+        eleFocus(gbl.eles.save)
+    }
+    document.addEventListener('paste', pasteEventAHK )
+    !function addTextareaButtons() {
+        let textareaButtonText = {
+            jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
+                + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+            extEligEnds() { return 'Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,'
+                + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+            closingUnpaidCopay() { return 'Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n'
+                + 'If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility.' },
+            abpsInHh() {
+                let abpsInput = prompt("What is the absent parent's name?")
+                return 'I have been notified that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is now residing in your household, please submit the following verifications:'
+                    + '\n1. Verification of ' + abpsInput + '\'s work schedule, which must include the days of the week and start/end times\n2. Most recent 30 days income for ' + abpsInput + '\n3. ID for ' + abpsInput + '\n'
+                    + 'If this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days.' },
+            lnlSfsTraining() {
+                const providerWorkerPhone = countyInfo.info.pwPhone ?? countyInfo.countyInfoPrompt("What is the phone number for provider registrations?", 'pwPhone'), providerWorkerPhoneText = providerWorkerPhone ? ' at ' + providerWorkerPhone : ''
+                return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n'
+                    + 'and search for Course Title:\n "Supervising for Safety Legally Nonlicensed"\nContact the Provider Worker' + providerWorkerPhoneText + ' with questions about trainings and your registration.' },
+            deniedOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.' },
+            fosterChildCcap() { return 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)' },
+        }
+        let textareaButtonsDivHTML = (
+            '<div class="float-right-imp" id="textareaButtonsDiv" style="display: flex; flex-direction: column; gap: 8px;">'
+            + '<button type="button" class="cButton" tabindex="-1" id="jsHoursUsed">JS Hours Used</button>'
+            + '<button type="button" class="cButton" tabindex="-1" id="extEligEnds">Ext Elig Ends</button>'
+            + '<button type="button" class="cButton" tabindex="-1" id="abpsInHh">ABPS in HH</button>'
+            + '<button type="button" class="cButton" tabindex="-1" id="fosterChildCcap">CCAP for Foster</button>'
+            + '<button type="button" class="cButton" tabindex="-1" id="deniedOpen">Denied, Case Open</button>'
+            + '<button type="button" class="cButton" tabindex="-1" id="closingUnpaidCopay">Closing, Unpaid Copay</button>'
+            + ("CaseMemo.htm".includes(thisPageNameHtm) ? '<button type="button" class="cButton" tabindex="-1" id="lnlSfsTraining">LNL SfS Training</button>' : '')
+            + '</div>'
+        )
+        let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
+        : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').firstElementChild
+        : textbox.closest('.col-lg-12')
+        targetDiv?.insertAdjacentHTML('beforeend', textareaButtonsDivHTML)
+        document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
+            if (clickEvent.target.nodeName !== "BUTTON") { return }
+            insertTextAndMoveCursor( (textbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), textbox )
+            let keyboardEvent = new KeyboardEvent('keyup')
+            textbox.dispatchEvent(keyboardEvent);
+        })
+    }();
 }(); // SECTION_END _Notices_SpecialLetter_Memo__Case_Provider;
 !function _Provider_Pages() {
     if ( thisPageNameHtm.indexOf("Provider") !== 0 ) { return; }
@@ -4426,14 +4429,15 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 let providerData = providerArray[index], countyName = providerData.county.replace(/<.*?>/g, '')
                 if (providerData.status.indexOf("Inactive") > -1) { providerSearchTableTbodyChildren[providerData.selectedRowIndex].classList.add('inactiveToggle') } // adding inactive
                 if ( !localCounties.neighborsAndSelf?.includes(countyName) ) { // not local county
-                    let providerZip = providerData.address.split("  ")[1].split("<")[0].slice(0, 5)
-                    if (countyName === "Out-of-State" && localCounties.outOfState) { if ( inRange(providerZip, localCounties.outOfState[0], localCounties.outOfState[1]) ) { continue } } // skip zip codes within the ranges from userCountyObj.outOfState
+                    let providerZip = providerData.address.split("  ")[1]?.slice(0, 5)
+                    if (!providerZip) { continue };
+                    if (countyName === "Out-of-State" && localCounties.outOfState) { if ( inRange(providerZip, localCounties.outOfState[0], localCounties.outOfState[1]) ) { continue } }; // skip zip codes within the ranges from userCountyObj.outOfState
                     providerSearchTableTbodyChildren[providerData.selectedRowIndex].classList.add('outOfAreaToggle')
                 }
             }
             let openActiveNearby = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle, .outOfAreaToggle').length, openActive = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle').length
             let inactiveCount = document.getElementsByClassName('inactiveToggle').length, outOfAreaCount = document.getElementsByClassName('outOfAreaToggle').length
-            let inactiveToggle = inactiveCount > 0 ? createSlider({ label: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", defaultOn: false, }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ label: "Show Out-of-Area", title: "Toggle showing providers that are more than 1 county away", id: "outOfAreaToggle", defaultOn: false, }) : ""
+            let inactiveToggle = inactiveCount > 0 ? createSlider({ label: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", defaultOn: false, }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ label: "Show Out-of-Area", title: "Toggle showing providers that are further than 1 county away", id: "outOfAreaToggle", defaultOn: false, }) : ""
             if ( (inactiveCount + outOfAreaCount) > 0 ) {
                 let h5element = document.querySelector('h5')
                 let h5elementText = document.querySelector('h5').innerText.split(".")
@@ -5168,7 +5172,7 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
     };
 }();
 function convertFromAHK(ahkString) {
-    ahkString = ahkString.split('AHKJSON')[1]
+    ahkString = ahkString.split('AHKJSON')[1].replace(/(%(?![A-Z0-9]))/g, "%25")
     let ahkObj = sanitize.json(ahkString)
     if (ahkObj) { return ahkObj }
     ahkObj = sanitize.json(JSON.stringify(ahkString))
