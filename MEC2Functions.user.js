@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.16
+// @version      0.6.17
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -323,7 +323,7 @@ function h4list() { // h4elementText: { h4element, indexNumber, siblings }
     } catch(err) { console.trace(err) }
 }();
 //
-const getListAndAlertTableParameters = { // Parameters for navigating from Alerts or Lists, and the column
+const getParamsFromListOrAlertTable = { // Parameters for navigating from Alerts or Lists, and the column
     parameterTwo(tableData) {
         let [ tableId, childNum ] = tableData.get(thisPageNameHtm) ?? ['table > tbody', 0]
         let mappedRowChildren = document.querySelector(tableId + '> tr.selected')?.children
@@ -339,11 +339,13 @@ const getListAndAlertTableParameters = { // Parameters for navigating from Alert
             ["BillsList.htm", ['table#billsTable > tbody', 0] ],
         ])
         let param2 = this.parameterTwo(tableMap)
-        if (!param2 || Number.isNaN(param2)) { return '?parm2=' }
+        if (!param2 || Number.isNaN(param2)) { return { parm2: '?parm2=', parm3: '' } }
+        // if (!param2 || Number.isNaN(param2)) { return '?parm2=' }
         let param3 = "Alerts.htm".includes(thisPageNameHtm) ? '&parm3=' + ( document.getElementById('periodBeginDate')?.value + document.getElementById('periodEndDate')?.value ).replace(/\//g, '')
         : "BillsList.htm".includes(thisPageNameHtm) ? '&parm3=' + (document.querySelector('table#billsTable > tbody > tr.selected > td:nth-child(5)').textContent).replace(/[\/\- ]/g, '')
         : ''
-        return '?parm2=' + param2 + param3
+        return { parm2: '?parm2=' + param2, parm3: param3 }
+        // return '?parm2=' + param2 + param3
     },
     provider() {
         const tableMap = new Map([
@@ -353,13 +355,13 @@ const getListAndAlertTableParameters = { // Parameters for navigating from Alert
             ["BillsList.htm", ['table#billsTable > tbody', 2] ],
         ])
         let param2 = this.parameterTwo(tableMap)
-        if (!param2 || Number.isNaN(param2)) { return '?providerId=' }
-        return '?providerId=' + param2
+        if (!param2 || Number.isNaN(param2)) { return { parm2: '?providerId=', parm3: '' } }
+        return { parm2: '?providerId=' + param2, parm3: '' }
     },
 }; // function_and_values
 let newTabField;
 //
-function getTableRow(ele) {
+function walkToTableRow(ele) {
     if (!sanitize.query(ele)) { return };
     while ( !["TR", "TBODY"].includes(ele.nodeName) ) { ele = ele.parentElement }
     if (ele.nodeName === "TBODY") { return undefined }
@@ -380,7 +382,7 @@ function cssStyle() {
     if (['FinancialAbsentDayHolidayTracking.htm'].includes(thisPageNameHtm)) { return };
     document.querySelectorAll('tbody').forEach(tbody => {
         tbody.addEventListener('click', clickEvent => {
-            let closestTr = getTableRow(clickEvent.target)
+            let closestTr = walkToTableRow(clickEvent.target)
             if (closestTr && !closestTr.classList.contains('selected') ) {
                 [...tbody.children].find(ele => ele.classList.contains('selected'))?.classList.remove('selected')
                 closestTr.classList.add('selected')
@@ -590,36 +592,14 @@ const mec2functionFeatures = [
             return '<button class="' + classList + '" id="' + mapPageName + '">' + (navMaps.allPagesMap.get(mapPageName)?.label ?? 'error') + '</button>'
         }).join('')
     };
-//     function openNav(mapPageName, target) {
-//         let destinationIsListPage = navMaps.listPageList.includes(mapPageName), isListPage = navMaps.listPageList.includes(thisPageNameHtm)
-//         let qMarkParams = getSearchParams()
-//         function getSearchParams() {
-//             if (isListPage && !destinationIsListPage) {
-//                 return mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? ''
-//             }
-//             if (gbl.eles.caseIdElement || gbl.eles.providerIdElement) {
-//                 if (!caseOrproviderIdVal) { return '' }
-//                 if (providerIdVal) { return "?providerId=" + providerIdVal }
-//                 let [ parm2, parm3, parm4 ] = window.location.search.split("&")
-//             }
-
-//         }
-//         //gbl.eles.caseIdElement, gbl.eles.providerIdElement, !caseOrproviderIdVal
-//         : window.location.search ? window.location.search
-//         : providerIdVal ? "?providerId=" + providerIdVal
-//         : caseIdVal ? "?parm2=" + caseIdVal + "&parm3=" + selectPeriodDates.parm3 : ''
-//         target = editMode ? "_blank" : target
-//         if (target === "_self") { document.body.style.opacity = ".8" }
-//         window.open('/ChildCare/' + mapPageName + qMarkParams, target)
-    //     };
     function openNav(mapPageName, target) {
         let destinationIsListPage = navMaps.listPageList.includes(mapPageName)
         let qMarkParameters = ""
         let isListPage = navMaps.listPageList.includes(thisPageNameHtm)
         if (!destinationIsListPage && isListPage) {
-            qMarkParameters = mapPageName.indexOf("Provider") === 0 ? getListAndAlertTableParameters.provider() ?? '' : getListAndAlertTableParameters.case() ?? ''
+            qMarkParameters = mapPageName.indexOf("Provider") === 0 ? getParamsFromListOrAlertTable.provider() ?? '' : getParamsFromListOrAlertTable.case() ?? ''
             if (target === "_self") { document.body.style.opacity = ".8" }
-            window.open('/ChildCare/' + mapPageName + qMarkParameters, target)
+            window.open('/ChildCare/' + mapPageName + qMarkParameters.parm2 + qMarkParameters.parm3, target)
             return
         }
         if (!editMode) {
@@ -841,6 +821,7 @@ const nameFuncs = {
 };
 const dateFuncs = {
     dayInMs: 86400000,
+    bwpInMs: 1209600000,
     addDays(date, days) {
         date = sanitize.date(date, 'date')
         return date.setDate(date.getDate() + sanitize.number(days));
@@ -888,6 +869,7 @@ const dateFuncs = {
         months -= datePassed
         return months <= 0 ? 0 : months;
     },
+    parm3date(date) { return this.formatDate(date, 'mmddyyyy').replace(/\//g, '') },
 };
 const convertLineBreakToSpace = (string) => string.replace(/([\S]) *\n([a-z])/g, '$1 $2');
 const eventChange = new Event('change', { bubbles: true }), doChange = (element) => sanitize.query(element)?.dispatchEvent(eventChange);
@@ -1566,7 +1548,7 @@ try {
     let alertTotal = document.getElementById('alertTotal'), alertTable = document.querySelector('#alertTable > tbody'), alertGroupId = document.getElementById("groupId"), alertMessage = document.getElementById("message"),
         alertRowIndx = document.getElementById('rowIndex'), inputWorkerId = document.getElementById('inputWorkerId'), workerName = document.getElementById('workerName')
     function findSelected() { return [...alertTable.children].find(ele => ele.classList.contains('selected')) ?? undefined }
-    let selectedAlert, selectedCaseOrProvider = {} // set with click event
+    let selectedCaseOrProvider = {}, foundAlert = {} // gets set with click event
     addDateControls("month", "#inputEffectiveDate")
     !async function storeWorkerName() {
         if (document.referrer !== "https://mec2.childcare.dhs.state.mn.us/ChildCare/Welcome.htm") { return };
@@ -1580,32 +1562,29 @@ try {
     //     app: ["Application"],
     //     activity: ["Activity Change"],
     // }
-    //alertsByCategories reduction code, untested.
-    //minify code: .replace(/(?:\n {20})(\w)/g, " $1").replace(/(?:\n {16})(},\n)/g, " $1")
-    //unminify code: .replace(/(?:{)( \w+: )g, "\n                   $1").replace(/(: {|",|\/,) (\w+: )/g, "$1\n                    $2").replace(/, },\n/g, ",\n                },")
     const alertsByCategories = {
         // textIncludes: regex search to match alert; // noteCategory: Notes page category; // noteSummary: Note page summary. Regex to replace text; %# to auto-replace text with summaryFetchedData; omit to use first 50 characters of noteMessage;
         // summaryFetchData: Data fetched from another page using evalData(); // noteMsgFunc: if not blank, sends through switch. if noteMsgFetchData exists, fetches (eval)Data first; request format: ["pageNameWithoutHtm:key.key.key"]
         // createAlert (not implemented yet, might get moved to __Notes.htm): if true, will open WorkerCreateAlert and auto-fill;
         childsupport: {
-            ncpAddress: { textIncludes: /Absent Parent of Child Ref #\d{2} has an address/, noteCategory: "NCP Information", noteSummary: [/(?:[A-Za-z\- ]+)(\#\d{2})(?:[a-z\- ]+)(.+?\d{5})(?:\d{0,4})\./, "ABPS of $1 address: $2"], noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
-            ncpInHH: { textIncludes: /Absent Parent of Child Ref #\d{2} is living with/, noteCategory: "NCP Information", noteSummary: [/(\#\d{2})/, "ABPS of child ref #$1 is living in HH"], omniPageButtons: ["autonoteButton", "CaseMember"], },
-            cpAddress: { textIncludes: /Parentally Responsible Individual Ref #\d{2} add/, noteCategory: "Household Change", noteSummary: [/(?:[A-Za-z- ]+)(?:\#\d{2})(?:[a-z- +]+)(.+)(\d{5})(?:\d{0,4})/i, "HH address per PRISM: $1$2"], omniPageButtons: ["CaseAddress"], },
+            ncpAddress: { textIncludes: /Absent Parent of Child Ref #\d{1,2} has an address/, noteCategory: "NCP Information", noteSummary: [/(?:[A-Za-z\- ]+)(\#\d{1,2})(?:[a-z\- ]+)(.+?\d{5})(?:\d{0,4})\./, "ABPS of $1 address: $2"], noteMsgFetchData: ["CaseAddress:0.0.residenceFullAddress"], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
+            ncpInHH: { textIncludes: /Absent Parent of Child Ref #\d{1,2} is living with/, noteCategory: "NCP Information", noteSummary: [/(\#\d{1,2})/, "ABPS of child ref #$1 is living in HH"], omniPageButtons: ["autonoteButton", "CaseMember"], },
+            cpAddress: { textIncludes: /Parentally Responsible Individual Ref #\d{1,2} add/, noteCategory: "Household Change", noteSummary: [/(?:[A-Za-z- ]+)(?:\#\d{1,2})(?:[a-z- +]+)(.+)(\d{5})(?:\d{0,4})/i, "HH address per PRISM: $1$2"], omniPageButtons: ["CaseAddress"], },
             csInterface: { textIncludes: /Complete Child Support Interface win/, noteCategory: "Child Support Note", omniPageButtons: ["CaseCSIA"], },
-            csCSES: { textIncludes: /CSES\: Parentage|CSES\: Residence Address|CSES\: Birthdate|CSES\: Employer\'s name for Absent Parent|CSES\: Child support amount|CSES\: Support payment frequency|Absent Parent of Child Ref #\d{2} has an SSN change to/, noteSummary: "CSES Messages", noteCategory: "NCP Information", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["delete"], },
-            csDeleteFocus: { textIncludes: /Absent Parent of Child Ref #\d{2} has a new empl|Amount of child support|Child support payment|Disbursed child care support|Paternity for Child Ref/, noteCategory: "NCP Information", omniPageButtons: ["delete"], },
-            nonCoopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is not cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
-            coopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{2}) is cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
+            csCSES: { textIncludes: /CSES\: Parentage|CSES\: Residence Address|CSES\: Birthdate|CSES\: Employer\'s name for Absent Parent|CSES\: Child support amount|CSES\: Support payment frequency|Absent Parent of Child Ref #\d{1,2} has an SSN change to/, noteSummary: "CSES Messages", noteCategory: "NCP Information", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["delete"], },
+            csDeleteFocus: { textIncludes: /Absent Parent of Child Ref #\d{1,2} has a new empl|Amount of child support|Child support payment|Disbursed child care support|Paternity for Child Ref/, noteCategory: "NCP Information", omniPageButtons: ["delete"], },
+            nonCoopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{1,2}) is not cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{1,2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
+            coopCS: { textIncludes: /Parentally Responsible Individual Ref (#\d{1,2}) is cooperating/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{1,2})/i, "PRI$1"], omniPageButtons: ["CaseCSE"], },
             csCpNewEmployer: { textIncludes: /Child support reported new employer for Parentally Responsible Individual/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEmploymentActivity"], },
-            cpNameChange: { textIncludes: /Parentally Responsible Individual Ref #\d{2} reported a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{2})/i, "PRI$1"], intendedPerson: true, omniPageButtons: ["CaseMember"], },
+            cpNameChange: { textIncludes: /Parentally Responsible Individual Ref #\d{1,2} reported a name change/, noteCategory: "Child Support Note", noteSummary: [/(?:[a-z- ]+)(\#\d{1,2})/i, "PRI$1"], intendedPerson: true, omniPageButtons: ["CaseMember"], },
             csRecordsDiffer: { textIncludes: /differs with child support records/, noteCategory: "Child Support Note", omniPageButtons: ["CaseMember", "CaseAddress"], },
-            ncpNameChange: { textIncludes: /Absent Parent of Child Ref #\d{2} has a name change/, noteCategory: "NCP Information", noteSummary: [/(?:[a-z-\# ]+)(\d{2})(?: has a name change to )([a-z\'\-\,\. ]+)(?:\.)/i, "ABPS of M$1 name change: $2"], omniPageButtons: ["CaseCSE"], },
+            ncpNameChange: { textIncludes: /Absent Parent of Child Ref #\d{1,2} has a name change/, noteCategory: "NCP Information", noteSummary: [/(?:[a-z-\# ]+)(\d{1,2})(?: has a name change to )([a-z\'\-\,\. ]+)(?:\.)/i, "ABPS of M$1 name change: $2"], omniPageButtons: ["CaseCSE"], },
             employerAddress: { textIncludes: /Complete Employer Address/, noteCategory: "Child Support Note", omniPageButtons: ["CaseEarnedIncome"], },
         },
         eligibility: {
             unapprovedElig: { textIncludes: /Unapproved results have/, noteCategory: "Other", omniPageButtons: ["CaseEligibilityResultSelection"], },
             eligWarningInhib: { textIncludes: /Warning messages exist|Eligibility Results have/, noteCategory: "Other", omniPageButtons: ["CaseEditSummary"], },
-            unpaidCopay: { textIncludes: /Failure to pay copayment/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4}) - (\d{2}\/\d{2}\/\d{2,4})/, "Unpaid copay for period $1 - $2"], omniPageButtons: ["FinancialBillingApproval"], noteMsgFunc: "doFunctionOnNotes", },
+            unpaidCopay: { textIncludes: /Failure to pay copayment/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4}) - (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Unpaid copay for period $1 - $2"], omniPageButtons: ["FinancialBillingApproval"], noteMsgFunc: "doFunctionOnNotes", },
             noProgramSwitch: { textIncludes: /The program switch is not/, noteCategory: "Other", omniPageButtons: ["CaseOverview", "CaseEditSummary", "CaseSupportActivity"], },
         },
         information: {
@@ -1616,12 +1595,12 @@ try {
             homelessApp: { textIncludes: /^Homeless/, noteCategory: "Application - Other", omniPageButtons: ["autonoteButton"], },
             autoApprovedSA: { textIncludes: /The system auto approved a Service Auth/, noteSummary: "SA for age category change was auto-approved", noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
             dualAccess: { textIncludes: /Dual access has been initiated/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
-            closeSusp: { textIncludes: /allowed period of suspension expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1"], omniPageButtons: ["autonoteButton"], },
-            closeTI: { textIncludes: /allowed period of temporary ineligibility expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Auto-closing: TI period expires on $1"], omniPageButtons: ["autonoteButton"], },
+            closeSusp: { textIncludes: /allowed period of suspension expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Auto-closing: 1yr suspension expires on $1"], omniPageButtons: ["autonoteButton"], },
+            closeTI: { textIncludes: /allowed period of temporary ineligibility expires/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Auto-closing: TI period expires on $1"], omniPageButtons: ["autonoteButton"], },
             caseTransferring: { textIncludes: /This case is transferring to your Servicing/, noteCategory: "Other", omniPageButtons: ["CaseAddress", "ServicingAgencyIncomingTransfers"], },
             xferStatusChanged: { textIncludes: /The transfer status has been changed/, noteCategory: "Other", omniPageButtons: ["delete"], },
             newJobSearchWindow: { textIncludes: /A new Job Search Tracking window/, noteCategory: "Other", omniPageButtons: ["CasePageSummary"], },
-            servicingEnd: { textIncludes: /The Servicing Ends date/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Servicing Ends date changed to $1"], omniPageButtons: ["autonoteButton"], },
+            servicingEnd: { textIncludes: /The Servicing Ends date/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Servicing Ends date changed to $1"], omniPageButtons: ["autonoteButton"], },
         },
         masschange: {
             autoCopayApproval: { textIncludes: /Case was auto-approved with a copay decrease/, noteSummary: [/[A-Z0-9\,\.\- ]+ (\$\d+) [A-Z0-9\,\.\- ]+/i, "Elig with copay decrease of $1+ auto-approved"], noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
@@ -1636,10 +1615,10 @@ try {
             csCoop: { textIncludes: /from Not Cooperating to Cooperating/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: "MAXIS: CP is cooperating with CS", omniPageButtons: ["autonoteButton", "CaseCSE"], },
             csNonCoop: { textIncludes: /from Cooperating to Not Cooperating/, noteCategory: "Child Support Note", intendedPerson: true, noteSummary: "MAXIS: CP is not cooperating with CS", omniPageButtons: ["autonoteButton", "CaseCSE"], },
             marriage: { textIncludes: /Marriage Date|Marital status|Designated Spouse/, noteCategory: "Household Change", noteSummary: "Marriage alerts from MAXIS worker", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseMemberII"], },
-            memberLeft: { textIncludes: /Member Left date/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})./, "REMO: personName left $1"], omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
+            memberLeft: { textIncludes: /Member Left date/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{1,2}\/\d{1,2}\/\d{2,4})./, "REMO: personName left $1"], omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
             memberJoined: { textIncludes: /Member window for Reference Number/, noteCategory: "Household Change", intendedPerson: true, noteSummary: 'doFunction', omniPageButtons: ["CaseNotes", "CaseMember"], },
             childRemoved: { textIncludes: /Child\'s Reference Number has been removed|Parent window has been added/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseParent"], },
-            childCseRemoved: { textIncludes: /Child Ref Nbr \d{2} has been removed/, noteCategory: "Other", omniPageButtons: ["CaseCSE", "CaseRemoveMember"], },
+            childCseRemoved: { textIncludes: /Child Ref Nbr \d{1,2} has been removed/, noteCategory: "Other", omniPageButtons: ["CaseCSE", "CaseRemoveMember"], },
             dateOfDeath: { textIncludes: /Date of Death/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseMember"], },
             schoolPanelAdded: { textIncludes: /SCHL Panel|School Type/, noteCategory: "Other", omniPageButtons: ["CaseNotes", "CaseSchool", "CaseEducationActivity"], },
             livingSituation: { textIncludes: /Living Situation has been/, noteCategory: "Other", omniPageButtons: ["delete"], },
@@ -1655,17 +1634,18 @@ try {
             parisMatch: { textIncludes: /PARIS/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
         },
         periodicprocessing: {
-            jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Job search hours end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
-            supportActivity: { textIncludes: /The support activity for/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})/, "Support activity ends $1"], intendedPerson: true, omniPageButtons: ["CaseSupportActivity"], },
+            // jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Job search hours end " + dateFuncs.formatDate("$1", "mdyy")], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
+            jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Job search hours end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
+            supportActivity: { textIncludes: /The support activity for/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Support activity ends $1"], intendedPerson: true, omniPageButtons: ["CaseSupportActivity"], },
             missingKindergarten: { textIncludes: /Member missing Kindergarten/, noteCategory: "Other", omniPageButtons: ["CaseSchool"], },
             noLongerMember: { textIncludes: /Member turned 18/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember"], },
             ageCategory: { textIncludes: /Member turned/, noteCategory: "Service Authorization", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember"], },
-            tyExpires: { textIncludes: /The allowed time on Transition Year will expi/, noteCategory: "Other", noteSummary: [/(?:[a-z ]+)(\d{2}\/\d{2}\/\d{2,4})(?:[a-z\. ]+)/i, "Approved TY to BSF elig results eff $1"], omniPageButtons: ["FundingAvailability"], },
-            extendedEligExpiring: { textIncludes: /activity extended eligibility/, noteCategory: "Activity Change", noteSummary: [/The (\w+)(?:[A-Za-z- ]+) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseEmploymentActivity", "CaseSupportActivity"], },
-            homelessExpiring: { textIncludes: /The Homeless 3 month period will expire/, noteCategory: "Application Incomplete", noteSummary: [/(?:[A-Za-z0-9 ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI"], omniPageButtons: ["autonoteButton", "CaseAction"], },
+            tyExpires: { textIncludes: /The allowed time on Transition Year will expi/, noteCategory: "Other", noteSummary: [/(?:[a-z ]+)(\d{1,2}\/\d{1,2}\/\d{2,4})(?:[a-z\. ]+)/i, "Approved TY to BSF elig results eff $1"], omniPageButtons: ["FundingAvailability"], },
+            extendedEligExpiring: { textIncludes: /activity extended eligibility/, noteCategory: "Activity Change", noteSummary: [/The (\w+)(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})(?:[A-Za-z-. ]+)/, "Ext Elig ($1) ends $2. Review elig"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseEmploymentActivity", "CaseSupportActivity"], },
+            homelessExpiring: { textIncludes: /The Homeless 3 month period will expire/, noteCategory: "Application Incomplete", noteSummary: [/(?:[A-Za-z0-9 ]*) (\d{1,2}\/\d{1,2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "Homeless period expires $1; case set to TI"], omniPageButtons: ["autonoteButton", "CaseAction"], },
             homelessMissing: { textIncludes: /Homeless case has one or more missing/, noteCategory: "Application Incomplete", noteSummary: "Homeless case has missing verifications", omniPageButtons: ["autonoteButton"], },
             goodCauseReview: { textIncludes: /The Next Good Cause Review/, noteCategory: "Child Support Note", omniPageButtons: ["autonoteButton", "CaseCSE"], },
-            disabilityExpires: { textIncludes: /The allowed disability period/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z ]*) (\d{2}\/\d{2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseDisability"], },
+            disabilityExpires: { textIncludes: /The allowed disability period/, noteCategory: "Other", noteSummary: [/(?:[A-Za-z ]*) (\d{1,2}\/\d{1,2}\/\d{2,4})(?:[A-Za-z0-9. ]*)/, "The allowed disability period will end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseDisability"], },
         },
         provider: {
             parentAwareRatingStartEnd: { textIncludes: /Parent Aware/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton", "CaseServiceAuthorizationApproval"], },
@@ -1689,10 +1669,10 @@ try {
         ["CaseEducationActivity", "Education"], ["CaseEmploymentActivity", "Employment"], ["CaseMember", "Member"], ["CaseMemberII", "Member II"], ["CaseParent", "Parent"], ["CaseRemoveMember", "Remo"], ["CaseSchool", "School"], ["CaseServiceAuthorizationApproval", "SA:A"],
         ["CaseSupportActivity", "Support"], ["CaseUnearnedIncome", "Unearned"], ["FinancialBillingApproval", "Billing"], ["FundingAvailability", "Funding"], ["ServicingAgencyIncomingTransfers", "Transfer"],
     ])
-    function whatAlertType(caseOrProviderTypeValue) {
+    function getAlertType(caseOrProviderTypeValue) {
         switch (caseOrProviderTypeValue) {
-            case "Case": return { page: "CaseNotes.htm", type: "Case", numberId: 'caseNumber', numberId: document.getElementById('caseNumber').value, parameters: getListAndAlertTableParameters.case() };
-            case "Provider": return { page: "ProviderNotes.htm", type: "Provider", numberId: 'providerIdVal', numberId: document.getElementById('providerIdVal').value, parameters: getListAndAlertTableParameters.provider() };
+            case "Case": return { page: "CaseNotes.htm", type: "Case", numberId: 'caseNumber', numberId: document.getElementById('caseNumber').value, parameters: getParamsFromListOrAlertTable.case() };
+            case "Provider": return { page: "ProviderNotes.htm", type: "Provider", numberId: 'providerIdVal', numberId: document.getElementById('providerIdVal').value, parameters: getParamsFromListOrAlertTable.provider() };
         }
     }
     let storeNumberTask = [gbl.eles.submitButton, createButton, document.getElementById('Alerts.htm')].forEach(ele => ele.addEventListener('click', () => {
@@ -1701,17 +1681,15 @@ try {
     evalData().then(( { 0: tableOneAlerts, 1: tableTwoAlerts } = {} ) => {
         if (!tableOneAlerts) { return }
         caseOrProviderAlertsTableTbody.addEventListener( 'click', clickEvent => {
-            // console.log(clickEvent.target) // goes off like 4 times when the page loads!
-            // if (clickEvent.clientX < 1) { console.log("not clicked by human") }
-            let tableRow = getTableRow(clickEvent.target)
+            let tableRow = walkToTableRow(clickEvent.target)
             if (!tableRow) { return }
             fBaseCategoryButtons()
-            selectedCaseOrProvider.idTd = tableRow.children[2]
-            selectedCaseOrProvider.caseIdVal = selectedCaseOrProvider.idTd?.innerText
+            selectedCaseOrProvider = { tableRow, idTd: tableRow.children[2] }
+            selectedCaseOrProvider.caseIdVal = selectedCaseOrProvider.idTd?.textContent
         })
         alertTable.addEventListener('click', clickEvent => {
             if ( !['TR', 'TD', 'A'].includes(clickEvent.target.nodeName) ) { return };
-            identifyAlertAndDoOmnibuttons( getTableRow(clickEvent.target) )
+            identifyAlertAndDoOmnibuttons( walkToTableRow(clickEvent.target) )
         })
         waitForElmHeight("#caseOrProviderAlertsTable > tbody > tr").then(() => {
             if (caseOrProviderAlertsTableTbody.firstElementChild.textContent === "No records found" && alertTotal.value > 0) { doClick(gbl.eles.submitButton); return; }; // reloads the page if it incorrectly shows 0 alerts;
@@ -1725,14 +1703,14 @@ try {
                         let thisRow = caseOrProviderAlertsTableTbody.children[item.rowIndex]
                         if (checkCashArray.includes(thisRow.id)) { return }
                         thisRow.classList.add('checkCash')
-                        thisRow.id = thisRow.children[2].innerText
+                        thisRow.id = thisRow.children[2].textContent
                         checkCashArray.push(thisRow.id)
                         cashAlertResults[thisRow.id] = { rowIndex: item.rowIndex }
                     }
                 })
                 let existingCashResults = sanitize.json(sessionStorage.getItem('cashAlertResults')) ?? undefined
                 if (existingCashResults) {
-                    for (let caseNum in existingCashResults) { existingCashResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrproviderIdVal.indexOf(caseNum) > -1)?.rowIndex ?? undefined }
+                    for (let caseNum in existingCashResults) { existingCashResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined }
                     placeMfipResults(existingCashResults)
                 } else if (existingCashResults && !checkCashArray.length) { sessionStorage.removeItem('cashAlertResults') }
                 if (!checkCashArray.length) { return }
@@ -1744,10 +1722,12 @@ try {
                             let programTable = checkMFIPArray[thisCase][0]
                             for (let row in programTable) {
                                 if ( ["MFIP", "DWP"].includes(programTable[row].programNameHistory) ) {
-                                    let mfipStatus = programTable[row].programNameHistory + ': ' + programTable[row].programStatusHistory
-                                    let ccapStatus = ' | CCAP: ' + programTable[0].programNameHistory
-                                    let inactiveDate = programTable[row].programStatusHistory === "Inactive" ? ' ' + programTable[row].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : ''
-                                    cashAlertResults[thisCase] = { ...cashAlertResults[thisCase], mfipStatus: mfipStatus, inactiveDate: inactiveDate, ccapStatus: ccapStatus }
+                                    cashAlertResults[thisCase] = {
+                                        ...cashAlertResults[thisCase],
+                                        mfipStatus: programTable[row].programNameHistory + ': ' + programTable[row].programStatusHistory,
+                                        inactiveDate: programTable[row].programStatusHistory === "Inactive" ? ' ' + programTable[row].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : '',
+                                        ccapStatus: ' | CCAP: ' + programTable[0].programNameHistory,
+                                    }
                                     break
                                 }
                             }
@@ -1774,11 +1754,11 @@ try {
         });
 
         deleteButton.insertAdjacentElement('afterend', createButton)
-        alertTotal.insertAdjacentHTML('afterend', `
-    <button type="button" class="form-button centered-text ulfl" id="deleteTop">Delete Alert</button>
-    <button type="button" class="form-button centered-text" id="deleteAll" title="Delete All" value="Delete All">Delete All</button>
-    <button type="button" class="form-button centered-text hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>
-    `)
+        alertTotal.insertAdjacentHTML('afterend', ''
+    + '<button type="button" class="form-button ulfl" id="deleteTop">Delete Alert</button>'
+    + '<button type="button" class="form-button" id="deleteAll" title="Delete All" value="Delete All">Delete All</button>'
+    + '<button type="button" class="form-button hidden" id="stopDeleteAll" title="Stop Deleting" value="Stop Deleting">Deleting...</button>'
+    )
         doNotDupe.buttons.push('#deleteAll', '#stopDeleteAll', '#deleteTop')
         let deleteAllButton = document.getElementById('deleteAll'), stopDeleteAllButton = document.getElementById('stopDeleteAll'), deleteTopButton = document.getElementById('deleteTop')
         let deleteAllButtons = [deleteAllButton, stopDeleteAllButton], deleteButtons = [deleteButton, deleteTopButton, deleteAllButton]
@@ -1792,12 +1772,12 @@ try {
         stopDeleteAllButton.addEventListener("click", () => { manualHaltDeleting = 1 })
         deleteAllButton.addEventListener("click", () => {
             manualHaltDeleting = 0
-            let caseDetails = structuredClone(whatAlertType(caseOrProviderType.value))
+            let caseDetails = structuredClone(getAlertType(caseOrProviderType.value))
             if ( !["Case", "Provider"].includes(caseDetails.type) ) { return }
             deleteAllButtons.forEach( ele => ele.classList.toggle('hidden') )
             doDeleteAll(caseDetails)
         })
-        function doDeleteAll({ type: caseOrProvider, numberId: numberToDelete } = {}) {//Test worker ID PWSCSP9
+        function doDeleteAll({ type: caseOrProvider, numberId: numberToDelete } = {}) {
             const observerDelete = new MutationObserver( () => deleteAll() )
             observerDelete.observe(deleteButton, { attributeFilter: ['value'] })
             let alertRowIndexValue = alertRowIndx.value, alertCount = () => caseOrProviderAlertsTableTbody.children[alertRowIndexValue]?.children[3]?.innerText
@@ -1851,11 +1831,12 @@ try {
         // SECTION_END Delete_all_alerts
 
         // SECTION_START Alert_Type_Based_Action
-        let categoryButtonsOuterHTML = '<div id="baseCategoryButtonsDiv" class="form-group-no-margins form-group-button-parent">'
-        + '<div id="caseCategoriesButtonsDiv" class="hidden"></div>'
-        + '<div id="providerCategoriesButtonsDiv" class="hidden"></div>'
-        + '<div id="omniButtonsDiv"></div></div>'
-        deleteButton.parentElement.insertAdjacentHTML('beforeend', categoryButtonsOuterHTML)
+        deleteButton.parentElement.insertAdjacentHTML('beforeend', ''
+                                                      + '<div id="baseCategoryButtonsDiv" class="form-group-no-margins form-group-button-parent">'
+                                                      + '<div id="caseCategoriesButtonsDiv" class="hidden"></div>'
+                                                      + '<div id="providerCategoriesButtonsDiv" class="hidden"></div>'
+                                                      + '<div id="omniButtonsDiv"></div></div>'
+                                                     )
         let caseCategoriesButtonsDiv = document.getElementById('caseCategoriesButtonsDiv')
         let providerCategoriesButtonsDiv = document.getElementById('providerCategoriesButtonsDiv')
         let omniButtonsDiv = document.getElementById('omniButtonsDiv')
@@ -1873,12 +1854,18 @@ try {
         }
         document.getElementById('baseCategoryButtonsDiv').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
-            window.open('/ChildCare/' + clickEvent.target.id + '.htm' + whatAlertType(caseOrProviderType.value).parameters, '_blank')
+            let alertTypeParameters = getAlertType(caseOrProviderType.value).parameters
+            if (foundAlert.noteMessage === "Approve new results (BSF/TY/extended eligibility) if MFIP not reopened.") {
+                let eligChangeDate = Date.parse(selectedCaseOrProvider.tableRow.innerText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)[0]), baseDate = 1748192400000
+                while (baseDate < eligChangeDate) { baseDate += dateFuncs.bwpInMs }
+                let thirteenDays = 1123200000
+                alertTypeParameters.parm3 = "&parm3=" + dateFuncs.parm3date(baseDate - thirteenDays) + dateFuncs.parm3date(baseDate)
+            }
+            window.open('/ChildCare/' + clickEvent.target.id + '.htm' + alertTypeParameters.parm2 + alertTypeParameters.parm3, '_blank')
         })
         // SECTION_END Alert_Type_Based_Action
 
         // SECTION_START AutoCaseNoting
-        let foundAlert = {}
         function groupTableTwoAlerts() {
             let alertsByRowIndex = {}
             for (let index in tableTwoAlerts) {
@@ -1902,7 +1889,7 @@ try {
             for (let message in alertMessagesInCategory) {
                 if (alertMessagesInCategory[message]?.textIncludes.test(alertMessage.value) === false) { continue };
                 if (!"omniPageButtons" in alertMessagesInCategory[message]) { break };
-                foundAlert = Object.assign( foundAlert, alertMessagesInCategory[message], { message } )
+                foundAlert = Object.assign( foundAlert, alertMessagesInCategory[message], { message }, )
                 omniButtonsDiv.insertAdjacentHTML('afterbegin', createOmniButtons(foundAlert.omniPageButtons) )
                 eleFocus('#' + foundAlert.omniPageButtons[0])
                 break;
@@ -1919,12 +1906,13 @@ try {
                 return { messageCategory: messageCategory.toLowerCase().replace(/\W/g, ""), noteMessage, noteCategory: 'Other', }
             }
         }
+
         doWrap({ ele: h4objects.alertdetail.h4 })
         h4objects.alertdetail.h4.parentElement.style.display = "inline-block"
         h4objects.alertdetail.h4.parentElement.insertAdjacentHTML('afterend', '<div style="display: inline-flex; gap: 10px; margin-left: 10px;" id="alertDetailRow"><button type="button" class="cButton" tabindex="-1" id="autonoteButton">Automated Note</button></div>')
         let alertDetailRow = document.getElementById('alertDetailRow')
         async function automatedCaseNote() {
-            let oWhatAlertType = whatAlertType(caseOrProviderType.value)
+            let alertType = getAlertType(caseOrProviderType.value)
             let [ , effectiveDate, selectedRowName ] = foundAlert.selectedAlertTableRow.children
             let dateRange = undefined // not yet implemented
             if ("intendedPerson" in foundAlert) { foundAlert.intendedPerson = nameFuncs.commaNameObject(selectedRowName.textContent).first }
@@ -1934,7 +1922,7 @@ try {
                 if ("summaryFetchData" in foundAlert) {
                     for await ( let [i, page] of foundAlert.summaryFetchData.entries() ) { // reminder: can't .map() promises;
                         let [ pageName, evalString ] = page.split(":")
-                        let fetchedData = await evalData({ caseProviderNumber: oWhatAlertType.numberId, pageName, dateRange, evalString })
+                        let fetchedData = await evalData({ caseProviderNumber: alertType.numberId, pageName, dateRange, evalString })
                         foundAlert.noteSummary = foundAlert.noteSummary.replace("%" + i, fetchedData)
                     }
                 }
@@ -1944,7 +1932,7 @@ try {
                     let textFetchedData = []
                     for await (let page of foundAlert.noteMsgFetchData) {
                         let [ pageName, evalString ] = page.split(":")
-                        let fetchedData = await evalData({ caseProviderNumber: oWhatAlertType.numberId, pageName, dateRange, evalString })
+                        let fetchedData = await evalData({ caseProviderNumber: alertType.numberId, pageName, dateRange, evalString })
                         textFetchedData.push(fetchedData)
                     }
                     foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, noteMessage: foundAlert.noteMessage, fetchedDataArray: textFetchedData, alertTableSelectedRow: foundAlert.selectedAlertTableRow}) ?? foundAlert.noteMessage
@@ -1954,9 +1942,10 @@ try {
             let shortWorkerName = nameFuncs.LastFirstToFirstL(workerName.value)
             foundAlert.worker = shortWorkerName
             foundAlert.xNumber = inputWorkerId.value.toLowerCase()
-            foundAlert.page = oWhatAlertType.page
-            foundAlert.parameters = oWhatAlertType.parameters
-            foundAlert.numberId = oWhatAlertType.numberId
+            foundAlert.page = alertType.page
+            foundAlert.parameters = alertType.parameters
+            foundAlert.numberId = alertType.numberId
+            foundAlert.noteSummary = foundAlert.noteSummary.replace(/(\d{2}\/\d{2}\/\d{4})/g, (date) => dateFuncs.formatDate(date, "mdyy"))
             return foundAlert
             function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) {
                 switch (alertByCategory) {
@@ -1980,8 +1969,9 @@ try {
             function noteSummaryReplacement(noteSummaryArray, msgText, personName) { return msgText.replace(noteSummaryArray[0], noteSummaryArray[1]).replace("personName", personName) }
             function noteSummaryFunction({ alertByCategory, effectiveDate, selectedRowName } = {}) {
                 switch (alertByCategory) {
-                    case "maxis.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{2}\/\d{2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
-                    case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
+                    case "maxis.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{1,2}\/\d{1,2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
+                    case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.addDays(effectiveDate.textContent, 45) }
+                    // case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
                 }
             }
         };
@@ -2038,6 +2028,7 @@ try {
         document.getElementById('effectiveDate').value = effectiveDate
         gbl.eles.save.click();
     }
+    docReady(resetTabIndex())
 }(); // SECTION_END Alert_Worker_Created_Alert;
 !function _Application_Pages() {
     !function __ApplicationInformation() {
@@ -2548,7 +2539,7 @@ try {
             cseDetailsCooperationStatus: { label: 'Cooperation', keywords: ["Not Cooperating", ], },
             cseDetailsFormsCompleted: { label: 'Forms', keywords: ["No", ], },
         }
-        // checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren)
+        checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren)
     }).catch(err => { console.trace(err) })
 }(); // SECTION_END Case_CSE;
 !function CaseCSIA() {
@@ -3713,8 +3704,9 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     !function __FinancialAbsentDayHolidayTracking() {
         if (!("FinancialAbsentDayHolidayTracking.htm").includes(thisPageNameHtm)) { return };
-        let allDays = [...document.querySelectorAll('.fc-daygrid-day-bg')],
-            start = allDays.findIndex(ele => ele === document.querySelector('div.fc-daygrid-day-bg:has(.fc-bg-event.fc-event.fc-event-start')), end = allDays.findIndex(ele => ele === document.querySelector('div.fc-daygrid-day-bg:has(.fc-bg-event.fc-event.fc-event-end'))
+        let allDays = [...document.querySelectorAll('.fc-daygrid-day-bg')]
+        if (!allDays) { return };
+        let start = allDays.findIndex(ele => ele === document.querySelector('div.fc-daygrid-day-bg:has(.fc-bg-event.fc-event.fc-event-start')), end = allDays.findIndex(ele => ele === document.querySelector('div.fc-daygrid-day-bg:has(.fc-bg-event.fc-event.fc-event-end'))
         allDays.slice(start, end+1).forEach(ele => { ele.closest('.fc-daygrid-day:not(.fc-day-disabled)')?.classList.add('currentPeriod') })
     }(); // SECTION_END Financial_Absent_Day_Holiday_Tracking;
     !function __FinancialBillingRegistrationFeeTracking() {
@@ -3723,6 +3715,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }();
     !function __FinancialBilling() { //copy
         if (!("FinancialBilling.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
+        if (!document.querySelector('table#billingProviderTable > tbody').children[0].children[1]) { return };
         listPageLinksAndList([ {listPageChild: 4, listPageLinkTo: "ProviderInformation"} ])
         !function shrinkPage() {
             const regFeeAddDeleteDiv = document.querySelector('div:has(> #addRegistrationFee)'), regFeeAddDeleteDivParent = regFeeAddDeleteDiv.parentElement, regFeeTableParent = document.getElementById('billingRegistrationFeesTable_wrapper').parentElement
@@ -3774,13 +3767,15 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                                                      + '<div class="float-right-imp" id="commentsButtons">'
                                                      + '<button type="button" id="unpaidCopayNote" class="cButton inRow" tabindex="-1">Unpaid Copay</button>'
                                                      + '<button type="button" id="paymentPlanNote" class="cButton inRow" tabindex="-1">Payment Plan</button>'
+                                                     + '<button type="button" id="absentDayLimit" class="cButton inRow" tabindex="-1">Absent Day Limit</button>'
                                                      + '</div>')
             document.getElementById('commentsButtons').addEventListener('click', clickEvent => {
                 if (clickEvent.target.nodeName !== "BUTTON") { return };
-                document.getElementById('userComments').value = (() => {
+                document.getElementById('userComments').value = (async () => {
                     switch (clickEvent.target.id) {
                         case "unpaidCopayNote": return 'Copay is unpaid, provider did not indicate if there is a payment plan.'
                         case "paymentPlanNote": return 'Provider indicated there is a payment plan for the unpaid copay.'
+                        case "absentDayLimit": return await 0
                         default: return ''
                     }
                 })()
@@ -3789,6 +3784,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }(); // SECTION_END Financial_Billing_Approval;
     !function __FinancialBilling_FinancialBillingApproval() {
         if (!["FinancialBillingApproval.htm", "FinancialBilling.htm"].includes(thisPageNameHtm)) { return };
+        let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody')
+        if (!billingProviderTableTbody.children[0].children[1]) { return };
         if (!editMode) {
             let billingEval = { FinancialBilling: { child: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { child: 0, providerIdInArr: "memberproviderId" }, }
             let billingProviderTableChildren = document.querySelector(':is(table#billingProviderTable, table#financialBillingApprovalTable) > tbody').children
@@ -3803,7 +3800,6 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEval[thisPageName].providerIdInArr] === lastSelectedProvider) { billingProviderTableChildren[i].click() } })
                 }).catch(err => { console.trace(err) })
         }
-        let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody')
         let twoOrFourWeeks = createSlider({ label: "", title: "", id: "twoOrFourWeeks", defaultOn: 0, classes: "slider-always-color" })
         tertiaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="weekBillingToggle" class="db-container"><span id="is2WkBilling">2-Week</span>' + twoOrFourWeeks + '<span id="is4WkBilling" style="opacity: .6;">4-Week</span></div><div id="copyButtons" class="db-container"><button class="form-button" id="billingEmailTemplate">Template</button></div>')
         let billingEmailTemplate = document.getElementById('billingEmailTemplate'), is2WkBilling = document.getElementById('is2WkBilling'), is4WkBilling = document.getElementById('is4WkBilling')
@@ -3815,15 +3811,15 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         })
         const billings = "FinancialBilling.htm" === thisPageNameHtm ? { providers: {}, children: {}, issues: {} } : {}
         let workerInfo, absentDays = {}
-        evalData().then(({ 0: providerData, 1: billedData } = {}) => {
-            if (!providerData[0].rowIndex) { return };
+        evalData().then(({ 0: providersData, 1: billedData } = {}) => {
+            if (!providersData[0].providerId) { return };
             const periodStart = Date.parse(selectPeriodDates.start), periodEnd = Date.parse(selectPeriodDates.end)
-            providerData.forEach(providers => {
-                billings.providers[providers.rowIndex] = {
-                    providerName: providers.providerName.replace(/\\/g, ''),
-                    providerRow: providers.rowIndex,
-                    providerId: providers.providerId,
-                    providerType: providers.providerType,
+            providersData.forEach(providerData => {
+                billings.providers[providerData.rowIndex] = {
+                    providerName: providerData.providerName.replace(/\\/g, ''),
+                    providerRow: providerData.rowIndex,
+                    providerId: providerData.providerId,
+                    providerType: providerData.providerType,
                     childrenInCare: [],
                     buttonTitle: [],
                 }
@@ -3841,33 +3837,36 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         totalHoursOfCareAuthorized: Number(child.totalHoursOfCareAuthorized),
                         totalHoursAllowed: (Number(child.totalHoursAllowedWeekOne) + Number(child.totalHoursAllowedWeekTwo)),
                         totalHoursBilled: (Number(child.totalHoursBilledWeekOne) + Number(child.totalHoursBilledWeekTwo)),
-                        cappingInfo: child.cappingInfoText,
                         startDate: Date.parse(child.effectiveStartDate.slice(0, 10)),
                         endDate: Date.parse(child.effectiveEndDate.slice(0, 10)),
-                        referenceNumber: child.referenceNumber,
+                        // referenceNumber: child.referenceNumber,
                     }
-                    let currentChild = billings.children[child.referenceNumber][child.rowIndex2]
-                    if (currentChild.startDate > periodStart) { addToNewArray(billings.issues, currentChild.providerRow, currentChild.childName + ": SA start date (" + dateFuncs.formatDate(currentChild.startDate, "mdyy") + ") is after the first date of the period."); addToNewArray(billings.providers[currentChild.providerRow], "buttonTitle", "SA start date") }
-                    if (currentChild.endDate < periodEnd) { addToNewArray(billings.issues, currentChild.providerRow, currentChild.childName + ": SA end date (" + dateFuncs.formatDate(currentChild.endDate, "mdyy") + ") is before the last date of the period."); addToNewArray(billings.providers[currentChild.providerRow], "buttonTitle", "SA end date") }
-                    if (!currentChild.cappingInfo && currentChild.totalHoursBilled > currentChild.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, currentChild.providerRow, currentChild.childName + ": More hours billed than authorized: " + currentChild.totalHoursBilled + " billed vs " + currentChild.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[currentChild.providerRow], "buttonTitle", "Exceeds authorized hours") }
-                    if (currentChild.totalHoursAllowed < currentChild.totalHoursBilled) {
-                        if (currentChild.cappingInfo) {
-                            addToNewArray(billings.issues, currentChild.providerRow, currentChild.childName + ": Unpayable hours: " + currentChild.totalHoursBilled + " billed vs " + currentChild.totalHoursAllowed + " allowed. " + currentChild.cappingInfo.split('LI')[1].replace(/[\<\>\/]/g, ''))
-                            addToNewArray(billings.providers[currentChild.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider")
-                        } else {
-                            let parsedAbsentDays = await parseAbsentDays()
-                            async function parseAbsentDays() {
-                                if (Object.keys(absentDays).length) { return };
-                                await evalData({caseProviderNumber: caseIdVal, pageName: "FinancialAbsentDayHolidayTracking", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'})
-                                    .then(childAbsentDays => childAbsentDays
-                                          .forEach(child => { absentDays[child.childReferenceNumber] = child.absentLimitReachedDate })
-                                         )
-                            }
-                            if (!absentDays[child.referenceNumber]) { continue };
-                            addToNewArray(billings.issues, currentChild.providerRow, currentChild.childName + ": Unpayable hours: " + currentChild.totalHoursBilled + " billed vs " + currentChild.totalHoursAllowed + " allowed. Absent day limit reached: " + absentDays[child.referenceNumber] + '.')
-                            addToNewArray(billings.providers[currentChild.providerRow], "buttonTitle", "Unpayable Hours - Absent Days")
-                        }
+                    let childAtProvider = billings.children[child.referenceNumber][child.rowIndex2]
+                    let cappingInfo = child.cappingInfoText ? child.cappingInfoText.replace(/<.+?>Week.+?<LI>|<\/.+>|Amount allowed.+?\.00\./g, '') : ''
+                    if (childAtProvider.startDate > periodStart) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": SA start date (" + dateFuncs.formatDate(childAtProvider.startDate, "mdyy") + ") is after the first date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA start date") }
+                    if (childAtProvider.endDate < periodEnd) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": SA end date (" + dateFuncs.formatDate(childAtProvider.endDate, "mdyy") + ") is before the last date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA end date") }
+                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours") }
+                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursAllowed && cappingInfo && (/secondary/i).test(cappingInfo)) {
+                        // if (cappingInfo && (/secondary/i).test(cappingInfo)) {
+                        addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. " + cappingInfo)
+                        addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider")
+                        // }
+                        // else {
+                        //     async function parseAbsentDays() {
+                        //         if (Object.keys(absentDays).length) { return absentDays };
+                        //         await evalData({caseProviderNumber: caseIdVal, pageName: "FinancialAbsentDayHolidayTracking", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'})
+                        //             .then(childAbsentDays => childAbsentDays.forEach(absentChild => { absentDays[child.childReferenceNumber] = absentChild.absentLimitReachedDate || absentChild.absentDaysUsed || '' }) )
+                        //     }
+                        //     await parseAbsentDays().then(e => {
+                        //         if (!absentDays[child.referenceNumber]) { return };
+                        //         if (absentDays[child.referenceNumber].includes("/")) { absentDaysLimitReached(absentDays[child.referenceNumber]) }
+                        //     })
+                        // }
                     }
+                    // function absentDaysLimitReached(dateLimitReached) {
+                    //     addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. Absent day limit reached: " + dateLimitReached + '.')
+                    //     addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Absent Days")
+                    // }
                 };
                 if (!billings.issues) { return };
                 !async function makeBillingButtons() {
@@ -4007,6 +4006,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     let noteTable = document.querySelector('.dataTables_scrollBody'), noteTableStyle = editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"
     noteTable && (document.querySelector('.dataTables_scrollBody').setAttribute('style', noteTableStyle))
+    editMode && unhideElement(document.querySelector('div.form-group:has(#noteArchiveType)'), false)
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
         document.getElementById('noteCreateDate')?.closest('div.panel-box-format').classList.add('hidden')
         let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = noteSummary?.closest('.row')
@@ -4456,7 +4456,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 else if (resendButton.disabled && target.nodeName === "TR" && target.children[5].textContent.indexOf("Waiting") < 0) { resendButton.disabled = false; cancelButton.disabled = true }//doesn't say waiting, disable cancel, remove disable resend;
             }
             waitForTableCells('#providerNoticesSearchData').then( () => addRemDisabled( providerNoticesTableTbody.firstElementChild ) )
-            providerNoticesTableTbody.addEventListener('click', clickEvent => { addRemDisabled( getTableRow(clickEvent.target) ) })
+            providerNoticesTableTbody.addEventListener('click', clickEvent => { addRemDisabled( walkToTableRow(clickEvent.target) ) })
         }
     }(); // SECTION_END Provider_Notices;
     !function __ProviderPaymentHistory() {
@@ -5541,7 +5541,7 @@ function mec2enhancements() {
     // if (!editMode) { document.getElementById('Report\ a\ Problem')?.firstElementChild?.setAttribute('target', '_blank'); document.getElementById('Maximum\ Rates')?.firstElementChild?.setAttribute('target', '_blank'); }; //change_to_open_in_new_tab
     document.querySelector('h1')?.closest('div.row')?.classList.add('h1-parent-row');
     !function disableAutoComplete() {
-        if (!editMode || ["CaseNotes.htm", ].includes(thisPageNameHtm)) { return };
+        if (!editMode || ["CaseNotes.htm", "CaseMemo.htm", "CaseSpecialLetter.htm", "CaseLetter.htm", ].includes(thisPageNameHtm)) { return };
         document.querySelector('form').autocomplete = "off"
     }();
 }();
