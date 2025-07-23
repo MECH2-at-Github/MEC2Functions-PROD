@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.18
+// @version      0.6.19
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -2323,7 +2323,6 @@ try {
             })
         };
         async function lnlTrainingCheck() {
-            return
             ccpEle.relatedToChild.addEventListener( 'change', checkIfRelated )
             let ccpProvIdValue = ccpEle.providerId.value
             let lnlDataProvId = "lnlData" + ccpProvIdValue, lnlDataProvIdEle = document.getElementById(lnlDataProvId)
@@ -2562,6 +2561,29 @@ try {
         changeEvent.target.value === "Yes" ? deceasedDateFormGroup.classList.remove('hidden') : deceasedDateFormGroup.classList.add('hidden')
     })
 }(); // SECTION_END Case_CSIA;
+!function CaseDisability() {
+    if (!("CaseDisability.htm").includes(thisPageNameHtm)) { return };
+    tertiaryActionArea.insertAdjacentHTML('afterbegin', '<button id="generateCaseNote" class="form-button hidden">Generate Case Note</button>')
+    let memberDisabilityType = document.getElementById('memberDisabilityType'), memberDisabilityPeriodFrom = document.getElementById('memberDisabilityPeriodFrom'), memberDisabilityPeriodTo = document.getElementById('memberDisabilityPeriodTo'),
+        generateCaseNote = document.getElementById('generateCaseNote'), disabilityMemberTableTbody = document.querySelector('#disabilityMemberTable > tbody')
+    disabilityMemberTableTbody.addEventListener('click', checkDisabilityType)
+    tertiaryActionArea.addEventListener('click', doTertiaryAction)
+    !async function checkTableOnLoad() {
+        await waitForTableCells().then(e => { disabilityMemberTableTbody.children[0].click() })
+    }();
+    function doTertiaryAction(clickEvent) {
+        if (clickEvent.target.nodeName !== "BUTTON") { return };
+        switch (clickEvent.target.id) {
+            case "generateCaseNote": {
+                let selectedRow = disabilityMemberTableTbody.querySelector('tr.selected'), exemptionDateRange = dateFuncs.formatDate(memberDisabilityPeriodFrom.value, "mdyy") + " - " + dateFuncs.formatDate(memberDisabilityPeriodTo.value, "mdyy"),
+                    signatureText = "\n=====\n" + countyInfo.info.userName + (countyInfo.userSettings.promptUserNameTitle ? countyInfo.info.inputUserNameTitle : ""), exemptionText = "Received Medical Condition Form for " + nameFuncs.LastFirstToFirstL(selectedRow.children[1].textContent) + " for " + exemptionDateRange + ". Entered absent day exemption."
+                localStorage.setItem("MECH2.copiedNote", JSON.stringify({ noteSummary: 'Absent day exemption: ' + exemptionDateRange, noteCategory: 'Absent Days', noteMessage: exemptionText + signatureText, noteMemberReferenceNumber: selectedRow.children[0].textContent, identifier: caseIdVal, }) )
+                snackBar('Create new case note then click Autofill button.', 'Stored case note', "center")
+            }
+        }
+    }
+    function checkDisabilityType() { memberDisabilityType.value === "Medical Condition Absent Day Exemption" ? unhideElement(generateCaseNote, true) : unhideElement(generateCaseNote, false) }
+}();
 !function _Case_Activity_Pages() {
     if ( !["CaseEmploymentActivity.htm", "CaseEducationActivity.htm", "CaseSupportActivity.htm"].includes(thisPageNameHtm) ) { return };
     document.querySelectorAll('#leaveDetailExtendedEligibilityBegin, #leaveDetailExpires, #redeterminationDate, #extendedEligibilityBegin, #extendedEligibilityExpires, #leaveDetailRedeterminationDue').forEach(ele => { ele.tabIndex = "-1"; ele.classList.add('borderless') }) //extelig
@@ -3124,6 +3146,278 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren)
     }).catch(err => { console.trace(err) })
 }(); // SECTION_END Case_Member_II;
+!function CaseNotes() { // =====================================================================================================================================;
+    if (!["CaseNotes.htm"].includes(thisPageNameHtm)) { return };
+    doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
+    let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
+    let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
+    let noteTable = document.querySelector('.dataTables_scrollBody'), noteTableStyle = editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"
+    noteTable && (document.querySelector('.dataTables_scrollBody').setAttribute('style', noteTableStyle))
+    editMode && unhideElement(document.querySelector('div.form-group:has(#noteArchiveType)'), false)
+    function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
+        document.getElementById('noteCreateDate')?.closest('div.panel-box-format').classList.add('hidden')
+        let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = noteSummary?.closest('.row')
+        noteCreatorChildren.forEach(ele => noteSummaryRow.append(ele))
+        tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
+    }
+    document.addEventListener('paste', pasteEventAHK )
+    function pasteEventAHK(event) { //pasted from AHK
+        let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+        if (pastedText.indexOf("FromAHKJSON") < 0) { return };
+        // if (pastedText.indexOf("CaseNoteFromAHKJSON") < 0) { return };
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        if (!editMode) {
+            noteSummary.value = "Click the 'New' button first 🡇"
+            noteStringText.value = "Click the 'New' button first 🡇"
+            document.getElementById('noteCreator').value = "X1D10T"
+            flashRedOutline(newButton)
+            return
+        } else {
+            const noteCategoryObj = {
+                Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
+                Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
+            }
+            let ahkObj = convertFromAHK(pastedText)
+            let noteCategoryRegExp = new RegExp(ahkObj.noteDocType + "(?:.*?)" + noteCategoryObj[ahkObj.noteDocType][ahkObj.noteElig], "i")
+            noteCategory.value = [...document.getElementById('noteCategory').children]?.find( ele => ele.innerText.match(noteCategoryRegExp) ).value
+            // noteCategory.value = noteDetails.noteElig === '' ? noteDetails.noteDocType : noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig]
+            noteSummary.value = decodeURIComponent(ahkObj.noteTitle)
+            noteStringText.value = decodeURIComponent(ahkObj.noteText)
+            eleFocus(gbl.eles.save)
+        }
+    }
+    let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrproviderIdVal] : undefined
+    evalData().then( ({ 0: notesTableData} = []) => {
+        if (notesTableData === undefined) { return };
+        if (noteInfo) {
+            !function doAutoNote() { // Auto_Case_Noting
+                if (!editMode) {
+                    !function checkForDuplicates() {
+                        let continueToMakeNote = 1
+                        let firstTenAlerts = notesTableData.slice(0, 10)
+                        let todayValue = Date.now(), twoMonthsValue = 5270400000
+                        firstTenAlerts.forEach(alert => {
+                            let alertDateValue = sanitize.date(alert.noteCreateDate, "number")
+                            if (alertDateValue + twoMonthsValue < todayValue) { return }
+                            if (noteInfo.noteSummary.slice(0, 45) === alert.noteSummary.replace(/\\/g, '').slice(0, 45)) {
+                                noteStringText.value = "\n\n\n\t\tNote already exists, duplicate note not entered.\n\t\tClick 'Override Duplicate Check' to enter duplicate note.\n\t\t(Date range for duplicate check: 60 days.)"
+                                caseNotesTableTbody.children[alert.rowIndex].setAttribute('style', "color: var(--textColorPositive) !important;")
+                                localStorage.removeItem("MECH2.note")
+                                continueToMakeNote = 0
+                                h4objects.note.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton afterH4" id="overrideDupe">Override Duplicate Check</button>')
+                                document.getElementById('overrideDupe').addEventListener('click', () => {
+                                    let noteInfocaseIdVal = {}
+                                    noteInfocaseIdVal[caseOrproviderIdVal] = noteInfo
+                                    localStorage.setItem( "MECH2.note", JSON.stringify(noteInfocaseIdVal) )
+                                    doClick(newButton)
+                                })
+                                restyleCreated()
+                            }
+                        })
+                        continueToMakeNote && doClick(newButton)
+                    }();
+                    return;
+                } else if (editMode) {
+                    let userNameTitle = countyInfo.userSettings.promptUserNameTitle ? countyInfo.info.inputUserNameTitle : ""
+                    document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
+                    document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
+                    let signatureName, workerName = countyInfo.info.userName
+                    if (["CaseNotes.htm"].includes(thisPageNameHtm)) {
+                        if (noteInfo.xNumber) { signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? countyInfo.info.userName + userNameTitle : countyInfo.info.userName + userNameTitle + " for " + noteInfo.worker }
+                        else { signatureName = countyInfo.info.userName + userNameTitle }
+                    }
+                    setTimeout(() => {
+                        if (noteInfo.intendedPerson) {
+                            noteMemberReferenceNumber.value = [...document.querySelectorAll('#noteMemberReferenceNumber > option')]?.find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) )?.value
+                        }
+                        noteCategory.value = noteInfo.noteCategory
+                        noteSummary.value = noteInfo.noteSummary
+                        noteStringText.value = noteInfo.noteMessage + "\n=====\n" + signatureName
+                        localStorage.removeItem("MECH2.note")
+                        gbl.eles.save.click()
+                    }, 50)
+                }
+            }(); // END Auto_Case_Noting
+        } else if (!noteInfo) {
+            restyleCreated()
+            secondaryActionArea.style.justifyContent = "flex-start"
+            secondaryActionArea.style.gap = "60px"
+            noteCategory.addEventListener('click', clickEvent => {
+                if (clickEvent.target.nodeName === "OPTION") {
+                    noteSummary.focus()
+                    noteSummary.setSelectionRange(50, 50)
+                }
+            })
+            !function duplicateNote() { // SECTION_START Duplicate_Note
+                let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
+                if (!storedNoteExists || storedNoteDetails?.noteSummary?.trim() === noteSummary?.value?.trim()) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
+                if (!editMode) {
+                    let storedNoteInfoHTML = storedNoteExists ? '<div id="unsavedNoteDiv" style="display: flex; align-items: center; gap: 5px;"><span style="margin-left: 10px;" title="' + storedNoteDetails.noteSummary + '">Unsaved note exists for case</span><a target="_self" href="/ChildCare/CaseNotes.htm?parm2=' + storedNoteDetails.identifier + '">'+ storedNoteDetails.identifier +'</a><span id="deleteUnsaved" style="cursor: pointer; color: red !important; padding-bottom: 2px;">✖</span></div>' : ''
+                    tertiaryActionArea?.insertAdjacentHTML('afterbegin', '<button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML)
+                    document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.storedNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
+                    document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
+                    function copyNoteToLS() {
+                        let selectedLength = document.getElementsByClassName('selected')?.length
+                        if (noteCategory?.value && selectedLength) {
+                            localStorage.setItem("MECH2.copiedNote", JSON.stringify( getNoteDetails() ))
+                            snackBar('Copied note!', 'notitle')
+                        } else if (!selectedLength) { snackBar('No note selected') }
+                        eleFocus("#newDB")
+                    }
+                } else if (editMode) {
+                    window.addEventListener('beforeunload', getDetailsStoreInLS)
+                    document.getElementById('cancel')?.addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
+                    if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
+                    let noteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
+                    if (!noteDetailsExists && !storedNoteExists) { return };
+                    //
+                    let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
+                    if (noteDetailsExists && ["Application", "Redetermination" ].includes(noteCategorySplit0)) { noteDetails.noteSummary = noteCategorySplit0 + " update"; noteDetails.noteCategory = noteCategorySplit0 + " Incomplete" }
+                    let autofillButton = noteDetailsExists ? '<button type="button" id="autofill" class="form-button">Autofill</button>' : '', storedNoteButton = storedNoteExists ? '<button type="button" id="storedNote" class="form-button">Stored Note</button>' : ''
+                    tertiaryActionArea?.insertAdjacentHTML('afterbegin', autofillButton + storedNoteButton)
+                    tertiaryActionArea?.addEventListener('click', clickEvent => {
+                        if (clickEvent.target.nodeName !== "BUTTON" || noteCategory?.value) { return };
+                        let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : storedNoteDetails
+                        fillNoteDetails(selectedNoteDetails)
+                    })
+                    gbl.eles.save?.addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
+                    function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
+                }
+                function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, }; }
+                function fillNoteDetails(noteDetails) {
+                    noteSummary.value = noteDetails.noteSummary
+                    noteCategory.value = noteDetails.noteCategory
+                    noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber
+                    noteStringText.value = convertLineBreakToSpace(noteDetails.noteMessage)
+                    eleFocus(noteStringText)
+                    noteStringText.setSelectionRange(0, 0)
+                }
+            }(); // End Duplicate_Note
+            !function caseNotes() { // SECTION_START Case_Notes_Only
+                if (!("CaseNotes.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
+                if (editMode && !notesTableNoRecords) {
+                    document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
+                    // document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
+                    document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
+                    let autoFormatSlider = createSlider({ label: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
+                    h4objects.note.h4.insertAdjacentHTML('afterend', autoFormatSlider)
+                    let autoFormat = document.getElementById('autoFormat')
+                    gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles;
+                        if (!autoFormat.checked) { return }
+                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories;
+                    })
+                    noteStringText.addEventListener('paste', pasteEvent => {
+                        if (!autoFormat.checked) { return }
+                        let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
+                        let formattedPastedText = convertLineBreakToSpace(pastedText)
+                        .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
+                        // .replace(/^\ {0,9}\u0009|\n\ {16}/g, "\n             ") //excel "tab"
+                        .replace(/\u0009/g, "    ") //excel "tab"
+                        .replace(/^\n+/g, "\n")//Multiple new lines to single new line;
+                        if (pastedText !== formattedPastedText) {
+                            pasteEvent.preventDefault()
+                            insertTextAndMoveCursor(formattedPastedText)
+                        }
+                    })
+                    noteStringText.addEventListener('keydown', keydownEvent => {
+                        if (keydownEvent.key !== "Tab" || keydownEvent.shiftKey) { return }
+                        keydownEvent.preventDefault()
+                        let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
+                        insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
+                    })
+                }
+                !function autoStoreNotes() {
+                    if (editMode) { return };
+                    let notesTableDataLength = notesTableData.length
+                    !function hideMergeDisbursed() {
+                        let hiddenTr = 0 //Hiding PMI/SMI Merge and Disbursed Child Care Support Payment rows in the first 100 entries;
+                        if (!notesTableDataLength) { return }
+                        notesTableData.slice(0, 100).forEach(note => {
+                            if ( note.noteSummary.indexOf("Disbursed child care") > -1 || note.noteSummary.indexOf("PMI/SMI") > -1 ) {
+                                hiddenTr++
+                                caseNotesTableTbody.children[note.rowIndex].classList.add('hiddenRow')
+                            }
+                        })
+                        if (!hiddenTr) { return };
+                        const invisEle = document.createElement('div')
+                        let noteStyle = cssStyle()
+                        noteStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
+                        caseNotesTableTbody.parentElement.classList.add('toggledTable')
+                        let unhideElementCaseNotes = createSlider({ label: 'Show ' + hiddenTr + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', defaultOn: false, classes: 'float-right-imp h4-line', })
+                        document.getElementById('reset').insertAdjacentHTML('afterend', unhideElementCaseNotes)
+                        let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
+                        document.getElementById('unhideElementCaseNotes').addEventListener('click', clickEvent => {
+                            clickEvent.target.checked === true ? noteStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }") : noteStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
+                        })
+                        queueMicrotask(() => { document.querySelector('tbody > tr:not(.hiddenRow)')?.click() })
+                    }();
+                    function autoStoreEscapeToStop(keydownEvent) {
+                        if (keydownEvent.key === "Escape") {
+                            sessionStorage.removeItem('MECH2.storeOldNotes.' + caseIdVal)
+                            sessionStorage.removeItem('MECH2.storePMIandCSnotes.' + caseIdVal)
+                            window.removeEventListener('keydown', autoStoreEscapeToStop)
+                        }
+                    }
+                    !function autoStoreOldNotes() {
+                        if (!notesTableDataLength || document.getElementById('noteArchiveType').value !== "Current") { return };
+                        let autoStoreNotes = sessionStorage.getItem('MECH2.storeOldNotes.' + caseIdVal) ?? false;
+                        let nextStorableNoteRow = function() {
+                            for (let i = notesTableDataLength; i--; i > 0) {
+                                if (![ "Redetermination", "Application", "Appeal", ].includes(notesTableData[i].noteCategory) && !notesTableData[i].noteImportant) { return i }
+                            }
+                        }();
+                        if (!nextStorableNoteRow) { return };
+                        let nextStorableNote = notesTableData[nextStorableNoteRow]
+                        let today = Date.now(), tenYearsAgo = today - 315670320999
+                        let lastNoteIsOld = Date.parse(nextStorableNote.noteCreateDate) < tenYearsAgo ? 1 : 0;
+                        if (autoStoreNotes) {
+                            if (!lastNoteIsOld) { sessionStorage.removeItem('MECH2.storeOldNotes.' + caseIdVal) }
+                            else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
+                        } else {
+                            if (lastNoteIsOld) {
+                                document.getElementById('notesActionsArea').children[0].setAttribute('class', 'col-lg-12 textInherit')
+                                document.getElementById('storage').insertAdjacentHTML('afterend', '<button id="autoStorage" class="form-button" type="button">Auto-Store Old</button>')
+                                document.getElementById('autoStorage').addEventListener('click', () => {
+                                    sessionStorage.setItem('MECH2.storeOldNotes.' + caseIdVal, true)
+                                    document.querySelector('tbody').rows[nextStorableNoteRow].click()
+                                    document.getElementById('storage').click()
+                                })
+                            }
+                        }
+                    }();
+                    !function autoStoreHiddenNotes() {
+                        if (!notesTableDataLength || document.getElementById('noteArchiveType').value !== "Current") { return };
+                        let autoStoreNotes = sessionStorage.getItem('MECH2.storePMIandCSnotes.' + caseIdVal) ?? false;
+                        let nextStorableNoteRow = function() {
+                            for (let i = notesTableDataLength; i--; i > 0) {
+                                if ( [ "Child Support Note", "PMI/SMI Merge" ].includes(notesTableData[i].noteCategory) && ["Disbursed child care", "A PMI merge was comp"].includes(notesTableData[i].noteSummary.slice(20)) ) { return i }
+                            }
+                        }() ?? 0;
+                        if (!nextStorableNoteRow) { return };
+                        let nextStorableNote = notesTableData[nextStorableNoteRow]
+                        let today = Date.now(), sixMonthsAgo = today - 15865482466
+                        let isNoteStorable = Date.parse(nextStorableNote.noteCreateDate) < sixMonthsAgo ? 1 : 0;
+                        if (autoStoreNotes) {
+                            if (!isNoteStorable) { sessionStorage.removeItem('MECH2.storePMIandCSnotes.' + caseIdVal) }
+                            else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
+                        } else {
+                            if (isNoteStorable) {
+                                document.getElementById('notesActionsArea').children[0].setAttribute('class', 'col-lg-12 textInherit')
+                                document.getElementById('storage').insertAdjacentHTML('afterend', '<button id="autoStorage" class="form-button" type="button">Auto-Store Merge/CS</button>')
+                                document.getElementById('autoStorage').addEventListener('click', () => {
+                                    sessionStorage.setItem('MECH2.storePMIandCSnotes.' + caseIdVal, true)
+                                    document.querySelector('tbody').rows[nextStorableNoteRow].click()
+                                    document.getElementById('storage').click()
+                                })
+                            }
+                        }
+                    }();
+                }();
+            }(); // SECTION_END Case_Notes_Only
+        }
+    }).catch(err => { console.trace(err) });
+}(); // SECTION_END _Notes__CaseNotes_ProviderNotes (major_subsection) =============================================================;
 !function CaseOverview() {
     if (!("CaseOverview.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
     $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order
@@ -3999,278 +4293,6 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     document.querySelector('div.panel-box-format > div.form-group').insertAdjacentHTML('afterend', '<div id="ageCategories">' + ageDefinitions + '</div>')
     document.getElementById('footer_links').insertAdjacentHTML('beforeend', '<span class="footer" tabindex="-1">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=CCAP_0927" target="_blank">Accreditations</a>')
 }(); // SECTION_END Maximum_Rates;
-!function CaseNotes() { // =====================================================================================================================================;
-    if (!["CaseNotes.htm"].includes(thisPageNameHtm)) { return };
-    doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
-    let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
-    let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
-    let noteTable = document.querySelector('.dataTables_scrollBody'), noteTableStyle = editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"
-    noteTable && (document.querySelector('.dataTables_scrollBody').setAttribute('style', noteTableStyle))
-    editMode && unhideElement(document.querySelector('div.form-group:has(#noteArchiveType)'), false)
-    function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
-        document.getElementById('noteCreateDate')?.closest('div.panel-box-format').classList.add('hidden')
-        let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = noteSummary?.closest('.row')
-        noteCreatorChildren.forEach(ele => noteSummaryRow.append(ele))
-        tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
-    }
-    document.addEventListener('paste', pasteEventAHK )
-    function pasteEventAHK(event) { //pasted from AHK
-        let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-        if (pastedText.indexOf("FromAHKJSON") < 0) { return };
-        // if (pastedText.indexOf("CaseNoteFromAHKJSON") < 0) { return };
-        event.preventDefault()
-        event.stopImmediatePropagation()
-        if (!editMode) {
-            noteSummary.value = "Click the 'New' button first 🡇"
-            noteStringText.value = "Click the 'New' button first 🡇"
-            document.getElementById('noteCreator').value = "X1D10T"
-            flashRedOutline(newButton)
-            return
-        } else {
-            const noteCategoryObj = {
-                Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
-                Redetermination: { incomplete: " Incomplete", elig: " complete", ineligible: "" }
-            }
-            let ahkObj = convertFromAHK(pastedText)
-            let noteCategoryRegExp = new RegExp(ahkObj.noteDocType + "(?:.*?)" + noteCategoryObj[ahkObj.noteDocType][ahkObj.noteElig], "i")
-            noteCategory.value = [...document.getElementById('noteCategory').children]?.find( ele => ele.innerText.match(noteCategoryRegExp) ).value
-            // noteCategory.value = noteDetails.noteElig === '' ? noteDetails.noteDocType : noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig]
-            noteSummary.value = decodeURIComponent(ahkObj.noteTitle)
-            noteStringText.value = decodeURIComponent(ahkObj.noteText)
-            eleFocus(gbl.eles.save)
-        }
-    }
-    let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrproviderIdVal] : undefined
-    evalData().then( ({ 0: notesTableData} = []) => {
-        if (notesTableData === undefined) { return };
-        if (noteInfo) {
-            !function doAutoNote() { // Auto_Case_Noting
-                if (!editMode) {
-                    !function checkForDuplicates() {
-                        let continueToMakeNote = 1
-                        let firstTenAlerts = notesTableData.slice(0, 10)
-                        let todayValue = Date.now(), twoMonthsValue = 5270400000
-                        firstTenAlerts.forEach(alert => {
-                            let alertDateValue = sanitize.date(alert.noteCreateDate, "number")
-                            if (alertDateValue + twoMonthsValue < todayValue) { return }
-                            if (noteInfo.noteSummary.slice(0, 45) === alert.noteSummary.replace(/\\/g, '').slice(0, 45)) {
-                                noteStringText.value = "\n\n\n\t\tNote already exists, duplicate note not entered.\n\t\tClick 'Override Duplicate Check' to enter duplicate note.\n\t\t(Date range for duplicate check: 60 days.)"
-                                caseNotesTableTbody.children[alert.rowIndex].setAttribute('style', "color: var(--textColorPositive) !important;")
-                                localStorage.removeItem("MECH2.note")
-                                continueToMakeNote = 0
-                                h4objects.note.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton afterH4" id="overrideDupe">Override Duplicate Check</button>')
-                                document.getElementById('overrideDupe').addEventListener('click', () => {
-                                    let noteInfocaseIdVal = {}
-                                    noteInfocaseIdVal[caseOrproviderIdVal] = noteInfo
-                                    localStorage.setItem( "MECH2.note", JSON.stringify(noteInfocaseIdVal) )
-                                    doClick(newButton)
-                                })
-                                restyleCreated()
-                            }
-                        })
-                        continueToMakeNote && doClick(newButton)
-                    }();
-                    return;
-                } else if (editMode) {
-                    let userNameTitle = countyInfo.userSettings.promptUserNameTitle ? countyInfo.info.inputUserNameTitle : ""
-                    document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
-                    document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
-                    let signatureName, workerName = countyInfo.info.userName
-                    if (["CaseNotes.htm"].includes(thisPageNameHtm)) {
-                        if (noteInfo.xNumber) { signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? countyInfo.info.userName + userNameTitle : countyInfo.info.userName + userNameTitle + " for " + noteInfo.worker }
-                        else { signatureName = countyInfo.info.userName + userNameTitle }
-                    }
-                    setTimeout(() => {
-                        if (noteInfo.intendedPerson) {
-                            noteMemberReferenceNumber.value = [...document.querySelectorAll('#noteMemberReferenceNumber > option')]?.find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) )?.value
-                        }
-                        noteCategory.value = noteInfo.noteCategory
-                        noteSummary.value = noteInfo.noteSummary
-                        noteStringText.value = noteInfo.noteMessage + "\n=====\n" + signatureName
-                        localStorage.removeItem("MECH2.note")
-                        gbl.eles.save.click()
-                    }, 50)
-                }
-            }(); // END Auto_Case_Noting
-        } else if (!noteInfo) {
-            restyleCreated()
-            secondaryActionArea.style.justifyContent = "flex-start"
-            secondaryActionArea.style.gap = "60px"
-            noteCategory.addEventListener('click', clickEvent => {
-                if (clickEvent.target.nodeName === "OPTION") {
-                    noteSummary.focus()
-                    noteSummary.setSelectionRange(50, 50)
-                }
-            })
-            !function duplicateNote() { // SECTION_START Duplicate_Note
-                let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
-                if (!storedNoteExists || storedNoteDetails?.noteSummary?.trim() === noteSummary?.value?.trim()) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
-                if (!editMode) {
-                    let storedNoteInfoHTML = storedNoteExists ? '<div id="unsavedNoteDiv" style="display: flex; align-items: center; gap: 5px;"><span style="margin-left: 10px;" title="' + storedNoteDetails.noteSummary + '">Unsaved note exists for case</span><a target="_self" href="/ChildCare/CaseNotes.htm?parm2=' + storedNoteDetails.identifier + '">'+ storedNoteDetails.identifier +'</a><span id="deleteUnsaved" style="cursor: pointer; color: red !important; padding-bottom: 2px;">✖</span></div>' : ''
-                    tertiaryActionArea?.insertAdjacentHTML('afterbegin', '<button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML)
-                    document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.storedNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
-                    document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
-                    function copyNoteToLS() {
-                        let selectedLength = document.getElementsByClassName('selected')?.length
-                        if (noteCategory?.value && selectedLength) {
-                            localStorage.setItem("MECH2.copiedNote", JSON.stringify( getNoteDetails() ))
-                            snackBar('Copied note!', 'notitle')
-                        } else if (!selectedLength) { snackBar('No note selected') }
-                        eleFocus("#newDB")
-                    }
-                } else if (editMode) {
-                    window.addEventListener('beforeunload', getDetailsStoreInLS)
-                    document.getElementById('cancel')?.addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
-                    if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
-                    let noteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
-                    if (!noteDetailsExists && !storedNoteExists) { return };
-                    //
-                    let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
-                    if (noteDetailsExists && ["Application", "Redetermination" ].includes(noteCategorySplit0)) { noteDetails.noteSummary = noteCategorySplit0 + " update" }
-                    let autofillButton = noteDetailsExists ? '<button type="button" id="autofill" class="form-button">Autofill</button>' : '', storedNoteButton = storedNoteExists ? '<button type="button" id="storedNote" class="form-button">Stored Note</button>' : ''
-                    tertiaryActionArea?.insertAdjacentHTML('afterbegin', autofillButton + storedNoteButton)
-                    tertiaryActionArea?.addEventListener('click', clickEvent => {
-                        if (clickEvent.target.nodeName !== "BUTTON" || noteCategory?.value) { return };
-                        let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : storedNoteDetails
-                        fillNoteDetails(selectedNoteDetails)
-                    })
-                    gbl.eles.save?.addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
-                    function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) }
-                }
-                function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, }; }
-                function fillNoteDetails(noteDetails) {
-                    noteSummary.value = noteDetails.noteSummary
-                    noteCategory.value = noteDetails.noteCategory
-                    noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber
-                    noteStringText.value = convertLineBreakToSpace(noteDetails.noteMessage)
-                    eleFocus(noteStringText)
-                    noteStringText.setSelectionRange(0, 0)
-                }
-            }(); // End Duplicate_Note
-            !function caseNotes() { // SECTION_START Case_Notes_Only
-                if (!("CaseNotes.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
-                if (editMode && !notesTableNoRecords) {
-                    document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
-                    // document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
-                    document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
-                    let autoFormatSlider = createSlider({ label: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
-                    h4objects.note.h4.insertAdjacentHTML('afterend', autoFormatSlider)
-                    let autoFormat = document.getElementById('autoFormat')
-                    gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles;
-                        if (!autoFormat.checked) { return }
-                        noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories;
-                    })
-                    noteStringText.addEventListener('paste', pasteEvent => {
-                        if (!autoFormat.checked) { return }
-                        let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
-                        let formattedPastedText = convertLineBreakToSpace(pastedText)
-                        .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
-                        // .replace(/^\ {0,9}\u0009|\n\ {16}/g, "\n             ") //excel "tab"
-                        .replace(/\u0009/g, "    ") //excel "tab"
-                        .replace(/^\n+/g, "\n")//Multiple new lines to single new line;
-                        if (pastedText !== formattedPastedText) {
-                            pasteEvent.preventDefault()
-                            insertTextAndMoveCursor(formattedPastedText)
-                        }
-                    })
-                    noteStringText.addEventListener('keydown', keydownEvent => {
-                        if (keydownEvent.key !== "Tab" || keydownEvent.shiftKey) { return }
-                        keydownEvent.preventDefault()
-                        let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
-                        insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
-                    })
-                }
-                !function autoStoreNotes() {
-                    if (editMode) { return };
-                    let notesTableDataLength = notesTableData.length
-                    !function hideMergeDisbursed() {
-                        let hiddenTr = 0 //Hiding PMI/SMI Merge and Disbursed Child Care Support Payment rows in the first 100 entries;
-                        if (!notesTableDataLength) { return }
-                        notesTableData.slice(0, 100).forEach(note => {
-                            if ( note.noteSummary.indexOf("Disbursed child care") > -1 || note.noteSummary.indexOf("PMI/SMI") > -1 ) {
-                                hiddenTr++
-                                caseNotesTableTbody.children[note.rowIndex].classList.add('hiddenRow')
-                            }
-                        })
-                        if (!hiddenTr) { return };
-                        const invisEle = document.createElement('div')
-                        let noteStyle = cssStyle()
-                        noteStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
-                        caseNotesTableTbody.parentElement.classList.add('toggledTable')
-                        let unhideElementCaseNotes = createSlider({ label: 'Show ' + hiddenTr + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', defaultOn: false, classes: 'float-right-imp h4-line', })
-                        document.getElementById('reset').insertAdjacentHTML('afterend', unhideElementCaseNotes)
-                        let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
-                        document.getElementById('unhideElementCaseNotes').addEventListener('click', clickEvent => {
-                            clickEvent.target.checked === true ? noteStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }") : noteStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
-                        })
-                        queueMicrotask(() => { document.querySelector('tbody > tr:not(.hiddenRow)')?.click() })
-                    }();
-                    function autoStoreEscapeToStop(keydownEvent) {
-                        if (keydownEvent.key === "Escape") {
-                            sessionStorage.removeItem('MECH2.storeOldNotes.' + caseIdVal)
-                            sessionStorage.removeItem('MECH2.storePMIandCSnotes.' + caseIdVal)
-                            window.removeEventListener('keydown', autoStoreEscapeToStop)
-                        }
-                    }
-                    !function autoStoreOldNotes() {
-                        if (!notesTableDataLength || document.getElementById('noteArchiveType').value !== "Current") { return };
-                        let autoStoreNotes = sessionStorage.getItem('MECH2.storeOldNotes.' + caseIdVal) ?? false;
-                        let nextStorableNoteRow = function() {
-                            for (let i = notesTableDataLength; i--; i > 0) {
-                                if (![ "Redetermination", "Application", "Appeal", ].includes(notesTableData[i].noteCategory) && !notesTableData[i].noteImportant) { return i }
-                            }
-                        }();
-                        if (!nextStorableNoteRow) { return };
-                        let nextStorableNote = notesTableData[nextStorableNoteRow]
-                        let today = Date.now(), tenYearsAgo = today - 315670320999
-                        let lastNoteIsOld = Date.parse(nextStorableNote.noteCreateDate) < tenYearsAgo ? 1 : 0;
-                        if (autoStoreNotes) {
-                            if (!lastNoteIsOld) { sessionStorage.removeItem('MECH2.storeOldNotes.' + caseIdVal) }
-                            else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
-                        } else {
-                            if (lastNoteIsOld) {
-                                document.getElementById('notesActionsArea').children[0].setAttribute('class', 'col-lg-12 textInherit')
-                                document.getElementById('storage').insertAdjacentHTML('afterend', '<button id="autoStorage" class="form-button" type="button">Auto-Store Old</button>')
-                                document.getElementById('autoStorage').addEventListener('click', () => {
-                                    sessionStorage.setItem('MECH2.storeOldNotes.' + caseIdVal, true)
-                                    document.querySelector('tbody').rows[nextStorableNoteRow].click()
-                                    document.getElementById('storage').click()
-                                })
-                            }
-                        }
-                    }();
-                    !function autoStoreHiddenNotes() {
-                        if (!notesTableDataLength || document.getElementById('noteArchiveType').value !== "Current") { return };
-                        let autoStoreNotes = sessionStorage.getItem('MECH2.storePMIandCSnotes.' + caseIdVal) ?? false;
-                        let nextStorableNoteRow = function() {
-                            for (let i = notesTableDataLength; i--; i > 0) {
-                                if ( [ "Child Support Note", "PMI/SMI Merge" ].includes(notesTableData[i].noteCategory) && ["Disbursed child care", "A PMI merge was comp"].includes(notesTableData[i].noteSummary.slice(20)) ) { return i }
-                            }
-                        }() ?? 0;
-                        if (!nextStorableNoteRow) { return };
-                        let nextStorableNote = notesTableData[nextStorableNoteRow]
-                        let today = Date.now(), sixMonthsAgo = today - 15865482466
-                        let isNoteStorable = Date.parse(nextStorableNote.noteCreateDate) < sixMonthsAgo ? 1 : 0;
-                        if (autoStoreNotes) {
-                            if (!isNoteStorable) { sessionStorage.removeItem('MECH2.storePMIandCSnotes.' + caseIdVal) }
-                            else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
-                        } else {
-                            if (isNoteStorable) {
-                                document.getElementById('notesActionsArea').children[0].setAttribute('class', 'col-lg-12 textInherit')
-                                document.getElementById('storage').insertAdjacentHTML('afterend', '<button id="autoStorage" class="form-button" type="button">Auto-Store Merge/CS</button>')
-                                document.getElementById('autoStorage').addEventListener('click', () => {
-                                    sessionStorage.setItem('MECH2.storePMIandCSnotes.' + caseIdVal, true)
-                                    document.querySelector('tbody').rows[nextStorableNoteRow].click()
-                                    document.getElementById('storage').click()
-                                })
-                            }
-                        }
-                    }();
-                }();
-            }(); // SECTION_END Case_Notes_Only
-        }
-    }).catch(err => { console.trace(err) });
-}(); // SECTION_END _Notes__CaseNotes_ProviderNotes (major_subsection) =============================================================;
 !function Notices_Case_Provider() {
     if (!["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) { return };
     if (!editMode) {
@@ -4473,7 +4495,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }(); // SECTION_END Provider_Registration_and_Renewal;
     !function __ProviderTraining() {
         if (!("ProviderTraining.htm").includes(thisPageNameHtm)) { return };
-        document.querySelector('div#providerTrainingData > div.form-group').insertAdjacentHTML('beforebegin', '<div style="text-align: right;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=CCAP_110909" target="_blank">CCAP Policy Manual - Legal Non-Licensed Provider Trainings</a></div>')
+        document.querySelector('div#providerTrainingData > div.form-group').insertAdjacentHTML('beforebegin', '<div style="text-align: right;"><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=CCAP_090118" target="_blank">CCAP Policy Manual - Legal Non-Licensed Provider Trainings</a></div>')
     }(); // SECTION_END Provider_Training;
 }(); // SECTION_END _Provider_Pages;
 !function ProviderSearch() {
