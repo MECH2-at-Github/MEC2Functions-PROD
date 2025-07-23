@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.17
+// @version      0.6.18
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -1943,7 +1943,7 @@ try {
             foundAlert.worker = shortWorkerName
             foundAlert.xNumber = inputWorkerId.value.toLowerCase()
             foundAlert.page = alertType.page
-            foundAlert.parameters = alertType.parameters
+            foundAlert.parameters = alertType.parameters.parm2 + alertType.parameters.parm3
             foundAlert.numberId = alertType.numberId
             foundAlert.noteSummary = foundAlert.noteSummary.replace(/(\d{2}\/\d{2}\/\d{4})/g, (date) => dateFuncs.formatDate(date, "mdyy"))
             return foundAlert
