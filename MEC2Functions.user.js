@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.19
+// @version      0.6.20
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -1970,8 +1970,7 @@ try {
             function noteSummaryFunction({ alertByCategory, effectiveDate, selectedRowName } = {}) {
                 switch (alertByCategory) {
                     case "maxis.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{1,2}\/\d{1,2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
-                    case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.addDays(effectiveDate.textContent, 45) }
-                    // case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
+                    case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
                 }
             }
         };
