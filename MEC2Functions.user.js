@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.20
+// @version      0.6.21
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -903,7 +903,8 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
             caseHistory.unshift(newEntry)
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
         };
-        let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block; visibility: hidden; position: absolute;">'
+        let viewHistoryDatalist = '<datalist id="caseHistory" style="visibility: hidden;">'
+        // let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block; visibility: hidden; position: absolute;">'
         + caseHistory.map(item => '<div class="caseHistoryEntry" id="history' + parseInt(item.caseIdValNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdValNumber) + '</span></div>').join('')
         + '</datalist>'
         newTabField.insertAdjacentHTML('afterend', viewHistoryDatalist)
@@ -2158,6 +2159,10 @@ try {
     }();
     !function clearDatesAndHours() { // adds buttons inside form to clear input fields; located on Provider Designation H4 line;
         if (!editMode) { return };
+        ccpEle.relatedToChild.insertAdjacentHTML('afterend', ''
+                        + '<span class="tooltips" style="margin-left: 5px;">ⓘ'
+                        + '<span class="tooltips-text tooltips-topleft">Child’s sibling, grandparent, great-grandparent, aunt, or uncle of the child.\n(Based on blood relationship, marriage or court decree.)</span>'
+                        + '</span>')
         setTimeout(() => {
             resetTabIndex()
             !ccpEle.providerLivesWithChild?.value && ccpEle.providerLivesWithChild?.setAttribute('tabIndex', '-1')
@@ -2216,7 +2221,7 @@ try {
                 function copyStartToSS() {
                     let selectedRow = document.querySelector('.selected')
                     if (ccpEle.carePeriodBeginDate?.value && selectedRow) {
-                        let oProviderStart = Object.fromEntries( ['providerId', 'primaryBeginDate', 'secondaryBeginDate', 'carePeriodBeginDate', 'hoursOfCareAuthorized', 'signedFormReceived', 'providerLivesWithChild'].map(ele => [ele, ccpEle[ele].value]) )
+                        let oProviderStart = Object.fromEntries( ['providerId', 'primaryBeginDate', 'secondaryBeginDate', 'carePeriodBeginDate', 'hoursOfCareAuthorized', 'signedFormReceived', 'providerLivesWithChild', 'careInHome'].map(ele => [ele, ccpEle[ele].value]) )
                         sessionStorage.setItem("MECH2.providerStart", JSON.stringify(oProviderStart))
                         snackBar('Copied start data!', 'notitle')
                         eleFocus('#newDB')
@@ -2233,7 +2238,9 @@ try {
             }
             if (editMode) {
                 let oProviderEndings = sanitize.json(sessionStorage.getItem("MECH2.providerEndings"))
-                if (oProviderEndings !== null) {
+                if (oProviderEndings) {
+                // if (oProviderEndings !== null) {
+                    verbose(oProviderEndings)
                     tertiaryActionArea?.insertAdjacentHTML("afterbegin", "<button type='button' id='pasteEndings' class='form-button'>Autofill Endings</button>")
                     document.getElementById('pasteEndings').addEventListener('click', pasteEndingData)
                     function pasteEndingData() {
@@ -2244,7 +2251,8 @@ try {
                     }
                 }
                 let oProviderStart = sanitize.json(sessionStorage.getItem("MECH2.providerStart"))
-                if (oProviderStart !== null) {
+                if (oProviderStart) {
+                // if (oProviderStart !== null) {
                     const childDropDown = document.getElementById('memberReferenceNumberNewMember')
                     tertiaryActionArea?.insertAdjacentHTML('afterbegin', "<button type='button' id='pasteStart' class='form-button'>Autofill Start</button>")
                     document.getElementById('pasteStart').addEventListener('click', pasteStartData)
@@ -2253,9 +2261,13 @@ try {
                             ccpEle.providerId.value = oProviderStart.providerId
                             doChange(ccpEle.providerId)
                         }
-                        let setValues = ['primaryBeginDate', 'secondaryBeginDate', 'carePeriodBeginDate', 'hoursOfCareAuthorized', 'signedFormReceived', 'providerLivesWithChild', ].forEach(item => { ccpEle[item].value = oProviderStart[item] })
+                        let setValues = ['primaryBeginDate', 'secondaryBeginDate', 'carePeriodBeginDate', 'hoursOfCareAuthorized', 'signedFormReceived', 'providerLivesWithChild', 'careInHome' ].forEach(item => { ccpEle[item].value = oProviderStart[item] })
                         let setValuesBlank = ['primaryEndDate', 'secondaryEndDate', 'carePeriodEndDate', 'careEndReason', ].forEach(item => { ccpEle[item].value = '' })
-                        childDropDown && !childDropDown?.value?.length ? setTimeout(() => { eleFocus(childDropDown) }, 800) : setTimeout(() => { eleFocus(gbl.eles.save) }, 800)
+                        setTimeout(() => {
+                            if (childDropDown && !childDropDown?.value?.length) { eleFocus(childDropDown) }
+                            else if (ccpEle.providerType.value === "Legal Non-licensed") { eleFocus(ccpEle.relatedToChild) }
+                            else { eleFocus(gbl.eles.save) }
+                        }, 800)
                     }
                 }
             }
@@ -2363,9 +2375,6 @@ try {
                         + '<label for="relatedCare" class="col-lg-4 control-label textR textInherit marginTop10 related">Related Care:</label> '
                         + '<div class="col-lg-8 padL0 textInherit" style="text-decoration: inherit;">'
                         + '<div id="relatedCare" type="text" class="inline-text related" style="display: inline-flex; flex-direction: row; gap: 10px;" title="LNL Related Care Breakdown"></div>'
-                        + '<span class="tooltips" style="margin-left: 5px;">ⓘ'
-                        + '<span class="tooltips-text tooltips-topleft">Child’s sibling, grandparent, great-grandparent, aunt, or uncle of the child.\n(Based on blood relationship, marriage or court decree.)</span>'
-                        + '</span>'
                         + '</div>'
                         + '</div> '
                         + '<div class="col-lg-6 textInherit unrelated" id="hasUnrelatedCare">'
@@ -2768,7 +2777,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     let ceiAddressLabels = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.querySelector('label[for=' + ele + ']'))
     let ceiAddressLabelsAndDivs = [...ceiAddressLabels, ...ceiAddressLabels.map(ele => ele.nextElementSibling) ]
     let ceiAddressGroups = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.getElementById(ele)?.closest('.form-group'))
-    h4objects.annualselfemploymentcalculation.h4.parentElement.insertAdjacentHTML('beforeend', '<div class="col-lg-12 hidden" style="text-align: center; cursor: pointer;" id="seiHoursCalcDiv"><label>Hours Per Week: </label><output>"Total Income" / 52 weeks / $7.25: </output><output id="seiHoursCalculation"></output></div>')
+    h4objects.annualselfemploymentcalculation.h4.parentElement.insertAdjacentHTML('beforeend', '<div class="col-lg-12 hidden" style="text-align: center; cursor: pointer;" id="seiHoursCalcDiv"><label>Hours Per Week: </label><output>"Total Income" / 52 weeks / $7.25 =</output><output id="seiHoursCalculation"></output></div>')
     let seiHoursCalcDiv = document.getElementById('seiHoursCalcDiv'), seiHoursCalculation = document.getElementById('seiHoursCalculation')
     seiHoursCalcDiv.addEventListener('click', clickEvent => copy(seiHoursCalcDiv.textContent, seiHoursCalcDiv.textContent, "Copied!", "center"))
     if (seiHoursCalculation.value) { addHoursPerWeekToSelfEmployment() }
@@ -2813,7 +2822,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     } else if (!editMode) {
         document.getElementById('earnedIncomeMemberTable').addEventListener('click', () => checkEmploymentType() );
     }
-    function addHoursPerWeekToSelfEmployment() { seiHoursCalculation.value = Math.round(100*parseInt(ceiTotalIncome.value.replace(/[$,]/g, '') )/52/7.25)/100 }
+    function addHoursPerWeekToSelfEmployment() { seiHoursCalculation.value = Math.round(100*parseInt(ceiTotalIncome.value.replace(/[$,]/g, '') )/52/7.25)/100 + " hours" }
 }(); // SECTION_END Case_Earned_Income;
 !function __CaseExpense() {
     if (!("CaseExpense.htm").includes(thisPageNameHtm)) { return };
@@ -3330,20 +3339,20 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     if (editMode) { return };
                     let notesTableDataLength = notesTableData.length
                     !function hideMergeDisbursed() {
-                        let hiddenTr = 0 //Hiding PMI/SMI Merge and Disbursed Child Care Support Payment rows in the first 100 entries;
+                        let hiddenTrCount = 0 //Hiding PMI/SMI Merge and Disbursed Child Care Support Payment rows in the first 100 entries;
                         if (!notesTableDataLength) { return }
                         notesTableData.slice(0, 100).forEach(note => {
-                            if ( note.noteSummary.indexOf("Disbursed child care") > -1 || note.noteSummary.indexOf("PMI/SMI") > -1 ) {
-                                hiddenTr++
+                            if ( note.noteSummary.indexOf("Disbursed child care") > -1 || note.noteCategory === "PMI/SMI Merge" ) {
+                                hiddenTrCount++
                                 caseNotesTableTbody.children[note.rowIndex].classList.add('hiddenRow')
                             }
                         })
-                        if (!hiddenTr) { return };
+                        if (!hiddenTrCount) { return };
                         const invisEle = document.createElement('div')
                         let noteStyle = cssStyle()
                         noteStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
                         caseNotesTableTbody.parentElement.classList.add('toggledTable')
-                        let unhideElementCaseNotes = createSlider({ label: 'Show ' + hiddenTr + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', defaultOn: false, classes: 'float-right-imp h4-line', })
+                        let unhideElementCaseNotes = createSlider({ label: 'Show ' + hiddenTrCount + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', defaultOn: false, classes: 'float-right-imp h4-line', })
                         document.getElementById('reset').insertAdjacentHTML('afterend', unhideElementCaseNotes)
                         let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
                         document.getElementById('unhideElementCaseNotes').addEventListener('click', clickEvent => {
@@ -3363,7 +3372,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         let autoStoreNotes = sessionStorage.getItem('MECH2.storeOldNotes.' + caseIdVal) ?? false;
                         let nextStorableNoteRow = function() {
                             for (let i = notesTableDataLength; i--; i > 0) {
-                                if (![ "Redetermination", "Application", "Appeal", ].includes(notesTableData[i].noteCategory) && !notesTableData[i].noteImportant) { return i }
+                                if (![ "Redetermination", "Application", "Appeal", "Special Needs", ].includes(notesTableData[i].noteCategory) && !notesTableData[i].noteImportant) { return i }
                             }
                         }();
                         if (!nextStorableNoteRow) { return };
@@ -3421,7 +3430,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     if (!("CaseOverview.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
     $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order
     let redetLabel = document.querySelectorAll('div.visible-lg > label[for=servicingAgency]')[1], redetDate = redetLabel?.parentElement.nextElementSibling?.nextElementSibling?.innerText
-    // let redetDate = document.querySelector('label[for="redeterminationDueDate"]').parentElement.nextElementSibling?.nextElementSibling?.innerText
     if (redetDate) {
         gbl.eles.submitButton.insertAdjacentHTML('afterend', '<button type="button" id="copyFollowUpButton" class="cButton afterH4" tabindex="-1">Redet Follow Up Date</button>');
         document.getElementById('copyFollowUpButton').addEventListener('click', () => {
@@ -3435,12 +3443,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         let hcWbTrs = programInformationTrows.filter( ele => ["HC", "WB"].includes(ele.firstElementChild?.innerText) )
         let stickyTrs = programInformationTrows.filter( ele => ["MFIP", "DWP", "FS"].includes(ele.firstElementChild?.innerText) )
         if (stickyTrs.length && hcWbTrs.length) {
-            let firstStickyTr = stickyTrs[0]
-            hcWbTrs.forEach(ele => { firstStickyTr.insertAdjacentElement('beforebegin', ele) })
+            hcWbTrs.forEach(ele => { stickyTrs[0].insertAdjacentElement('beforebegin', ele) })
             programInformationData?.classList.add('toggleTable')
         }
-        if (programInformationTrows.length > 20) {
-            programInformationTrows.slice(20).forEach(ele => {
+        if (programInformationTrows.length > 16) {
+            programInformationTrows.slice(17).forEach(ele => {
                 if (stickyTrs.includes(ele)) { return };
                 ele.classList.add('hiddenRow')
             })
@@ -3448,9 +3455,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             let overviewStyle = cssStyle()
             const invisEle = document.createElement('div')
             overviewStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
-            let unhideElementProgInfo = createSlider({ label: 'Show hidden rows', title: "Shows or hides CCAP rows exceeding 20, and 'HC' / 'WB' rows.", id: 'unhideElementProgInfo', defaultOn: false, classes: 'float-right-imp h4-line' })
+            let unhideElementProgInfo = createSlider({ label: 'Show hidden rows', title: "Shows or hides rows exceeding 20, including all 'HC' / 'WB' rows.", id: 'unhideElementProgInfo', defaultOn: false, classes: 'float-right-imp h4-line' }) // Reported Firefox bug: sticky rows > 20 break sticky.
             h4objects.programinformation.h4.insertAdjacentHTML('afterend', unhideElementProgInfo)
-            let notHiddenTrLength = programInformationTrows.filter( ele => !ele.classList.contains('hiddenRow') ).length
+            let nothiddenTrCountLength = programInformationTrows.filter( ele => !ele.classList.contains('hiddenRow') ).length
             document.getElementById('unhideElementProgInfo').addEventListener('click', clickEvent => {
                 let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
                 if (clickEvent.target.checked === true) {
@@ -3458,10 +3465,10 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     calculateAndSetBottomHeight(programInformationData, trLength, stickyTrs)
                 } else {
                     overviewStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
-                    calculateAndSetBottomHeight(programInformationData, notHiddenTrLength, stickyTrs)
+                    calculateAndSetBottomHeight(programInformationData, nothiddenTrCountLength, stickyTrs)
                 }
             })
-            calculateAndSetBottomHeight(programInformationData, notHiddenTrLength, stickyTrs);
+            calculateAndSetBottomHeight(programInformationData, nothiddenTrCountLength, stickyTrs);
             setTimeout(() => { programInformationDataTbody.style.scrollSnapAlign = "start" }, 500)
         } else { calculateAndSetBottomHeight(programInformationData, trLength, stickyTrs) }
     })
@@ -3470,11 +3477,13 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         elementQuery = Array.isArray(elementQuery) ? elementQuery : sanitize.query(elementQuery)
         let bottomHeights = [...elementQuery].reverse().forEach((ele, index) => { ele.classList.add('stickyRow'); ele.style.bottom = index + 'lh' });
     };
-    programInformationData?.addEventListener('click', () => {
-        let providerTableTr = document.querySelector('#providerInformationData > tbody').children
+    let personInformationData = document.querySelector('#personInformationData_wrapper table > tbody'), providerInformationData = document.querySelector('#providerInformationData > tbody')
+    personInformationData?.addEventListener('click', () => {
+        let providerTableTr = providerInformationData.children
         let addLinksToProviders = [...providerTableTr].forEach(ele => {
+            if (!ele.children[1]) { return }
             let childTd = ele.firstElementChild
-            if (childTd.textContent > 0) { childTd.innerHTML = '<a href="ProviderOverview.htm?providerId=' + childTd.textContent + '" target="_blank">' + childTd.textContent + '</a>' }
+            childTd.innerHTML = '<a href="ProviderOverview.htm?providerId=' + childTd.textContent + '" target="_blank">' + childTd.textContent + '</a>'
         })
     })
 }(); // SECTION_END Case_Overview;
@@ -4791,8 +4800,8 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                 if (("CaseNotes.htm").includes(thisPageNameHtm)) {
                     if (!editMode) {
                         waitForElmHeight('#caseNotesTable > tbody > tr:not(.hidden-tr)').then(() => {
-                            let notHiddenTrs = document.querySelectorAll('#caseNotesTable > tbody > tr:not(.hidden-tr)')
-                            if (notHiddenTrs.length) { notHiddenTrs[0].click(); focusEle = '#newDB' }
+                            let nothiddenTrCounts = document.querySelectorAll('#caseNotesTable > tbody > tr:not(.hidden-tr)')
+                            if (nothiddenTrCounts.length) { nothiddenTrCounts[0].click(); focusEle = '#newDB' }
                         })
                     } else if (!localStorage.getItem("MECH2.note")?.length) {
                         let noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber')
