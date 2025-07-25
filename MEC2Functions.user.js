@@ -4089,17 +4089,17 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody')
         if (!billingProviderTableTbody.children[0].children[1]) { return };
         if (!editMode) {
-            let billingEval = { FinancialBilling: { child: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { child: 0, providerIdInArr: "memberproviderId" }, }
+            let billingEvalLookup = { FinancialBilling: { child: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { child: 0, providerIdInArr: "memberproviderId" }, }
             let billingProviderTableChildren = document.querySelector(':is(table#billingProviderTable, table#financialBillingApprovalTable) > tbody').children
             document.getElementById('buttonPanelThree')?.addEventListener('click', () => {
                 let selectedTRow = billingProviderTableTbody.querySelector('tr.selected')
-                if (selectedTRow) { sessionStorage.setItem('MECH2.billingApproval.' + caseIdVal, selectedTRow.children[billingEval[thisPageName].child]?.textContent) }
+                if (selectedTRow) { sessionStorage.setItem('MECH2.billingApproval.' + caseIdVal, selectedTRow.children[billingEvalLookup[thisPageName].child]?.textContent) }
             })
             evalData().then(({ 0: billingProviderListDataArr } = {}) => {
                 if (!billingProviderListDataArr) { return };
                 let lastSelectedProvider = sessionStorage.getItem('MECH2.billingApproval.' + caseIdVal), billingReferAndSelectedProvider = document.referrer.indexOf("FinancialBilling") > -1 && lastSelectedProvider
                 if (!billingReferAndSelectedProvider) { return };
-                let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEval[thisPageName].providerIdInArr] === lastSelectedProvider) { billingProviderTableChildren[i].click() } })
+                let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelectedProvider) { billingProviderTableChildren[i].click() } })
                 }).catch(err => { console.trace(err) })
         }
         let twoOrFourWeeks = createSlider({ label: "", title: "", id: "twoOrFourWeeks", defaultOn: 0, classes: "slider-always-color" })
@@ -4187,8 +4187,11 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 obj[arrayName].push(value)
             }
         })
-        document.getElementById('copyButtons')?.addEventListener( 'click', clickEvent => copyBillingInfoForEmails(clickEvent.target.id, clickEvent.target.textContent, document.getElementById('twoOrFourWeeks')?.checked ? 4 : 2) )
-        async function copyBillingInfoForEmails(clickedButtonId, clickedButtonName, billingWeeks) {
+        let billingTextIterator = 0;
+        function billingTextCounter() { return billingTextIterator++ }
+        document.getElementById('copyButtons')?.addEventListener( 'click', clickEvent => copyBillingInfoForEmails(clickEvent.target.id, clickEvent.target.textContent, document.getElementById('twoOrFourWeeks')?.checked ? 4 : 2, "email" ) )
+        document.getElementById('copyButtons')?.addEventListener( 'contextmenu', clickEvent => { clickEvent.preventDefault(); copyBillingInfoForEmails(clickEvent.target.id, clickEvent.target.textContent, document.getElementById('twoOrFourWeeks')?.checked ? 4 : 2, "clipboard" ) })
+        async function copyBillingInfoForEmails(clickedButtonId, clickedButtonName, billingWeeks, emailOrClipboard) {
             workerInfo ??= await getWorkerInfo()
             let typeAndNameColumns = { FinancialBilling: { type: 1, name: 0, id: 4 }, FinancialBillingApproval: { type: 2, name: 1, id: 0 }, }
             let caseName = nameFuncs.commaNameReorder(pageTitle)
@@ -4199,17 +4202,22 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             let selectedTRow = billingProviderTableTbody.querySelector('tr.selected')
             let selectedTRowChildren = selectedTRow.children
             let selectedProviderName = clickedButtonName !== "Template"
-            ? clickedButtonName
+            ? clickedButtonName // non-template buttons already fetched proper name.
             : selectedTRowChildren[typeAndNameColumns[thisPageName].type].textContent === "Child Care Center"
                 ? selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
                 : await evalData({caseProviderNumber: selectedTRowChildren[typeAndNameColumns[thisPageName].id].textContent, pageName: 'ProviderTaxInfo', evalString: '0.0.taxName', caseOrProvider: 'provider'})
             let emailSubject = selectedProviderName + '  Case: ' + caseIdVal + ', ' + caseName + '  ' + billingFormDates.start + '-' + billingFormDates.end
-            if (clickedButtonName === "Template") {
-                window.open('mailto:' + workerInfo + '?subject=' + emailSubject, "_self")
-            } else {
-                let emailBody = billings.issues[clickedButtonId].join("%0A") + "%0A%0A%0A"
-                // let emailBody = billings.issues[clickedButtonId].join("%0A") + "%0A%0A" + window.location.origin + window.location.pathname + "%3Fparm2%3D" + caseIdVal + "%26parm3%3D" + selectPeriodDates.parm3 + "%0A%0A%0A"
-                window.open('mailto:' + workerInfo + '?subject=' + emailSubject + '&body=' + emailBody, "_self")
+            let emailBody = clickedButtonName === "Template" ? "" : billings.issues[clickedButtonId].join("%0A")
+            if (emailOrClipboard === "email") {
+                if (clickedButtonName === "Template") {
+                    window.open('mailto:' + workerInfo + '?subject=' + emailSubject, "_self")
+                } else {
+                    window.open('mailto:' + workerInfo + '?subject=' + emailSubject + '&body=' + emailBody + "%0A%0A%0A", "_self")
+                }
+            } else if (emailOrClipboard === "clipboard") {
+                let subjectOrBody = billingTextCounter() % 2 === 0
+                let billingTextToCopy = clickedButtonName === "Template" ? emailSubject : subjectOrBody ? emailSubject : emailBody
+                copy(billingTextToCopy, billingTextToCopy, subjectOrBody ? "Copied email subject!" : "Copied email body!", "center")
             }
         };
         function fourWeekStart(date) {
