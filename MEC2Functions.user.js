@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.21
+// @version      0.6.22
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -36,13 +36,17 @@ const sanitize = {
         };
     },
     string(text) { return String(text)?.replace(/[^a-z0-9áéíóúñü \.,'_-]/gim, '') },
-    number(num) { num = Number(num); return Number.isNaN(num) ? undefined : num },
+    number(num) { return Number(String(num).replace(/[^0-9-.]/gi, '')) || 0 },
     html(text) { return new DOMParser().parseFromString(text, "text/html").documentElement.textContent },
-    timeStamp(time) { return String(time)?.replace(/[^apm0-9:,\/ ]/gi, '') },
+    timeStamp(time) { return String(time)?.replace(/[^apm0-9:,\/ ]/gi, '') }, // [^] = not in list //
     date(inputDate, dateTypeNeeded = "date") {
-        const isDateObject = inputDate instanceof Date, inputTypeof = typeof inputDate
+        const isDateObject = inputDate instanceof Date
+        inputDate = (/\d{13}/).test(inputDate) ? Number(inputDate) : inputDate
+        const inputTypeof = typeof inputDate
         switch (dateTypeNeeded) {
-            case "date": return isDateObject ? inputDate : new Date(inputDate)
+            case "date":
+                return isDateObject ? inputDate : new Date(inputDate)
+                break
             case "number":
                 if ( inputTypeof === "number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return inputDate }
                 if ( inputTypeof === "string" ) { return Date.parse(inputDate) }
@@ -57,6 +61,77 @@ const sanitize = {
     },
     json(obj) { try { if (!obj || obj.indexOf('{') < 0) { return undefined }; obj = obj; return JSON.parse(obj) } catch (err) { console.log(err, obj); return undefined } },
 };
+const nameFuncs = {
+    commaNameObject(commaNameO) {
+        if (!commaNameO) { return };
+        let [ last, first ] = this.toTitleCase( String(commaNameO).replace(/\b\w\b|\./g, '') ).split(",").map(str => str.trim())
+        return { first, last, full: first + " " + last }
+    },
+    commaNameReorder(commaNameR) {
+        if (!commaNameR) { return };
+        if (!commaNameR.indexOf(',')) { return commaNameR };
+        commaNameR = this.toTitleCase( String(commaNameR).replace(/\b\w\b\.*/, '') ).split(",")
+        return commaNameR[1].trim() + ' ' + commaNameR[0].trim()
+    },
+    commaToCommaSpace(value) { return !value ? undefined : String(value).replace(/(\w\,)(\w)/g, "$0 $1") },
+    toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
+    LastFirstToFirstL(name) { return !name ? undefined : this.commaNameReorder(name).replace(/(\s\w)\w+/, '$1') },
+};
+const dateFuncs = {
+    dayInMs: 86400000,
+    bwpInMs: 1209600000,
+    addDays(date, days) {
+        date = sanitize.date(date, 'date')
+        return date.setDate(date.getDate() + sanitize.number(days));
+    },
+    addMonths(date, months, dayOfMonth) {
+        date = sanitize.date(date, 'date')
+        dayOfMonth = !dayOfMonth ? date.getDate() : dayOfMonth
+        return date.setMonth(date.getMonth() + sanitize.number(months), dayOfMonth);
+    },
+    dateDiffInDays(a, b) {
+        if (!a) { return };
+        a = sanitize.date(a, "date")
+        b = b === undefined ? new Date() : sanitize.date(b, "date")
+        const utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+        const utc2 = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+        return Math.floor((utc2 - utc1) / this.dayInMs);
+    },
+    formatDate(date, format = "mmddyy") {
+        date = sanitize.date(date, 'date')
+        if ( date === -64800000 || Number.isNaN(date) ) { return undefined }; // -64800000 === 12/31/1969 //
+        switch (format.toLowerCase()) {
+            case "mmddyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" });
+            case "mdyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" });
+            case "mdyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "numeric", day: "numeric" });
+            case "mmddyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
+            case "mmddhm": return date.toLocaleDateString('en-US', { hour: "numeric", minute: "2-digit", month: "2-digit", day: "2-digit" });
+            case "utc": return Date.UTC(date.getFullYear(), date.getMonth(), date.getDay());
+            default: return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
+        }
+    },
+    getDateOfWeekdayWithWeek(year, month, week, day) {
+        if (week < 0) { month++ }
+        const dateToGet = new Date(year, month, (week * 7) + 1)
+        if (day < dateToGet.getDay()) { day += 7 }
+        dateToGet.setDate(dateToGet.getDate() - dateToGet.getDay() + day)
+        return dateToGet;
+    },
+    getMonthDifference(firstDate, secondDate) {
+        firstDate = sanitize.date(firstDate, "date")
+        secondDate = sanitize.date(secondDate, "date")
+        let months = (firstDate.getFullYear() - secondDate.getFullYear()) * 12
+        let datePassed = (secondDate.getDate() > firstDate.getDate()) ? 1 : 0
+        months -= secondDate.getMonth()
+        months += firstDate.getMonth()
+        months -= datePassed
+        return months <= 0 ? 0 : months;
+    },
+    parm3date(date) { return this.formatDate(date, 'mmddyyyy').replace(/\D/g, '') },
+};
+const numberFuncs = {
+    toUSD(num) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( sanitize.number(num) ) },
+}
 const clearStorageItems = (storage = "both") => {
     if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart|storePMIandCSnotes|storeOldNotes/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
     if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
@@ -341,8 +416,8 @@ const getParamsFromListOrAlertTable = { // Parameters for navigating from Alerts
         let param2 = this.parameterTwo(tableMap)
         if (!param2 || Number.isNaN(param2)) { return { parm2: '?parm2=', parm3: '' } }
         // if (!param2 || Number.isNaN(param2)) { return '?parm2=' }
-        let param3 = "Alerts.htm".includes(thisPageNameHtm) ? '&parm3=' + ( document.getElementById('periodBeginDate')?.value + document.getElementById('periodEndDate')?.value ).replace(/\//g, '')
-        : "BillsList.htm".includes(thisPageNameHtm) ? '&parm3=' + (document.querySelector('table#billsTable > tbody > tr.selected > td:nth-child(5)').textContent).replace(/[\/\- ]/g, '')
+        let param3 = "Alerts.htm".includes(thisPageNameHtm) ? '&parm3=' + ( document.getElementById('periodBeginDate')?.value + document.getElementById('periodEndDate')?.value ).replace(/\D/g, '')
+        : "BillsList.htm".includes(thisPageNameHtm) ? '&parm3=' + (document.querySelector('table#billsTable > tbody > tr.selected > td:nth-child(5)').textContent).replace(/\D/g, '')
         : ''
         return { parm2: '?parm2=' + param2, parm3: param3 }
         // return '?parm2=' + param2 + param3
@@ -803,74 +878,6 @@ function flashRedOutline(ele) {
     const redOutline = [{ outlineColor: "red", outlineWidth: "2px", }], redOutlineTiming = { outlineStyle: "solid", duration: 300, iterations: 10, }
     ele.animate(redOutline, redOutlineTiming)
 }
-const nameFuncs = {
-    commaNameObject(commaNameO) {
-        if (!commaNameO) { return };
-        let [ last, first ] = this.toTitleCase( String(commaNameO).replace(/\b\w\b|\./g, '') ).split(",").map(str => str.trim())
-        return { first, last, full: first + " " + last }
-    },
-    commaNameReorder(commaNameR) {
-        if (!commaNameR) { return };
-        if (!commaNameR.indexOf(',')) { return commaNameR };
-        commaNameR = this.toTitleCase( String(commaNameR).replace(/\b\w\b\.*/, '') ).split(",")
-        return commaNameR[1].trim() + ' ' + commaNameR[0].trim()
-    },
-    commaToCommaSpace(value) { return !value ? undefined : String(value).replace(/(\w\,)(\w)/g, "$0 $1") },
-    toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
-    LastFirstToFirstL(name) { return !name ? undefined : this.commaNameReorder(name).replace(/(\s\w)\w+/, '$1') },
-};
-const dateFuncs = {
-    dayInMs: 86400000,
-    bwpInMs: 1209600000,
-    addDays(date, days) {
-        date = sanitize.date(date, 'date')
-        return date.setDate(date.getDate() + sanitize.number(days));
-    },
-    addMonths(date, months, dayOfMonth) {
-        date = sanitize.date(date, 'date')
-        dayOfMonth = !dayOfMonth ? date.getDate() : dayOfMonth
-        return date.setMonth(date.getMonth() + sanitize.number(months), dayOfMonth);
-    },
-    dateDiffInDays(a, b) {
-        if (!a) { return };
-        a = sanitize.date(a, "date")
-        b = b === undefined ? new Date() : sanitize.date(b, "date")
-        const utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
-        const utc2 = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
-        return Math.floor((utc2 - utc1) / this.dayInMs);
-    },
-    formatDate(date, format = "mmddyy") {
-        date = date instanceof Date ? date : new Date(date)
-        if ( date === "12/31/1969" || isNaN(date) ) { return undefined };
-        switch (format.toLowerCase()) {
-            case "mmddyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" });
-            case "mdyy": return date.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" });
-            case "mdyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "numeric", day: "numeric" });
-            case "mmddyyyy": return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
-            case "mmddhm": return date.toLocaleDateString('en-US', { hour: "numeric", minute: "2-digit", month: "2-digit", day: "2-digit" });
-            case "utc": return Date.UTC(date.getFullYear(), date.getMonth(), date.getDay());
-            default: return date.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
-        }
-    },
-    getDateOfWeekdayWithWeek(year, month, week, day) {
-        if (week < 0) { month++ }
-        const dateToGet = new Date(year, month, (week * 7) + 1)
-        if (day < dateToGet.getDay()) { day += 7 }
-        dateToGet.setDate(dateToGet.getDate() - dateToGet.getDay() + day)
-        return dateToGet;
-    },
-    getMonthDifference(firstDate, secondDate) {
-        firstDate = sanitize.date(firstDate, "date")
-        secondDate = sanitize.date(secondDate, "date")
-        let months = (firstDate.getFullYear() - secondDate.getFullYear()) * 12
-        let datePassed = (secondDate.getDate() > firstDate.getDate()) ? 1 : 0
-        months -= secondDate.getMonth()
-        months += firstDate.getMonth()
-        months -= datePassed
-        return months <= 0 ? 0 : months;
-    },
-    parm3date(date) { return this.formatDate(date, 'mmddyyyy').replace(/\//g, '') },
-};
 const convertLineBreakToSpace = (string) => string.replace(/([\S]) *\n([a-z])/g, '$1 $2');
 const eventChange = new Event('change', { bubbles: true }), doChange = (element) => sanitize.query(element)?.dispatchEvent(eventChange);
 const eventInput = new Event('input', { bubbles: true }), doInput = (element) => sanitize.query(element)?.dispatchEvent(eventInput);
@@ -1635,7 +1642,6 @@ try {
             parisMatch: { textIncludes: /PARIS/, noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
         },
         periodicprocessing: {
-            // jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Job search hours end " + dateFuncs.formatDate("$1", "mdyy")], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
             jsHours: { textIncludes: /Job Search Hours available will run out/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Job search hours end $1"], intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseSupportActivity"], },
             supportActivity: { textIncludes: /The support activity for/, noteCategory: "Activity Change", noteSummary: [/(?:[A-Za-z- ]+) (\d{1,2}\/\d{1,2}\/\d{2,4})/, "Support activity ends $1"], intendedPerson: true, omniPageButtons: ["CaseSupportActivity"], },
             missingKindergarten: { textIncludes: /Member missing Kindergarten/, noteCategory: "Other", omniPageButtons: ["CaseSchool"], },
@@ -1939,14 +1945,15 @@ try {
                     foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, noteMessage: foundAlert.noteMessage, fetchedDataArray: textFetchedData, alertTableSelectedRow: foundAlert.selectedAlertTableRow}) ?? foundAlert.noteMessage
                 } else { foundAlert.noteMessage = await noteMessageReplacement({ alertByCategory: foundAlert.messageCategory + "." + foundAlert.message, alertTableSelectedRow: foundAlert.selectedAlertTableRow }) ?? foundAlert.noteMessage }
             }
-            // currently unused and untested // if ("dateRange" in foundAlert) { //     if (Number.isNaN(foundAlert.dateRange)) { return } //     let startDate = document.getElementById('periodBeginDate').value, endDate = document.getElementById('periodEndDate').value //     foundAlert.dateRange = foundAlert.dateRange !== 0 ? foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') : 0 //     if (foundAlert.dateRange !== 0) { foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') } // }
+            // currently unused and untested - intended to include date range in evalData fetch // if ("dateRange" in foundAlert) { //     if (Number.isNaN(foundAlert.dateRange)) { return } //     let startDate = document.getElementById('periodBeginDate').value, endDate = document.getElementById('periodEndDate').value //     foundAlert.dateRange = foundAlert.dateRange !== 0 ? foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') : 0 //     if (foundAlert.dateRange !== 0) { foundAlert.dateRange = (dateFuncs.formatDate(dateFuncs.addDays(startDate, dateRange * 14), "mmddyyyy") + dateFuncs.formatDate(dateFuncs.addDays(endDate, dateRange * 14), "mmddyyyy")).replaceAll(/\//g, '') } // }
             let shortWorkerName = nameFuncs.LastFirstToFirstL(workerName.value)
             foundAlert.worker = shortWorkerName
             foundAlert.xNumber = inputWorkerId.value.toLowerCase()
             foundAlert.page = alertType.page
             foundAlert.parameters = alertType.parameters.parm2 + alertType.parameters.parm3
             foundAlert.numberId = alertType.numberId
-            foundAlert.noteSummary = foundAlert.noteSummary.replace(/(\d{2}\/\d{2}\/\d{4})/g, (date) => dateFuncs.formatDate(date, "mdyy"))
+            verbose(foundAlert.noteSummary)
+            foundAlert.noteSummary = foundAlert.noteSummary.replace(/(\d{2}\/\d{2}\/\d{4}|\d{13})/g, (date) => dateFuncs.formatDate(date, "mdyy"))
             return foundAlert
             function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) {
                 switch (alertByCategory) {
@@ -1971,7 +1978,7 @@ try {
             function noteSummaryFunction({ alertByCategory, effectiveDate, selectedRowName } = {}) {
                 switch (alertByCategory) {
                     case "maxis.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+)(\d{1,2}\/\d{1,2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
-                    case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.formatDate(dateFuncs.addDays(effectiveDate.textContent, 45), "mdyy") }
+                    case "information.mailed": { return "Redetermination mailed, due " + dateFuncs.addDays(effectiveDate.textContent, 45) }
                 }
             }
         };
@@ -2728,7 +2735,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 }(); // SECTION_END Case_Eligibility_Result_Approval;
 !function __CaseEligibilityResultFinancial() {
     if (!("CaseEligibilityResultFinancial.htm").includes(thisPageNameHtm)) { return };
-    let totalAnnualizedIncome = Number(document.querySelector('label[for="totalAnnualizedIncome"]+div').innerText.replace(/[^0-9.-]+/g, "")), maxAllowed = Number(document.querySelector('label[for="maxIncomeAllowed"]+div').innerText.replace(/[^0-9.-]+/g, ""))
+    let totalAnnualizedIncome = sanitize.number(document.querySelector('label[for="totalAnnualizedIncome"]+div').innerText), maxAllowed = sanitize.number(document.querySelector('label[for="maxIncomeAllowed"]+div').innerText)
     if (totalAnnualizedIncome > maxAllowed) { document.querySelector('label[for="totalAnnualizedIncome"]').closest('div').classList.add('eligibility-highlight', 'ineligible') }
 }(); // SECTION_END Case_Eligibility_Result_Financial;
 !function __CaseEligibilityResultSelection() {
@@ -2810,7 +2817,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             addValueClassdoChange(ceiEmpCountry, 'USA', false, true)
         })
         ifNoPersonUntabEndAndDisableChange('#memberReferenceNumberNewMember', '#ceiPaymentEnd')
-        ceiGrossIncome.parentElement.insertAdjacentHTML('afterend', '<div id="autoFiftyPercent"><div id="fiftyPercent"></div><button type="button" id="grossButton" class="cButton">Use 50%</button></div>');
+        ceiGrossIncome.parentElement.insertAdjacentHTML('afterend', '<div id="autoFiftyPercent"><div id="fiftyPercent"></div><button type="button" id="grossButton" class="cButton" tabindex="27">Use 50%</button></div>');
         let fiftyPercent = document.getElementById('fiftyPercent')
         fiftyPercent.innerText = '50%: ' + getCeiGrossIncomeFiftyPct()
         ceiGrossIncome.addEventListener('input', () => { fiftyPercent.innerText = '50%: ' + getCeiGrossIncomeFiftyPct(); addHoursPerWeekToSelfEmployment() })
@@ -2822,7 +2829,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     } else if (!editMode) {
         document.getElementById('earnedIncomeMemberTable').addEventListener('click', () => checkEmploymentType() );
     }
-    function addHoursPerWeekToSelfEmployment() { seiHoursCalculation.value = Math.round(100*parseInt(ceiTotalIncome.value.replace(/[$,]/g, '') )/52/7.25)/100 + " hours" }
+    function addHoursPerWeekToSelfEmployment() { seiHoursCalculation.value = Math.round(100*( sanitize.number(ceiTotalIncome.value) )/52/7.25)/100 + " hours" }
 }(); // SECTION_END Case_Earned_Income;
 !function __CaseExpense() {
     if (!("CaseExpense.htm").includes(thisPageNameHtm)) { return };
@@ -3551,12 +3558,13 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     let correspondingTableOneRow = providerResult[thisRow.rowIndex2]
                     if (thisRow.childName !== selectedChild || (providerName && !!(correspondingTableOneRow.providerName !== providerName))) { return }
                     concatPaymentHTML.childsProviderSetList.add(correspondingTableOneRow.providerName)
-                    concatPaymentHTML.childPaymentsTotal += Number( thisRow.amount.replace(/[\$,]/g, '') * 100 )
+                    concatPaymentHTML.childPaymentsTotal += sanitize.number(thisRow.amount) * 100
                     if (childDatesArray.includes(correspondingTableOneRow.billingPeriod)) {
                         let match = childPaymentTableArray.find(cptaArr => cptaArr[0] === correspondingTableOneRow.billingPeriod);
                         if (match[1] === correspondingTableOneRow.providerName) {
-                            let matchPlanNumb = Number(match[2].replace(/[\$,]/g, ''))
-                            match[2] = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( matchPlanNumb + Number(thisRow.amount.replace(/[\$,]/g, '')) )
+                            let matchPlanNumb = sanitize.number(match[2])
+                            match[2] = numberFuncs.toUSD(matchPlanNumb + sanitize.number(thisRow.amount) )
+                            // match[2] = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( matchPlanNumb + Number(thisRow.amount.replace(/[\$,]/g, '')) )
                             return;
                         }
                     }
@@ -3567,7 +3575,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 childPaymentTableArray.sort( (a, b) => Date.parse(b) > Date.parse(a) )
                 let childPaymentTbodyHTML = childPaymentTableArray.map(trow => '<tr><td>' + trow.join('</td><td>') + '</td></tr>').join('')
                 concatPaymentHTML.childTable = [ '<br><div class="marginBottom">Payment filter applied to table below. Child filter selected: ', childNameProper, '.</div><table class="marginBottom">', childPaymentTableHeaderHTML, childPaymentTbodyHTML, '</table>' ].join('')
-                let childAmountsTotalCurrency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( (concatPaymentHTML.childPaymentsTotal / 100) )
+                let childAmountsTotalCurrency = numberFuncs.toUSD( (concatPaymentHTML.childPaymentsTotal / 100) )
                 concatPaymentHTML.footer = "<div>Child specific pre-Copay amounts total: " + childAmountsTotalCurrency + ".</div><div>(Pre-Copay $ means the payment amount calculated for the child prior to deducting the household's copay from the provider payment.)</div>"
             }
 
@@ -3580,20 +3588,20 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             providerNameList.forEach(provider => {
                 providerResult.forEach(thisRow => {
                     if (thisRow.providerName !== provider) { return };
-                    concatPaymentHTML.providerPaymentsTotal += Number( thisRow.issuanceAmount.replace(/[\$,]/g, '') * 100 )
+                    concatPaymentHTML.providerPaymentsTotal += sanitize.number( thisRow.issuanceAmount * 100 )
                     if (providerDateArray.includes(thisRow.billingPeriod)) {
                         let match = providerPaymentTableArray.find(pptaArr => pptaArr[0] === thisRow.billingPeriod);
                         if (match[1] === thisRow.providerName) {
-                            match[2] = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( Number(match[2].replace(/[\$,]/g, '')) + Number(thisRow.issuanceAmount.replace(/[\$,]/g, '')) )
-                            match[3] = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( Number(match[3].replace(/[\$,]/g, '')) + Number(thisRow.copayAmount.replace(/[\$,]/g, '')) )
-                            match[4] = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( Number(match[4].replace(/[\$,]/g, '')) + Number(thisRow.recoupAmount.replace(/[\$,]/g, '')) )
+                            match[2] = numberFuncs.toUSD( sanitize.number(match[2]) + sanitize.number(thisRow.issuanceAmount) )
+                            match[3] = numberFuncs.toUSD( sanitize.number(match[3]) + sanitize.number(thisRow.copayAmount) )
+                            match[4] = numberFuncs.toUSD( sanitize.number(match[4]) + sanitize.number(thisRow.recoupAmount) )
                             return;
                         }
                     }
                     providerPaymentTableArray.push([ thisRow.billingPeriod, thisRow.providerName, thisRow.issuanceAmount, thisRow.copayAmount, thisRow.recoupAmount ])
                     providerDateArray.push(thisRow.billingPeriod)
                 })
-                let providerPaymentsTotalCurrency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( (concatPaymentHTML.providerPaymentsTotal / 100) )
+                let providerPaymentsTotalCurrency = numberFuncs.toUSD( (concatPaymentHTML.providerPaymentsTotal / 100) )
                 concatPaymentHTML.paymentsTotal = '<span>Payments Total: ' + providerPaymentsTotalCurrency + '.</span></div>'
             })
             providerPaymentTableArray.sort( (a, b) => Date.parse(b) > Date.parse(a) )
@@ -3645,7 +3653,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     let redText = rederrortextContent.find(arrItem => arrItem.indexOf('This case can only be reinstated in the period') > -1)
     if (redText) {
         let [, redTextSplit ] = redText.split(': ')
-        let reinstatePeriod = redTextSplit.replace(/[\/\- ]/g, '')
+        let reinstatePeriod = dateFuncs.parm3(redTextSplit)
         document.querySelector('div.error_alertbox_new > strong.rederrortext').innerHTML = '<a href="/ChildCare/CaseReinstate.htm?parm2=' + caseIdVal + '&parm3=' + reinstatePeriod + '" target="_self" style="color: #CC0000 !important; text-decoration: underline;">' + redText + '</a>'
     }
 }(); // SECTION_END Case_Reinstate;
@@ -4145,12 +4153,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     }
                     let childAtProvider = billings.children[child.referenceNumber][child.rowIndex2]
                     let cappingInfo = child.cappingInfoText ? child.cappingInfoText.replace(/<.+?>Week.+?<LI>|<\/.+>|Amount allowed.+?\.00\./g, '') : ''
-                    if (childAtProvider.startDate > periodStart) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": SA start date (" + dateFuncs.formatDate(childAtProvider.startDate, "mdyy") + ") is after the first date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA start date") }
-                    if (childAtProvider.endDate < periodEnd) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": SA end date (" + dateFuncs.formatDate(childAtProvider.endDate, "mdyy") + ") is before the last date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA end date") }
-                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours") }
+                    if (childAtProvider.startDate > periodStart) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - SA start date (" + dateFuncs.formatDate(childAtProvider.startDate, "mdyy") + ") is after the first date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA start date") }
+                    if (childAtProvider.endDate < periodEnd) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - SA end date (" + dateFuncs.formatDate(childAtProvider.endDate, "mdyy") + ") is before the last date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA end date") }
+                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours") }
                     if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursAllowed && cappingInfo && (/secondary/i).test(cappingInfo)) {
                         // if (cappingInfo && (/secondary/i).test(cappingInfo)) {
-                        addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. " + cappingInfo)
+                        addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. " + cappingInfo)
                         addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider")
                         // }
                         // else {
@@ -4171,10 +4179,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     // }
                 };
                 if (!billings.issues) { return };
-                !async function makeBillingButtons() {
-                    for await (let providerObj of Object.entries(billings.providers)) {
+                !function makeBillingButtons() {
+                // !async function makeBillingButtons() {
+                    for (let providerObj of Object.entries(billings.providers)) {
+                    // for await (let providerObj of Object.entries(billings.providers)) {
                         if (providerObj[0] in billings.issues) {
-                            providerObj[1].providerName = providerObj[1].providerType === "Child Care Center" ? providerObj[1].providerName : await evalData({caseProviderNumber: providerObj[1].providerId, pageName: 'ProviderTaxInfo', evalString: '0.0.taxName', caseOrProvider: 'provider'})
+                            // providerObj[1].providerName = providerObj[1].providerType === "Child Care Center" ? providerObj[1].providerName : await evalData({caseProviderNumber: providerObj[1].providerId, pageName: 'ProviderTaxInfo', evalString: '0.0.taxName', caseOrProvider: 'provider'})
                             billingEmailTemplate.insertAdjacentHTML('afterend', '<button class="form-button" id="' + providerObj[0] + '" title="' + providerObj[1].buttonTitle.join(", ") + '">' + providerObj[1].providerName + '</button>')
                         }
                     }
@@ -4203,9 +4213,10 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             let selectedTRowChildren = selectedTRow.children
             let selectedProviderName = clickedButtonName !== "Template"
             ? clickedButtonName // non-template buttons already fetched proper name.
-            : selectedTRowChildren[typeAndNameColumns[thisPageName].type].textContent === "Child Care Center"
-                ? selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
-                : await evalData({caseProviderNumber: selectedTRowChildren[typeAndNameColumns[thisPageName].id].textContent, pageName: 'ProviderTaxInfo', evalString: '0.0.taxName', caseOrProvider: 'provider'})
+            // : selectedTRowChildren[typeAndNameColumns[thisPageName].type].textContent === "Child Care Center"
+                : selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
+                // ? selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
+                // : await evalData({caseProviderNumber: selectedTRowChildren[typeAndNameColumns[thisPageName].id].textContent, pageName: 'ProviderTaxInfo', evalString: '0.0.taxName', caseOrProvider: 'provider'})
             let emailSubject = selectedProviderName + '  Case: ' + caseIdVal + ', ' + caseName + '  ' + billingFormDates.start + '-' + billingFormDates.end
             let emailBody = clickedButtonName === "Template" ? "" : billings.issues[clickedButtonId].join("%0A")
             if (emailOrClipboard === "email") {
@@ -4215,8 +4226,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     window.open('mailto:' + workerInfo + '?subject=' + emailSubject + '&body=' + emailBody + "%0A%0A%0A", "_self")
                 }
             } else if (emailOrClipboard === "clipboard") {
-                let subjectOrBody = billingTextCounter() % 2 === 0
-                let billingTextToCopy = clickedButtonName === "Template" ? emailSubject : subjectOrBody ? emailSubject : emailBody
+                let isTemplate = clickedButtonName === "Template", subjectOrBody = isTemplate ? true : billingTextCounter() % 2 === 0
+                let billingTextToCopy = isTemplate ? emailSubject : subjectOrBody ? emailSubject : emailBody
                 copy(billingTextToCopy, billingTextToCopy, subjectOrBody ? "Copied email subject!" : "Copied email body!", "center")
             }
         };
@@ -4992,10 +5003,10 @@ function addDateControls(increment, ...eles) {
         dateControl.insertAdjacentHTML('afterend', '<button type="button" class="controls next-control" id="next.' + dateControl.id + '">+</button>')
         dateControlParent.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
-            let prevOrNext = clickEvent.target.id.split(".")[0], datePickerElement = prevOrNext === "prev" ? clickEvent.target.nextElementSibling : clickEvent.target.previousElementSibling, controlDate = new Date(datePickerElement.value)
+            let prevOrNext = clickEvent.target.id.split(".")[0], datePickerElement = prevOrNext === "prev" ? clickEvent.target.nextElementSibling : clickEvent.target.previousElementSibling, controlDate = sanitize.date(datePickerElement.value)
             if (increment === "month") {
-                if (prevOrNext === "prev") { datePickerElement.value = dateFuncs.formatDate( new Date(controlDate.setMonth(controlDate.getMonth() - 1)), "mmddyyyy" ) }
-                else if (prevOrNext === "next") { datePickerElement.value = dateFuncs.formatDate( new Date(controlDate.setMonth(controlDate.getMonth() + 1)), "mmddyyyy" ) }
+                if (prevOrNext === "prev") { datePickerElement.value = dateFuncs.formatDate(dateFuncs.addMonths(controlDate, -1), "mmddyyyy") }
+                else if (prevOrNext === "next") { datePickerElement.value = dateFuncs.formatDate(dateFuncs.addMonths(controlDate, 1), "mmddyyyy") }
             } else if (increment === "day") {
                 if (prevOrNext === "prev") { datePickerElement.value = dateFuncs.formatDate( dateFuncs.addDays(controlDate, -1), "mmddyyyy" ) }
                 else if (prevOrNext === "next") { datePickerElement.value = dateFuncs.formatDate( dateFuncs.addDays(controlDate, 1), "mmddyyyy" ) }
