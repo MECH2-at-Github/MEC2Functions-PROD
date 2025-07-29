@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.22
+// @version      0.6.23
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -3548,23 +3548,20 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         function getProviderAndChildPaymentInfo(providerName, childName) {
             let caseName = nameFuncs.commaNameReorder(pageTitle)
             let concatPaymentHTML = { providerPaymentsTotal: 0, providerPaymentFilter: '', childPaymentsTotal: 0 }
-            const childPaymentTableArray = [], providerPaymentTableArray = []
+            const childPaymentTableArray = [], providerPaymentTableArray = [], childDatesArray = [], providerDateArray = []
             let selectedChild = selectionChild?.value
             if (selectedChild) {
                 concatPaymentHTML.childsProviderSetList = new Set()
                 let childNameProper = nameFuncs.commaNameReorder(selectionChild?.value)
-                let childDatesArray = []
                 childResult.forEach(thisRow => {
                     let correspondingTableOneRow = providerResult[thisRow.rowIndex2]
                     if (thisRow.childName !== selectedChild || (providerName && !!(correspondingTableOneRow.providerName !== providerName))) { return }
                     concatPaymentHTML.childsProviderSetList.add(correspondingTableOneRow.providerName)
                     concatPaymentHTML.childPaymentsTotal += sanitize.number(thisRow.amount) * 100
-                    if (childDatesArray.includes(correspondingTableOneRow.billingPeriod)) {
-                        let match = childPaymentTableArray.find(cptaArr => cptaArr[0] === correspondingTableOneRow.billingPeriod);
-                        if (match[1] === correspondingTableOneRow.providerName) {
-                            let matchPlanNumb = sanitize.number(match[2])
-                            match[2] = numberFuncs.toUSD(matchPlanNumb + sanitize.number(thisRow.amount) )
-                            // match[2] = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( matchPlanNumb + Number(thisRow.amount.replace(/[\$,]/g, '')) )
+                    if (childDatesArray.includes(correspondingTableOneRow.billingPeriod)) { // in case of supplemental payments //
+                        let childMatch = childPaymentTableArray.find(cptaArr => cptaArr[0] === correspondingTableOneRow.billingPeriod);
+                        if (childMatch[1] === correspondingTableOneRow.providerName) {
+                            childMatch[2] = numberFuncs.toUSD(sanitize.number(childMatch[2]) + sanitize.number(thisRow.amount) )
                             return;
                         }
                     }
@@ -3576,32 +3573,30 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 let childPaymentTbodyHTML = childPaymentTableArray.map(trow => '<tr><td>' + trow.join('</td><td>') + '</td></tr>').join('')
                 concatPaymentHTML.childTable = [ '<br><div class="marginBottom">Payment filter applied to table below. Child filter selected: ', childNameProper, '.</div><table class="marginBottom">', childPaymentTableHeaderHTML, childPaymentTbodyHTML, '</table>' ].join('')
                 let childAmountsTotalCurrency = numberFuncs.toUSD( (concatPaymentHTML.childPaymentsTotal / 100) )
-                concatPaymentHTML.footer = "<div>Child specific pre-Copay amounts total: " + childAmountsTotalCurrency + ".</div><div>(Pre-Copay $ means the payment amount calculated for the child prior to deducting the household's copay from the provider payment.)</div>"
+                concatPaymentHTML.footer = "<div>Filtered pre-Copay amounts total: " + childAmountsTotalCurrency + ".</div><div>(Pre-Copay $ means the payment amount calculated for the child prior to deducting the household's copay from the provider payment.)</div>"
             }
-
             let providerNameList = providerName.length ? [providerName]
             : concatPaymentHTML.childsProviderSetList?.size ? [...concatPaymentHTML.childsProviderSetList]
             : providerTableList
             concatPaymentHTML.style = '<style>table { border: 2px solid green !important; font-size: 24px; white-space: nowrap; table-layout: fixed; } table td { padding: 2px 20px; } table thead td { font-weight: 700; background: #07416f; color: white; } table tbody td { color: black; background: white; } .marginBottom { margin-bottom: 10px; }</style>'
             concatPaymentHTML.tableOneText = [ '<div class="marginBottom" id="casePaymentTitle"><span>', caseName, ' - ', caseIdVal, ' - CCAP payments from ', paymentPeriodBegin.value, ' to ', paymentPeriodEnd.value, '. </span>' ].join('')
-            let providerDateArray = []
             providerNameList.forEach(provider => {
                 providerResult.forEach(thisRow => {
                     if (thisRow.providerName !== provider) { return };
-                    concatPaymentHTML.providerPaymentsTotal += sanitize.number( thisRow.issuanceAmount * 100 )
-                    if (providerDateArray.includes(thisRow.billingPeriod)) {
-                        let match = providerPaymentTableArray.find(pptaArr => pptaArr[0] === thisRow.billingPeriod);
-                        if (match[1] === thisRow.providerName) {
-                            match[2] = numberFuncs.toUSD( sanitize.number(match[2]) + sanitize.number(thisRow.issuanceAmount) )
-                            match[3] = numberFuncs.toUSD( sanitize.number(match[3]) + sanitize.number(thisRow.copayAmount) )
-                            match[4] = numberFuncs.toUSD( sanitize.number(match[4]) + sanitize.number(thisRow.recoupAmount) )
+                    concatPaymentHTML.providerPaymentsTotal += (sanitize.number( thisRow.issuanceAmount) * 100 )
+                    if (providerDateArray.includes(thisRow.billingPeriod)) { // in case of supplemental payments //
+                        let providerMatch = providerPaymentTableArray.find(pptaArr => pptaArr[0] === thisRow.billingPeriod);
+                        if (providerMatch[1] === thisRow.providerName) {
+                            providerMatch[2] = numberFuncs.toUSD( sanitize.number(providerMatch[2]) + sanitize.number(thisRow.issuanceAmount) )
+                            providerMatch[3] = numberFuncs.toUSD( sanitize.number(providerMatch[3]) + sanitize.number(thisRow.copayAmount) )
+                            providerMatch[4] = numberFuncs.toUSD( sanitize.number(providerMatch[4]) + sanitize.number(thisRow.recoupAmount) )
                             return;
                         }
                     }
                     providerPaymentTableArray.push([ thisRow.billingPeriod, thisRow.providerName, thisRow.issuanceAmount, thisRow.copayAmount, thisRow.recoupAmount ])
                     providerDateArray.push(thisRow.billingPeriod)
                 })
-                let providerPaymentsTotalCurrency = numberFuncs.toUSD( (concatPaymentHTML.providerPaymentsTotal / 100) )
+                let providerPaymentsTotalCurrency = numberFuncs.toUSD(concatPaymentHTML.providerPaymentsTotal / 100)
                 concatPaymentHTML.paymentsTotal = '<span>Payments Total: ' + providerPaymentsTotalCurrency + '.</span></div>'
             })
             providerPaymentTableArray.sort( (a, b) => Date.parse(b) > Date.parse(a) )
