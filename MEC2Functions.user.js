@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.23
+// @version      0.6.24
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -850,7 +850,7 @@ docReady( document.body?.addEventListener('submit', () => { document.body.style.
             document.querySelector('#contactInformation').textContent = "Help Info"
             document.querySelector('#footer_links > a[href="https://bi.dhs.state.mn.us/BOE/BI"]').textContent = 'BOBI'
             let newUserManual = document.querySelector('#footer_links>a[href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=mecc-0002"]')
-            newUserManual.outerHTML = '<a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=MECC-0001" target="_blank" tabindex="-1">"New" User Manual</a><span class="footer">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_139409" target="_blank">User Manual</a>'
+            newUserManual.outerHTML = '<a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=MECC-0001" target="_blank">"New" User Manual</a><span class="footer">ı</span><a href="https://www.dhs.state.mn.us/main/idcplg?IdcService=GET_DYNAMIC_CONVERSION&RevisionSelectionMethod=LatestReleased&dDocName=dhs16_139409" target="_blank">User Manual</a>'
             document.getElementById('contactInformation').insertAdjacentHTML('afterend', getFooterLinks())
             function getFooterLinks() {
                 let footerLinks = ""
@@ -2295,12 +2295,12 @@ try {
         }
         !(async function accreditationOrParentAware() {
             let hasParentAware3plus = await nonLnlParentAware()
-            if (!hasParentAware3plus) {
-                let accredResult = await evalData({ caseProviderNumber: ccpEle.providerId.value, pageName: 'ProviderAccreditation', evalString: '0.0', caseOrProvider: 'provider', })
-                if (!accredResult || Date.parse(accredResult.accreditationPeriodEnd) < Date.parse(selectPeriodDates.start)) { return };
-                ccpEle.hoursOfCareAuthorized.closest('.row').insertAdjacentHTML('beforeend', returnHqHTML("accreditation", "Accreditation"))
-                document.getElementById('accreditation').value = accredResult.accreditationType
-            }
+            // if (!hasParentAware3plus) {
+            //     let accredResult = await evalData({ caseProviderNumber: ccpEle.providerId.value, pageName: 'ProviderAccreditation', evalString: '0.0', caseOrProvider: 'provider', })
+            //     if (!accredResult || Date.parse(accredResult.accreditationPeriodEnd) < Date.parse(selectPeriodDates.start)) { return };
+            //     ccpEle.hoursOfCareAuthorized.closest('.row').insertAdjacentHTML('beforeend', returnHqHTML("accreditation", "Accreditation"))
+            //     document.getElementById('accreditation').value = accredResult.accreditationType
+            // }
         })()
         async function nonLnlParentAware() {
             if (ccpEle.providerType.value !== "Legal Non-licensed") {
@@ -3162,6 +3162,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     }).catch(err => { console.trace(err) })
 }(); // SECTION_END Case_Member_II;
 !function CaseNotes() { // =====================================================================================================================================;
+    if (["ProviderNotes.htm"].includes(thisPageNameHtm)) { restyleCreated(); doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage'); return };
     if (!["CaseNotes.htm"].includes(thisPageNameHtm)) { return };
     doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
@@ -3171,7 +3172,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     editMode && unhideElement(document.querySelector('div.form-group:has(#noteArchiveType)'), false)
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
         document.getElementById('noteCreateDate')?.closest('div.panel-box-format').classList.add('hidden')
-        let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = noteSummary?.closest('.row')
+        let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = document.getElementById('noteSummary')?.closest('.row')
         noteCreatorChildren.forEach(ele => noteSummaryRow.append(ele))
         tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
     }
