@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.25
+// @version      0.6.26
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -14,11 +14,10 @@
 // ("global object list", "countyInfo, userCountyObj, selectPeriodDates, stateData, actualDate, ")
 // ("global array list", "listPagesArray, ")
 //
-const pathnameLen = window.location.pathname.slice(-4) === ".htm" ? window.location.pathname.lastIndexOf(".htm") : 0,
-      pageName = pathnameLen ? window.location.pathname.slice(11, (pathnameLen)) : window.location.pathname,
+const htmPage = window.location.pathname.slice(-4) === ".htm",
+      pageName = htmPage ? window.location.pathname.slice(11, -4) : "Login.htm",
       thisPageName = pageName.indexOf("/") === 0 ? pageName.slice(1) : pageName,
-      thisPageNameHtm = pathnameLen ? thisPageName + ".htm" : thisPageName
-//
+      thisPageNameHtm = htmPage ? thisPageName + ".htm" : thisPageName
 console.time('mec2functions load time');
 let verboseMode = 1
 const sanitize = {
@@ -137,7 +136,6 @@ const clearStorageItems = (storage = "both") => {
     if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
 };
 if ( thisPageNameHtm === "Welcome.htm" && document.getElementById('Alerts')?.style?.pointerEvents === "" ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
-// if ( "Welcome".includes(thisPageName) ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
 const gbl = {
     eles: {
         pageWrap: document.getElementById('page-wrap'), save: document.getElementById('save'), quit: document.getElementById('quit'), submitButton: document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitproviderId, #providerIdSubmit, #search'),
@@ -604,6 +602,8 @@ const allPagesMap = new Map([
     [ "FinancialClaimMaintenanceCase.htm", { label: "Maint-Case", target: "_self", parentId: "Maintenance Case", rowTwoParent: "Claims.btn", row: "3", }, ],
     [ "FinancialClaimMaintenancePerson.htm", { label: "Maint-Person", target: "_self", parentId: "Maintenance Person", rowTwoParent: "Claims.btn", row: "3", }, ],
     [ "FinancialClaimMaintenanceProvider.htm", { label: "Maint-Provider", target: "_self", parentId: "Maintenance Provider", rowTwoParent: "Claims.btn", row: "3", }, ],
+
+    [ "CaseWorker.htm", { label: "Case Worker", target: "_self", parentId: "Case Worker", rowTwoParent: "Misc.btn", row: "3" }, ],
 ])
 !function primaryNavigation() {
     if (iFramed || !thisPageNameHtm || thisPageNameHtm.indexOf('Log') === 0) { return }
@@ -2300,12 +2300,12 @@ try {
         }
         !(async function accreditationOrParentAware() {
             let hasParentAware3plus = await nonLnlParentAware()
-            // if (!hasParentAware3plus) {
-            //     let accredResult = await evalData({ caseProviderNumber: ccpEle.providerId.value, pageName: 'ProviderAccreditation', evalString: '0.0', caseOrProvider: 'provider', })
-            //     if (!accredResult || Date.parse(accredResult.accreditationPeriodEnd) < Date.parse(selectPeriodDates.start)) { return };
-            //     ccpEle.hoursOfCareAuthorized.closest('.row').insertAdjacentHTML('beforeend', returnHqHTML("accreditation", "Accreditation"))
-            //     document.getElementById('accreditation').value = accredResult.accreditationType
-            // }
+            if (!hasParentAware3plus) {
+                let accredResult = await evalData({ caseProviderNumber: ccpEle.providerId.value, pageName: 'ProviderAccreditation', evalString: '0.0', caseOrProvider: 'provider', })
+                if (!accredResult || Date.parse(accredResult.accreditationPeriodEnd) < Date.parse(selectPeriodDates.start)) { return };
+                ccpEle.hoursOfCareAuthorized.closest('.row').insertAdjacentHTML('beforeend', returnHqHTML("accreditation", "Accreditation"))
+                document.getElementById('accreditation').value = accredResult.accreditationType
+            }
         })()
         async function nonLnlParentAware() {
             if (ccpEle.providerType.value !== "Legal Non-licensed") {
@@ -3317,10 +3317,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 }
             }(); // End Duplicate_Note
             !function caseNotes() { // SECTION_START Case_Notes_Only
-                if (!("CaseNotes.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
+                if (!caseIdVal) { return };
                 if (editMode && !notesTableNoRecords) {
                     document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
-                    // document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
                     document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
                     let autoFormatSlider = createSlider({ label: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
                     h4objects.note.h4.insertAdjacentHTML('afterend', autoFormatSlider)
@@ -3334,7 +3333,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
                         let formattedPastedText = convertLineBreakToSpace(pastedText)
                         .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
-                        // .replace(/^\ {0,9}\u0009|\n\ {16}/g, "\n             ") //excel "tab"
                         .replace(/\u0009/g, "    ") //excel "tab"
                         .replace(/^\n+/g, "\n")//Multiple new lines to single new line;
                         if (pastedText !== formattedPastedText) {
@@ -4098,7 +4096,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         if (!["FinancialBillingApproval.htm", "FinancialBilling.htm"].includes(thisPageNameHtm)) { return };
         let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody')
         if (!billingProviderTableTbody.children[0].children[1]) { return };
-        if (!editMode) {
+        !function storeSelectedProvider() {
+            if (editMode) { return };
             let billingEvalLookup = { FinancialBilling: { child: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { child: 0, providerIdInArr: "memberproviderId" }, }
             let billingProviderTableChildren = document.querySelector(':is(table#billingProviderTable, table#financialBillingApprovalTable) > tbody').children
             document.getElementById('buttonPanelThree')?.addEventListener('click', () => {
@@ -4111,7 +4110,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 if (!billingReferAndSelectedProvider) { return };
                 let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelectedProvider) { billingProviderTableChildren[i].click() } })
                 }).catch(err => { console.trace(err) })
-        }
+        }();
+        //
         let twoOrFourWeeks = createSlider({ label: "", title: "", id: "twoOrFourWeeks", defaultOn: 0, classes: "slider-always-color" })
         tertiaryActionArea?.insertAdjacentHTML('afterbegin', '<div id="weekBillingToggle" class="db-container"><span id="is2WkBilling">2-Week</span>' + twoOrFourWeeks + '<span id="is4WkBilling" style="opacity: .6;">4-Week</span></div><div id="copyButtons" class="db-container"><button class="form-button" id="billingEmailTemplate">Template</button></div>')
         let billingEmailTemplate = document.getElementById('billingEmailTemplate'), is2WkBilling = document.getElementById('is2WkBilling'), is4WkBilling = document.getElementById('is4WkBilling')
@@ -4151,7 +4151,6 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                         totalHoursBilled: (Number(child.totalHoursBilledWeekOne) + Number(child.totalHoursBilledWeekTwo)),
                         startDate: Date.parse(child.effectiveStartDate.slice(0, 10)),
                         endDate: Date.parse(child.effectiveEndDate.slice(0, 10)),
-                        // referenceNumber: child.referenceNumber,
                     }
                     let childAtProvider = billings.children[child.referenceNumber][child.rowIndex2]
                     let cappingInfo = child.cappingInfoText ? child.cappingInfoText.replace(/<.+?>Week.+?<LI>|<\/.+>|Amount allowed.+?\.00\./g, '') : ''
@@ -4159,34 +4158,14 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     if (childAtProvider.endDate < periodEnd) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - SA end date (" + dateFuncs.formatDate(childAtProvider.endDate, "mdyy") + ") is before the last date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA end date") }
                     if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours") }
                     if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursAllowed && cappingInfo && (/secondary/i).test(cappingInfo)) {
-                        // if (cappingInfo && (/secondary/i).test(cappingInfo)) {
                         addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. " + cappingInfo)
                         addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider")
-                        // }
-                        // else {
-                        //     async function parseAbsentDays() {
-                        //         if (Object.keys(absentDays).length) { return absentDays };
-                        //         await evalData({caseProviderNumber: caseIdVal, pageName: "FinancialAbsentDayHolidayTracking", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'})
-                        //             .then(childAbsentDays => childAbsentDays.forEach(absentChild => { absentDays[child.childReferenceNumber] = absentChild.absentLimitReachedDate || absentChild.absentDaysUsed || '' }) )
-                        //     }
-                        //     await parseAbsentDays().then(e => {
-                        //         if (!absentDays[child.referenceNumber]) { return };
-                        //         if (absentDays[child.referenceNumber].includes("/")) { absentDaysLimitReached(absentDays[child.referenceNumber]) }
-                        //     })
-                        // }
                     }
-                    // function absentDaysLimitReached(dateLimitReached) {
-                    //     addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + ": Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. Absent day limit reached: " + dateLimitReached + '.')
-                    //     addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Absent Days")
-                    // }
                 };
                 if (!billings.issues) { return };
                 !function makeBillingButtons() {
-                // !async function makeBillingButtons() {
                     for (let providerObj of Object.entries(billings.providers)) {
-                    // for await (let providerObj of Object.entries(billings.providers)) {
                         if (providerObj[0] in billings.issues) {
-                            // providerObj[1].providerName = providerObj[1].providerType === "Child Care Center" ? providerObj[1].providerName : await evalData({caseProviderNumber: providerObj[1].providerId, pageName: 'ProviderTaxInfo', evalString: '0.0.taxName', caseOrProvider: 'provider'})
                             billingEmailTemplate.insertAdjacentHTML('afterend', '<button class="form-button" id="' + providerObj[0] + '" title="' + providerObj[1].buttonTitle.join(", ") + '">' + providerObj[1].providerName + '</button>')
                         }
                     }
@@ -4213,12 +4192,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             }
             let selectedTRow = billingProviderTableTbody.querySelector('tr.selected')
             let selectedTRowChildren = selectedTRow.children
-            let selectedProviderName = clickedButtonName !== "Template"
-            ? clickedButtonName // non-template buttons already fetched proper name.
-            // : selectedTRowChildren[typeAndNameColumns[thisPageName].type].textContent === "Child Care Center"
-                : selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
-                // ? selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
-                // : await evalData({caseProviderNumber: selectedTRowChildren[typeAndNameColumns[thisPageName].id].textContent, pageName: 'ProviderTaxInfo', evalString: '0.0.taxName', caseOrProvider: 'provider'})
+            let selectedProviderName = clickedButtonName !== "Template" ? clickedButtonName : selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
             let emailSubject = selectedProviderName + '  Case: ' + caseIdVal + ', ' + caseName + '  ' + billingFormDates.start + '-' + billingFormDates.end
             let emailBody = clickedButtonName === "Template" ? "" : billings.issues[clickedButtonId].join("%0A")
             if (emailOrClipboard === "email") {
@@ -4240,7 +4214,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }
         async function getWorkerInfo() {
             let workerData = await evalData({caseProviderNumber: caseIdVal, pageName: "CaseWorker", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'});
-            return workerData.find(data => data.progId === "CC").workerName.split(" ")[0]
+            return workerData.find(data => data.progId === "CC")?.workerName.split(" ")[0] ?? ""
         }
     }() // SECTION_END Financial_Billing_Financial_Billing_Approval_Copy_Button;
     !function __FinancialManualPayment() {
@@ -4637,13 +4611,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.panel-box-format .form-control:not(:disabled, [readonly])')].find( ele => values.includes(ele.value) )
 !function focusElement() {
     if (iFramed) { return };
-    // function firstEmptyElement() { return [...document.querySelectorAll('.panel-box-format .form-control:not(:disabled, .form-button, [readonly], [type="hidden"], [type=checkbox])')].find( ele => ["No Verification Provided", 'No', 'Not Cooperating', ''].includes(ele.value) ) };
     !function autoFocusOnPageLoad() {
     try { //========== Auto_Focus_On_Page_Load Start =================
         if ( gbl.eles.caseIdElement && !caseIdVal ) { focusEle = gbl.eles.caseIdElement; return; }
         else if ( gbl.eles.providerIdElement && !providerIdVal ) { focusEle = gbl.eles.providerIdElement; return; }
         if (!countyInfo.userSettings.eleFocus) { return };
-        !function autoFocuscaseIdVal() {
+        !function autoFocusCase() {
             if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#new' : document.getElementById('pmiNumber').disabled ? '#next' : '#pmiNumber' };
             if (!caseIdVal) { return };
             !function activity_income_tab_pages() {
@@ -4862,8 +4835,8 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
                 if (("FinancialManualPayment.htm").includes(thisPageNameHtm)) { focusEle = '#mpproviderIdVal' }
             }();
         }();
-        !function autoFocusproviderIdVal() {
-            if (!providerIdVal) { return };
+        !function autoFocusProvider() {
+            if (!providerIdVal || rederrortextContent[0] === "This page is not available for this provider type.") { return };
             //SUB-SECTION START Provider pages
             if (("ProviderAccreditation.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#editDB' : '#accreditationType' }
             if (("ProviderAddress.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#editDB' : '#mailingSiteHomeStreet1' }
@@ -4878,7 +4851,7 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
         if (("ServicingAgencyIncomingTransfers.htm").includes(thisPageNameHtm) && editMode) { focusEle = '#workerIdTo' }
         !function check_for_redtext_errors() {
             if (!editMode || !rederrortextContent.length) { return }
-            if ( rederrortextContent.some( item => item.indexOf('is missing') > -1 ) ) {
+            if ( rederrortextContent.find( item => item.indexOf('is missing') > -1 ) ) {
                 focusEle = document.querySelector('errordiv').closest('div').querySelector('input, select') ?? document.querySelector('errordiv').closest('div').previousElementSibling.querySelector('input, select')
             }
         }();
