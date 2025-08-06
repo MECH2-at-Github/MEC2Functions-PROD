@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.26
+// @version      0.6.27
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -602,13 +602,9 @@ const allPagesMap = new Map([
     [ "FinancialClaimMaintenanceCase.htm", { label: "Maint-Case", target: "_self", parentId: "Maintenance Case", rowTwoParent: "Claims.btn", row: "3", }, ],
     [ "FinancialClaimMaintenancePerson.htm", { label: "Maint-Person", target: "_self", parentId: "Maintenance Person", rowTwoParent: "Claims.btn", row: "3", }, ],
     [ "FinancialClaimMaintenanceProvider.htm", { label: "Maint-Provider", target: "_self", parentId: "Maintenance Provider", rowTwoParent: "Claims.btn", row: "3", }, ],
-
-    [ "CaseWorker.htm", { label: "Case Worker", target: "_self", parentId: "Case Worker", rowTwoParent: "Misc.btn", row: "3" }, ],
 ])
 !function primaryNavigation() {
     if (iFramed || !thisPageNameHtm || thisPageNameHtm.indexOf('Log') === 0) { return }
-    // const providerPages = [ ...navMaps.rowPagesMap.get("Provider_Info.btn"), ...navMaps.rowPagesMap.get("Provider_Notices.btn") ]
-    // const casePages = [ ...navMaps.rowPagesMap.get("Member.btn"), ...navMaps.rowPagesMap.get("Case.btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"), ...navMaps.rowPagesMap.get(".btn"),  ]
     const navMaps = {
         rowMap: new Map([
             [ "rowOne", [ "Alerts.htm", "CaseNotes.htm", "CaseOverview.htm", "CasePageSummary.htm", "ClientSearch.htm", "ProviderSearch.htm", "ActiveCaseList.htm", "PendingCaseList.htm", "InactiveCaseList.htm", "CaseApplicationInitiation.htm", ] ],
@@ -778,8 +774,6 @@ function selectOption(selectElement, selectedOptionValue) {
 !function nextPrevPeriodButtons() {
     if (iFramed || editMode || !gbl.eles.selectPeriod || !sanitize.query(gbl.eles.selectPeriod) || gbl.eles.selectPeriod.disabled || gbl.eles.selectPeriod.readOnly || gbl.eles.selectPeriod.type === "hidden" || reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
     try {
-        // if (!editMode) {
-            // if (reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
             let selectPeriodReversed = countyInfo.userSettings.selectPeriodReversal
             let lastAvailablePeriod = gbl.eles.selectPeriod.firstElementChild.value
             let prevPeriodButtons = '<span id="prevButtons"><button id="backGoSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Go" class="npp-button">«</button><button id="backSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Stay" class="npp-button">‹</button></span>',
@@ -812,7 +806,6 @@ function selectOption(selectElement, selectedOptionValue) {
                 }
                 checkPeriodMobility()
             };
-        // }
     } catch (error) { console.trace("nextPrevPeriodButtons", error) }
 }();
 function findContaningPeriod(selectElement, compareDate=Date.now()) {
@@ -882,7 +875,6 @@ function flashRedOutline(ele) {
 const convertLineBreakToSpace = (string) => string.replace(/([\S]) *\n([a-z])/g, '$1 $2');
 const eventChange = new Event('change', { bubbles: true }), doChange = (element) => sanitize.query(element)?.dispatchEvent(eventChange);
 const eventInput = new Event('input', { bubbles: true }), doInput = (element) => sanitize.query(element)?.dispatchEvent(eventInput);
-// const eventInput = new InputEvent('input', { bubbles: true }), doInput = (element) => sanitize.query(element)?.dispatchEvent(eventInput);
 const eventKeyup = new KeyboardEvent('keyup', { bubbles: true }), doKeyup = (element) => sanitize.query(element)?.dispatchEvent(eventKeyup);
 class TrackedMutationObserver extends MutationObserver { // https://stackoverflow.com/questions/63488834/how-to-get-all-active-mutation-observers-on-page // Replace MutationObserver with TrackedMutationObserver
     static instances = []
@@ -912,7 +904,6 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
             localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
         };
         let viewHistoryDatalist = '<datalist id="caseHistory" style="visibility: hidden;">'
-        // let viewHistoryDatalist = '<datalist id="caseHistory" style="display: block; visibility: hidden; position: absolute;">'
         + caseHistory.map(item => '<div class="caseHistoryEntry" id="history' + parseInt(item.caseIdValNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdValNumber) + '</span></div>').join('')
         + '</datalist>'
         newTabField.insertAdjacentHTML('afterend', viewHistoryDatalist)
@@ -1067,12 +1058,6 @@ const actualDate = {
         }
         return actualDateParsed
     },
-    // _inCurrentBWP( compareDate = Date.now() ) {
-    //     compareDate = sanitize.date(compareDate, "number")
-    //     if (Number.isNaN(compareDate)) { return false }
-    //     if ( inRange( compareDate, sanitize.date(selectPeriodDates.start, "number"), sanitize.date(selectPeriodDates.end, "number") ) ) { return dateFuncs.formatDate(compareDate, "mmddyyyy") }
-    //     else { return false }
-    // },
     _setActualDate({ adCaseNum, adDate } = {}) {
         sessionStorage.setItem('actualDateSS', '{"adCaseNum":"' + adCaseNum + '", "adDate":"' + adDate + '"}' )
     },
@@ -1136,6 +1121,7 @@ try {
              + "<br>Homeless: Checks for if the case is or was homeless, and the dates thereof. For reporting purposes."
              + "<br>Redet/Suspend: Checks suspended cases that have an upcoming redetermination. If the case will likely be suspended for 1 year, adds a button to delay redetermination so the case closes prior to the redetermination being mailed."
              + "<br>Subprogram: Checks all cases to ensure the CCAP subprogram is correct."
+             + "<br>Edit Summary: Lists any summary edits found for all cases."
              + "<br>Residence: Fetches the city of residence for all cases."
              + "<br>Job Search Hours: Checks all cases for the job search activity, and fetches the weekly job search hours listed."
              + "<br>Self-Employment: Checks all cases for the self-employment activity."
@@ -1161,9 +1147,8 @@ try {
                 copy(copyText, copyText, 'Copied!')
             })
         }();
-        // query idea: CaseEditSummary, inhibiting errors. Object.case#.0.editType ("Warning Error", "Inhibiting Error"), .currentPeriod/.selectPeriod/.selectPeriodSelected (all have the same BWP)
         if (!caseResultsData) { return };
-        let aclQueriesOptionsArray = ["Homeless", "Redet/Suspend", "Subprogram", "Residence", "Job Search Hours", "Self-Employment", "Reporter Type"]
+        let aclQueriesOptionsArray = ["Homeless", "Redet/Suspend", "Subprogram", "Edit Summary", "Residence", "Job Search Hours", "Self-Employment", "Reporter Type"]
         let aclQueries = "<select class='form-control' style='width: fit-content;' id='aclQuerySelect'>" + aclQueriesOptionsHTML() + "</select>"
         let afterResults = '<div id="afterResults" style="display: inline-flex; gap: 5px;"> ' + aclQueries + ' <button type="button" id="getAclData" disabled="disabled" class="cButton" type="button">Get Selected Data</button><button type="button" id="exportLoadedData" class="cButton" type="button" disabled="disabled">Copy Excel Data</button></div>'
         caseResultsData.insertAdjacentHTML('afterend', afterResults)
@@ -1177,21 +1162,58 @@ try {
         }
         let aclQuerySelect = document.getElementById('aclQuerySelect')
         const caseListArray = await listPageLinksAndList()
-        const caseListArraySlice = caseListArray.slice(0, 2)
-        const testArray = ["2555562"]
+        const caseListArraySlice = caseListArray.slice(0, 20)
+        const testArray = ["2514494"]
         let outputDataObj = {}
 
-        function addSpan(tr, child, text="", extraAttribs="") {
-                tr.children[child].insertAdjacentHTML('beforeend', '<span class="ACLaddedSpan float-right-imp tableAmend" ' + extraAttribs + '>' + text + '</span>')
+        function addSpan(tr, child, text="", extraAttribs="", addSpanClass="ACLaddedSpan float-right-imp tableAmend") {
+            if (!text) { return };
+            tr.children[child].insertAdjacentHTML('beforeend', '<span class="' + addSpanClass + '" ' + extraAttribs + '>' + text + '</span>')
+        }
+        function addDivSpan(tr, child, extraAttribs="", divSpanClass="ACLaddedSpan float-right-imp tableAmend", spansArray) {
+            if (!spansArray) { return };
+            tr.children[child].insertAdjacentHTML('beforeend', '<div class="' + divSpanClass + '" ' + extraAttribs + '>' + spansArray.map(span => '<span' + (span[1] ?? "") + '>' + span[0] + '</span>').join("") + '</div>')
         }
         function removeSpans() {
             [...document.querySelectorAll('.ACLaddedSpan')].forEach(ele => ele.remove())
         }
+        async function checkEditSummary() {
+            const errorMap = new Map([ // 🅐 🅑 🅒 🅓 🅔 🅕 🅖 🅗 🅘 🅙 🅚 🅛 🅜 🅝 🅞 🅟 🅠 🅡 🅢 🅣 🅤 🅥 🅦 🅧 🅨 🅩 // 🅰 🅱 🅲 🅳 🅴 🅵 🅶 🅷 🅸 🅹 🅺 🅻 🅼 🅽 🅾 🅿 🆀 🆁 🆂 🆃 🆄 🆅 🆆 🆇 🆈 🆉 // 🄌 ➊ ➋ ➌ ➍ ➎ ➏ ➐ ➑ ➒ ➓
+                ["Subsidized Housing is missing. This information is needed for federal reporting.", { uniLetter: "➑", errTitle: ' title="Subsidized Housing."' } ],
+                ["Subsidized Housing is unknown. This information is needed for federal reporting.", { uniLetter: "➑", errTitle: ' title="Subsidized Housing."' } ],
+                ["Head Start Participation is missing.", { uniLetter: "🅗", errTitle: ' title="Head Start participation missing."' } ],
+                ["Alien ID Number is missing. It is required when an Immigration page has been entered.", { uniLetter: "🅐", errTitle: ' title="Alien ID # missing."' } ],
+                ["Race is missing.", { uniLetter: "🅡", errTitle: ' title="Race is missing."' } ],
+                ["Heritage Hispanic/Latino is missing.", { uniLetter: "🅛", errTitle: ' title="Latino/Hispanic heritage missing."' } ],
+                ["An Employment Activity page exists but person has no Earned Income page.", { uniLetter: "🅔", errTitle: ' title="Employment activity, no earned income."' } ],
+                ["An Earned Income page exists but this person does not have an Employment Activity page.", { uniLetter: "🅔", errTitle: ' title="Earned income, no employment activity."' } ],
+                ["School page does not exist for parental adult with claimed Education Activity.", { uniLetter: "🅢", errTitle: ' title="Education activity, no school page."' } ],
+                ["Kindergarten Start date has passed. Child is not listed as attending school.", { uniLetter: "🅚", errTitle: ' title="Kindergarten start date passed."' } ],
+                ["Next Good Cause Review date is prior to the current biweekly period. Complete the review and update the Good Cause Review date.", { uniLetter: "🅖", errTitle: ' title="Good Cause review due."' } ],
+                ["Forms Completed is missing.", { uniLetter: "🅲", errTitle: ' title="CSE: Forms Completed is missing."' } ],
+                ["Each child must be listed on a total combination of two Child Support Enforcement and/or Parent pages.", { uniLetter: "🅿", errTitle: ' title="Parent or CSE needed for child."' } ],
+                ["Funding Availability page is missing.", { uniLetter: "🅵", errTitle: ' title="Funding Availability page is missing."' } ],
+                ["County of residence has changed. The Financially Responsible Agency will be incorrect unless a Transfer page is completed.", { uniLetter: "🆃", errTitle: ' title="Residence county changed - needs transfer."' } ],
+            ])
+            forAwaitMultiCaseEval(caseListArray, "CaseEditSummary").then(result => {
+                for (let caseNum in result) {
+                    let currCase = result[caseNum][0]
+                    if (!currCase) { continue };
+                    let allErrors = currCase.map(error => {
+                        const foundError = errorMap.get(error.editDescription) ?? { uniLetter: "🅤", errTitle: ' title="' + error.editDescription.slice(0, 60) + '..."' }
+                        return [ foundError.uniLetter, foundError.errTitle ]
+                    })
+                    const uniqueErrors = reduceArrToUniques(allErrors)
+                    addDivSpan(document.getElementById(caseNum), 3, "", "absPos ACLaddedSpan tableAmend", uniqueErrors )
+                }
+            })
+        }
         async function checkResidence() {
             forAwaitMultiCaseEval(caseListArray, "CaseAddress").then(result => {
                 for (let caseNum in result) {
-                    let residenceCity = nameFuncs.toTitleCase(result[caseNum][0][0].residenceCity)
-                    let mailingCity = result[caseNum][0][0].mailingCity?.length ? " / " + nameFuncs.toTitleCase(result[caseNum][0][0].mailingCity) : ''
+                    let currCase = result[caseNum][0][0]
+                    let residenceCity = nameFuncs.toTitleCase(currCase.residenceCity)
+                    let mailingCity = currCase.mailingCity?.length ? " / " + nameFuncs.toTitleCase(currCase.mailingCity) : ''
                     addSpan(document.getElementById(caseNum), 3, '(' + residenceCity + mailingCity + ')')
                 }
             })
@@ -1216,7 +1238,7 @@ try {
             })
         }
         async function checkSupportActivityJS() {
-            forAwaitMultiCaseEval(testArray, "CaseSupportActivity").then(result => { //result[caseNum].0.0.originalHoursPerWeek //object.table.row.data
+            forAwaitMultiCaseEval(caseListArray, "CaseSupportActivity").then(result => { //result[caseNum].0.0.originalHoursPerWeek //object.table.row.data
                 for (let caseNum in result) {
                     const jobSearchFilter = result[caseNum][0].filter(item => item.memberDesc === "Job Search")
                     if (!jobSearchFilter.length) { continue };
@@ -1262,7 +1284,6 @@ try {
                             let mappedSubprogram = subprogramMap.get(tRowTd.textContent)
                             if ((subprogram === "CCMF" && mfipStatus !== "Active") || (mfipStatus === "Active" && subprogram !== "CCMF")) {
                                 (mfipDateDiff > 30 && mfipDateDiff < 360) && ( addSpan(document.getElementById(caseNum), 3, mappedSubprogram + " (MFIP: " + mfipStatus + " - " + mfipDate + ")") )
-                                // (mfipDateDiff > 30 && mfipDateDiff < 360) && (tRowTd.textContent = mappedSubprogram + " (MFIP: " + mfipStatus + " - " + mfipDate + ")")
                             }
                         }
                     }
@@ -1295,7 +1316,6 @@ try {
                     if (suspendToRedetDiff < 335) { tRowTdSpan.textContent = "Suspended " + suspendDate; continue }
                     if (suspendToRedetDiff > 415) { tRowTdSpan.textContent = "Closes before Redet"; continue }
                     if (inRange(suspendToRedetDiff, 334, 415)) {
-                        // addSpan(document.getElementById(caseNum), 3, "est. suspend " + suspendToRedetDiff + " days", 'title="Set new Redet date to ' + suspendDatePlus + '" data-delay-date="' + suspendDatePlus + '"')
                         tRowTdSpan.classList.add('cSpan')
                         tRowTdSpan.textContent = "est. suspend " + suspendToRedetDiff + " days"
                         tRowTdSpan.title = 'Set new Redet date to ' + suspendDatePlus
@@ -1330,7 +1350,6 @@ try {
         }
         async function checkHomeless() {
             forAwaitMultiCaseEval(caseListArray, "CaseOverview").then(result => {
-            // forAwaitMultiCaseEval(caseListArraySlice, "CaseOverview").then(result => {
                 const filteredResult = {}
                 for (let caseNum in result) { filteredResult[caseNum] = result[caseNum][0] }
                 const homelessResults = { No: [], Yes: [] }
@@ -1359,6 +1378,7 @@ try {
                 case "Homeless": { await checkHomeless(); break; }
                 case "Redet/Suspend": { await redetDateVsSuspendDate(); break; }
                 case "Subprogram": { await checkSubprogram(); break; }
+                case "Edit Summary": { await checkEditSummary(); break; }
                 case "Residence": { await checkResidence(); break; }
                 case "Job Search Hours": { await checkSupportActivityJS(); break; }
                 case "Self-Employment": { await checkSelfEmployment(); break; }
@@ -3527,10 +3547,13 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Case_Parent;
 !function CasePaymentHistory() {
     if (!("CasePaymentHistory.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
-    document.querySelectorAll('#paymentHistoryTable thead tr td').forEach(ele => { ele.textContent = '' })
-    let theadChildren = document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr').children
-    let theadRename = [[1, "Transact ID"], [4, "Recoup"], [7, "Payment"], [8, "Type"]].forEach(([child, newText] = []) => { theadChildren[child].textContent = newText })
-    document.querySelectorAll('#paymentHistoryTable > tbody > tr > td:nth-of-type(3)').forEach(ele => {
+    !function renameTableHeaders() {
+        document.querySelectorAll('#paymentHistoryTable thead tr td')?.forEach(ele => { ele.textContent = '' })
+        let theadChildren = document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr')?.children
+        if (!theadChildren) { return };
+        let theadRename = [[1, "Transact ID"], [4, "Recoup"], [7, "Payment"], [8, "Type"]].forEach(([child, newText] = []) => { theadChildren[child].textContent = newText })
+        }();
+    document.querySelectorAll('#paymentHistoryTable > tbody > tr > td:nth-of-type(3)')?.forEach(ele => {
         ele.innerHTML = '<td><a href="FinancialBilling.htm?parm2=' + caseIdVal + '&parm3=' + ele.innerText.replace(/ - |\//g, "") + '", target="_blank">' + ele.innerText + '</a></td>'
     });
     let providerTableList = new Set(), childTableList = new Set()
@@ -4154,19 +4177,30 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     }
                     let childAtProvider = billings.children[child.referenceNumber][child.rowIndex2]
                     let cappingInfo = child.cappingInfoText ? child.cappingInfoText.replace(/<.+?>Week.+?<LI>|<\/.+>|Amount allowed.+?\.00\./g, '') : ''
-                    if (childAtProvider.startDate > periodStart) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - SA start date (" + dateFuncs.formatDate(childAtProvider.startDate, "mdyy") + ") is after the first date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA start date") }
-                    if (childAtProvider.endDate < periodEnd) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - SA end date (" + dateFuncs.formatDate(childAtProvider.endDate, "mdyy") + ") is before the last date of the period."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "SA end date") }
-                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours") }
+                    function createOrAdd(childArray, issueText, startEnd, firstOrLast) {
+                        let existingIssue = billings.issues[childAtProvider.providerRow]?.findIndex(i => i.indexOf(issueText) > -1)
+                        if (existingIssue > -1) {
+                            billings.issues[childAtProvider.providerRow][existingIssue] = childAtProvider.childName + ", " + billings.issues[childAtProvider.providerRow][existingIssue]
+                            let existingButtonTitle = billings.providers[childAtProvider.providerRow].buttonTitle.findIndex(i => i.indexOf(issueText) > -1)
+                            billings.providers[childAtProvider.providerRow].buttonTitle[existingButtonTitle] = billings.providers[childAtProvider.providerRow].buttonTitle[existingButtonTitle].slice(0, -1) + ", " + childAtProvider.childName + ")"
+                        } else {
+                            addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - " + issueText + " (" + dateFuncs.formatDate(childAtProvider[startEnd], "mdyy") + ") is " + firstOrLast + " date of the period.");
+                            addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", issueText + " (" + childAtProvider.childName + ")")
+                        }
+                    }
+                    if (childAtProvider.startDate > periodStart) { createOrAdd(childAtProvider, "SA start date", "startDate", "after the first") }
+                    if (childAtProvider.endDate < periodEnd) { createOrAdd(childAtProvider, "SA end date", "endDate", "before the last") }
+                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours (" + childAtProvider.childName + ")") }
                     if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursAllowed && cappingInfo && (/secondary/i).test(cappingInfo)) {
                         addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. " + cappingInfo)
-                        addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider")
+                        addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider (" + childAtProvider.childName + ")")
                     }
                 };
                 if (!billings.issues) { return };
                 !function makeBillingButtons() {
                     for (let providerObj of Object.entries(billings.providers)) {
                         if (providerObj[0] in billings.issues) {
-                            billingEmailTemplate.insertAdjacentHTML('afterend', '<button class="form-button" id="' + providerObj[0] + '" title="' + providerObj[1].buttonTitle.join(", ") + '">' + providerObj[1].providerName + '</button>')
+                            billingEmailTemplate.insertAdjacentHTML('afterend', '<button class="form-button" id="' + providerObj[0] + '" title="' + providerObj[1].buttonTitle.join(", ") + '">' + providerObj[1].providerName.slice(0, 29) + '</button>')
                         }
                     }
                 }();
@@ -5073,8 +5107,9 @@ async function evalData({caseProviderNumber = caseIdVal, pageName = thisPageName
     let parsedEvalData = await parseEvalData(unParsedEvalData).catch(err => { console.trace(err, unParsedEvalData); })
     if (evalString) { parsedEvalData = await resolveEvalData(parsedEvalData, evalString) }
     return parsedEvalData
+
     async function getEvalData({ caseProviderNumber, pageName, dateRange, caseOrProvider }) {
-        if (countyInfo.info.userAccessDenied.includes(allPagesMap.get(pageName + ".htm").parentId)) { return undefined };
+        if (countyInfo.info.userAccessDenied.includes(allPagesMap.get(pageName + ".htm")?.parentId)) { return undefined };
         return new Promise(resolve => {
             fetch('/ChildCare/' + pageName + '.htm?' + caseOrProvider + '=' + caseProviderNumber + dateRange).then(response => response.text()).then(data => { resolve(data) }).catch(error => { console.error('Error:', error) });
         })
@@ -5242,15 +5277,11 @@ function getChildNum(childEle) { return ( childEle.nodeName === "TR" ? (childEle
     })
     function splitStringAtWordBoundary({ textbox, maxColumns=60, maxRows=30 } = {}) {
         let tbVal = textbox.value, tbLen = textbox.value.length
-        if (tbVal.indexOf('\n') === -1 && ( tbLen <= maxColumns || ( tbLen === (maxColumns+1) && tbVal[ tbLen-1 ] === " " ) )) { return 1 } // No newLines, stringLength is either <, =, or +1 and last char is space //
-        // if (tbVal.indexOf('\n') === -1 && ( tbLen <= maxColumns || (stringIsOneTooLong() && lastCharIsSpace()) )) { return 1 }
+        if (tbVal.indexOf('\n') === -1 && ( tbLen <= maxColumns || ( tbLen === (maxColumns+1) && tbVal[ tbLen-1 ] === " " ) )) { return 1 }
         const splitStringArray = tbVal.split('\n').map( item => doStringSplitAtBoundary(item) )
         let tbRows = splitStringArray.length
         textbox.value = splitStringArray.join('\n')
         return tbRows
-
-        // function stringIsOneTooLong() { return tbLen === (maxColumns+1) }
-        // function lastCharIsSpace() { return tbVal[ tbLen-1 ] === " " }
         function doStringSplitAtBoundary(stringItem) {
             const tempStringArray = []
             while (stringItem.length > maxColumns) {
@@ -5270,6 +5301,21 @@ function convertFromAHK(ahkString) { // don't decode at this step - string may c
     // if (ahkObj) { return ahkObj }
     // ahkObj = sanitize.json(JSON.stringify(ahkString))
     // return typeof ahkObj === "string" ? sanitize.json(ahkObj) : ahkObj
+}
+function reduceArrToUniques(redArray=[]) {
+    return redArray.reduce((accumulator, currentValue) => {
+        let areValuesEqual = Array.isArray(currentValue) ? accumulator.some(accum => arraysEqual(accum, currentValue)) : accumulator.includes(currentValue)
+        if (!areValuesEqual) { accumulator.push(currentValue) }
+        return accumulator;
+    }, []);
+}
+function arraysEqual(a, b) {
+    if (a === b) return true;
+    if (a == null || b == null || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; ++i) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
 }
 //           return value to operate on page;
 function createSlider({ label, title, id: sliderId, defaultOn: isChecked, font: sliderFontSize, classes: extraClasses, styles: extraStyles } = {}) {
