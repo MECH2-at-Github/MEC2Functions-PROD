@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.28
+// @version      0.6.29
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -15,9 +15,9 @@
 // ("global array list", "listPagesArray, ")
 //
 console.time('mec2functions load time');
-let verboseMode = 1
-const loggedOut = document.querySelector('a[href="Login.htm"]'); loggedOut && verbose('a[href="Login.htm"] present')
-const thisPageNameHtm = window.location.pathname.indexOf("//") === 0 ? window.location.pathname.slice(12) : (window.location.pathname.slice(11) || "Login.htm"), thisPageName = thisPageNameHtm.slice(0, -4)
+let verboseMode = 1;
+const loggedOut = document.querySelector('a[href="Login.htm"]'); loggedOut && verbose('a[href="Login.htm"] present');
+const thisPageNameHtm = window.location.pathname.indexOf("//") === 0 ? window.location.pathname.slice(12) : (window.location.pathname.slice(11) || "Login.htm"), thisPageName = thisPageNameHtm.slice(0, -4);
 const sanitize = {
     evalText(text) { return String(text)?.replace(/\\/g,'').trim() },
     query(query, all = 0) {
@@ -140,7 +140,7 @@ const gbl = {
         pageWrap: document.getElementById('page-wrap'), save: document.getElementById('save'), quit: document.getElementById('quit'), submitButton: document.querySelector('#submit, #caseInputSubmit, #alertInputSubmit, #submitproviderId, #providerIdSubmit, #search'),
         caseIdElement: document.querySelector('#caseId:not([type=hidden])'), providerIdElement: document.querySelector('#providerInput > #providerId:not([type=hidden])'), selectPeriod: document.querySelector('#selectPeriod, #searchDateRange'), wrapUp: document.getElementById('wrapUp'), //document.getElementById('selectPeriod')
     },
-}
+};
 //
 const countyInfo = {
     info: { ...sanitize.json( localStorage.getItem('MECH2.countyInfo') ) } ?? {},
@@ -164,7 +164,7 @@ const countyInfo = {
     ? { ele: document.getElementById('help'), placement: "afterend", tooltip: true }
     : { ele: document.querySelector('form') ?? document.querySelector('div.panel-invisibleBorder > div.content_8pad-20top'), placement: "afterbegin", tooltip: false }
     let tooltipHTML = versionAndTooltipsHome.tooltip ? '<span class="tooltips" style="margin-left: 10px;">ⓘ<span style="width: 35ch;" id="mec2functionEnhancementsTooltip" class="tooltips-text tooltips-left">Click to show a list of enhancements by mec2functions on this page.</span></span>' : ''
-    let versionAndTooltipsHTML = '<a id="versionNumber" href="#" title="Click to copy version numbers" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info.navOnly ? " Nav Only" : "") + '</a>' + tooltipHTML
+    let versionAndTooltipsHTML = '<a id="versionNumber" href="#" title="Click to copy version numbers" style="margin-left: 10px;">' + GM_info.script.name + ' v' + GM_info.script.version + (countyInfo.info?.navOnly ? " Nav Only" : "") + '</a>' + tooltipHTML
     versionAndTooltipsHome.ele?.insertAdjacentHTML(versionAndTooltipsHome.placement, versionAndTooltipsHTML);
     document.getElementById('versionNumber')?.addEventListener('click', clickEvent => { let versionText = clickEvent.target.innerText + window.getComputedStyle(clickEvent.target, ':after').content.replace(/"/g, ''); copy( versionText, versionText ) })
     document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
@@ -255,15 +255,15 @@ const secondaryActionArea = document.getElementById('secondaryActionArea'), tert
 // gbl.eles.secondaryActionArea = document.getElementById('secondaryActionArea');
 // gbl.eles.duplicateButtons = document.getElementById('duplicateButtons');
 //
-const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
+const workerRole = countyInfo.info?.workerRole ?? "mec2functionsFinancialWorker";
 !function userSettingDivs() {
-    if (iFramed || editMode) { return }; // User_Settings_Divs // code to check for affirmative setting is 'if (countyInfo.userSettings.settingId)'
+    if (iFramed || editMode) { return }; // User_Settings_Divs // code to check for affirmative setting is 'if (countyInfo.userSettings?.settingId)'
     document.getElementById('Claim Establishment')?.parentElement?.classList.add('sub_menu')
     const uncheckedBox = "☐", checkedBox = "☒", reloadPage = () => snackBar('Page must be reloaded to apply setting.', 'notitle')
-    let baseCssOnlyList = countyInfo.info.baseCssOnlyList ?? []
+    let baseCssOnlyList = countyInfo.info?.baseCssOnlyList ?? []
     if (baseCssOnlyList.includes(thisPageNameHtm)) { document.body.classList.add('baseStyle') }
     let mec2stylusBaseCssCheckbox = () => baseCssOnlyList.includes(thisPageNameHtm) ? checkedBox : uncheckedBox
-    let navOnlyCheckbox = () => countyInfo.info.navOnly ? checkedBox : uncheckedBox
+    let navOnlyCheckbox = () => countyInfo.info?.navOnly ? checkedBox : uncheckedBox
     const mec2functionsSettingsHTML = ''
       + '<a style="pointer-events: none;" href="#">mec2functions</a>'
       + '<ul class="sub_menu" id="mec2functionsSubMenu">'
@@ -286,7 +286,7 @@ const workerRole = countyInfo.info.workerRole ?? "mec2functionsFinancialWorker";
     function toggleItemInArray(arr, item) { return arr.includes(item) ? arr.filter(val => val !== item) : [...arr, item] }
     function removeVisible() { mec2functionsSubMenu.style.removeProperty('visibility') }
     function mec2functionsNavOnly() {
-        countyInfo.updateInfo('navOnly', !countyInfo.info.navOnly);
+        countyInfo.updateInfo('navOnly', !countyInfo.info?.navOnly);
         document.querySelector('#navOnlyToggle.menuBox').textContent = navOnlyCheckbox();
     }
     function mec2stylusBaseCss() {
@@ -771,7 +771,7 @@ function selectOption(selectElement, selectedOptionValue) {
 !function nextPrevPeriodButtons() {
     if (iFramed || editMode || !gbl.eles.selectPeriod || !sanitize.query(gbl.eles.selectPeriod) || gbl.eles.selectPeriod.disabled || gbl.eles.selectPeriod.readOnly || gbl.eles.selectPeriod.type === "hidden" || reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
     try {
-            let selectPeriodReversed = countyInfo.userSettings.selectPeriodReversal
+            let selectPeriodReversed = countyInfo.userSettings?.selectPeriodReversal
             let lastAvailablePeriod = gbl.eles.selectPeriod.firstElementChild.value
             let prevPeriodButtons = '<span id="prevButtons"><button id="backGoSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Go" class="npp-button">«</button><button id="backSelect" tabindex="-1" type="button" data--next-or-prev="Prev" data--stay-or-go="Stay" class="npp-button">‹</button></span>',
                 nextPeriodButtons = '<span id="nextButtons"><button id="forwardSelect" tabindex="-1" type="button" data--next-or-prev="Next" data--stay-or-go="Stay" class="npp-button">›</button><button id="forwardGoSelect" tabindex="-1" type="button" data--next-or-prev="Next" data--stay-or-go="Go" class="npp-button">»</button></span>'
@@ -806,7 +806,7 @@ function selectOption(selectElement, selectedOptionValue) {
     } catch (error) { console.trace("nextPrevPeriodButtons", error) }
 }();
 function findContaningPeriod(selectElement, compareDate=Date.now()) {
-    let selectPeriodDatesArray = countyInfo.userSettings.selectPeriodReversal ? [...selectElement.children].slice(0, 18) : [...selectElement.children].slice(-18)
+    let selectPeriodDatesArray = countyInfo.userSettings?.selectPeriodReversal ? [...selectElement.children].slice(0, 18) : [...selectElement.children].slice(-18)
     if (typeof compareDate === "string") { compareDate = sanitize.date(compareDate) }
     if (typeof compareDate !== "number") { return };
     return selectPeriodDatesArray.find(dates => (sanitize.date(dates.value.slice(13), "number") - compareDate ) < 1123200001).value
@@ -816,8 +816,8 @@ function inCurrentBWP( compareDate = Date.now() ) {
     if (Number.isNaN(compareDate)) { return false }
     if ( inRange( compareDate, sanitize.date(selectPeriodDates.start, "number"), sanitize.date(selectPeriodDates.end, "number") ) ) { return dateFuncs.formatDate(compareDate, "mmddyyyy") }
     else { return false }
-}
-if (gbl.eles.selectPeriod && countyInfo.userSettings.selectPeriodReversal && !editMode) { selectPeriodReversal() };
+};
+if (gbl.eles.selectPeriod && countyInfo.userSettings?.selectPeriodReversal && !editMode) { selectPeriodReversal() };
 docReady( document.body?.addEventListener('submit', () => { document.body.style.opacity = ".8" }) ); // Dim_Page_On_Submit
 // docReady (document.querySelectorAll('form input.form-control:read-write').forEach(ele => { ele.spellcheck = false }) )
 !function footerLinks() {
@@ -857,7 +857,7 @@ docReady( document.body?.addEventListener('submit', () => { document.body.style.
 }();
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ SECTION_END CUSTOM_NAVIGATION  (THE MEC2NAVIGATION SCRIPT SHOULD MIMIC THE ABOVE) ////////////////////////////////////////////////////////////
 // ========================================================================================================================================================================================================
-if (countyInfo.info.navOnly) { return };
+if (countyInfo.info?.navOnly) { return };
 function resetTabIndex(excludedListString) {
     const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
     if (nonResetPages.includes(thisPageNameHtm)) { return };
@@ -868,7 +868,7 @@ function flashRedOutline(ele) {
     if (!ele) { return };
     const redOutline = [{ outlineColor: "red", outlineWidth: "2px", }], redOutlineTiming = { outlineStyle: "solid", duration: 300, iterations: 10, }
     ele.animate(redOutline, redOutlineTiming)
-}
+};
 const convertLineBreakToSpace = (string) => string.replace(/([\S]) *\n([a-z])/g, '$1 $2');
 const eventChange = new Event('change', { bubbles: true }), doChange = (element) => sanitize.query(element)?.dispatchEvent(eventChange);
 const eventInput = new Event('input', { bubbles: true }), doInput = (element) => sanitize.query(element)?.dispatchEvent(eventInput);
@@ -888,7 +888,7 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
 };
 //======================== Case_History Section_Start =================================
 !function caseHistoryDatalist() {
-    if (iFramed || !(newTabField instanceof HTMLElement) || !countyInfo.userSettings.caseHistory) { return };
+    if (iFramed || !(newTabField instanceof HTMLElement) || !countyInfo.userSettings?.caseHistory) { return };
     try {
         const caseHistory = sanitize.json(localStorage.getItem('MECH2.caseHistoryLS')) ?? []
         if (pageTitle === pageTitle.toUpperCase() && thisPageNameHtm.indexOf('Provider') !== 0 && caseIdVal && !editMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
@@ -1037,7 +1037,7 @@ const userCountyObj = new Map([
     ["x187", { county: "Yellow Medicine", code: "187", neighbors: ["Lac Qui Parle", "Lincoln", "Lyon", "Redwood", "Renville", "Chippewa"], outOfState: [ 57000, 57299 ] }],
     ["x192", { county: "White Earth Nation", code: "192", neighbors: ["Polk", "Norman", "Becker", "Clearwater", "Mahnomen"] }],
     ["x194", { county: "Red Lake Nation", code: "194", neighbors: ["Roseau", "Marshall", "Pennington", "Clearwater", "Hubbard", "Cass", "Itasca", "Koochiching", "Lake of the Woods", "Beltrami"] }],
-]).get(countyInfo.info.userIdNumber?.slice(0, 4).toLowerCase());
+]).get(countyInfo.info?.userIdNumber?.slice(0, 4).toLowerCase());
 //======================== Actual_Date Section_Start =================================
 const actualDate = {
     dateField: document.getElementById('actualDate') ?? document.querySelector('#employmentActivityBegin, #activityPeriodStart, #activityBegin, #ceiPaymentBegin, #paymentBeginDate, #applicationReceivedDate, #bSfEffectiveDate') ?? document.getElementById('effectiveDate') ?? undefined,
@@ -1101,7 +1101,7 @@ const actualDate = {
         })
     },
 }; //======================== Actual_Date Section_End =================================
-if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPageNameHtm) ) && countyInfo.userSettings.actualDateStorage) { actualDate._dateStorage() };
+if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPageNameHtm) ) && countyInfo.userSettings?.actualDateStorage) { actualDate._dateStorage() };
 //======================== Actual_Date Section_End =================================
 // ======================================================================================================================================================================================================
 // ////////////////////////////////////////////////////////////////////////// PAGE_SPECIFIC_CHANGES SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -1428,7 +1428,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     !function __InactiveCaseList() {
         if (!("InactiveCaseList.htm").includes(thisPageNameHtm) || !document.querySelector('#inActiveCaseTable > tbody > tr:nth-child(2)')) { return };
         listPageLinksAndList()
-        let closedCaseLS = countyInfo.info.closedCaseBank ?? ''
+        let closedCaseLS = countyInfo.info?.closedCaseBank ?? ''
         let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
         let closedCaseBankLastThree = (closedCaseBank) ? closedCaseBank.slice(4) : ''
         let todayDate = Date.now(), fortySixDays = 3974400000
@@ -2039,7 +2039,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             localStorage.setItem( 'MECH2.workerCreatedObject', workerCreatedObject )
         }) // Worker_Created_Alert_Data;
     }).catch(err => { console.trace(err) });
-}(); // SECTION_END Alerts (major_subsection) =========================================================================================================;
+}(); // SECTION_END Alerts (major_subsection) ===========================================================================================================;
 !function AlertWorkerCreatedAlert() {
     if (!["AlertWorkerCreatedAlert.htm"].includes(thisPageNameHtm)) { return }
     let workerCreatedAlert = sanitize.json(localStorage.getItem('MECH2.workerCreatedObject'))
@@ -2100,7 +2100,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     }(); // SECTION_END Application_Information;
     !function __CaseApplicationInitiation() {
         if (!("CaseApplicationInitiation.htm").includes(thisPageNameHtm) || !editMode) { return };
-        countyInfo.userSettings.selectPeriodReversal && selectPeriodReversal()
+        countyInfo.userSettings?.selectPeriodReversal && selectPeriodReversal()
         let pmiNumber = document.getElementById('pmiNumber')
         pmiNumber?.addEventListener('blur', blurEvent => { if ( pmiNumber.value ) { eleFocus( firstEmptyElement() ) } })
         document.getElementById('next')?.addEventListener('click', () => { sessionStorage.setItem('processingApplication', "yes") })
@@ -2582,7 +2582,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 let ncpInfo = nameFuncs.commaNameObject(document.querySelector('#csePriTable .selected td:nth-child(3)').textContent)
                 let childList = {};
                 let createdList = [...document.querySelectorAll('#childrenTable tbody tr')].forEach( (row, index) => { childList["child" + index] = row.children[1].textContent } );
-                const formInfo = { pdfType: "csForms", xNumber: countyInfo.info.userIdNumber, caseNumber: caseIdVal, cpInfo, ncpInfo, ...childList };
+                const formInfo = { pdfType: "csForms", xNumber: countyInfo.info?.userIdNumber, caseNumber: caseIdVal, cpInfo, ncpInfo, ...childList };
                 window.open("http://nt-webster/slcportal/Portals/65/Divisions/FAD/IM/CCAP/index.html?parm1=" + JSON.stringify(formInfo), "_blank");
             });
         } // SUB_SECTION_END Fill_Child_Support_PDF_Forms
@@ -2632,7 +2632,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             case "generateCaseNote": {
                 let conditionEndDate = memberDisabilityPeriodTo.value ? dateFuncs.formatDate(memberDisabilityPeriodTo.value, "mdyy") : 'ongoing'
                 let selectedRow = disabilityMemberTableTbody.querySelector('tr.selected'), exemptionDateRange = dateFuncs.formatDate(memberDisabilityPeriodFrom.value, "mdyy") + " - " + conditionEndDate,
-                    signatureText = "\n=====\n" + countyInfo.info.userName + (countyInfo.userSettings.promptUserNameTitle ? countyInfo.info.inputUserNameTitle : ""), exemptionText = "Received Medical Condition Form for " + nameFuncs.LastFirstToFirstL(selectedRow.children[1].textContent) + " for " + exemptionDateRange + ". Entered absent day exemption."
+                    signatureText = "\n=====\n" + countyInfo.info?.userName + (countyInfo.userSettings?.promptUserNameTitle ? countyInfo.info?.inputUserNameTitle : ""), exemptionText = "Received Medical Condition Form for " + nameFuncs.LastFirstToFirstL(selectedRow.children[1].textContent) + " for " + exemptionDateRange + ". Entered absent day exemption."
                 localStorage.setItem("MECH2.copiedNote", JSON.stringify({ noteSummary: 'Absent day exemption: ' + exemptionDateRange, noteCategory: 'Absent Days', noteMessage: exemptionText + signatureText, noteMemberReferenceNumber: selectedRow.children[0].textContent, identifier: caseIdVal, }) )
                 snackBar('Create new case note then click Autofill button.', 'Stored case note', "center")
             }
@@ -2697,6 +2697,27 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         }
     }, 200, 5)
     if ( ["CaseEligibilityResultApprovalPackage.htm"].includes(thisPageNameHtm) ) { doNotDupe.doNotUnderline.push('cancel') };
+    !function fixCopayLabels() {
+        const copayElements = new Map([
+            [ "CaseEligibilityResultOverview.htm", [ 'div[title="Current Copay"]', 'div[title="New Copay"]', 'div[title="Effective Date"]' ] ],
+            [ "CaseEligibilityResultFinancial.htm", [ 'div[title="Current Copay"]', 'div[title="New Amount"]', 'div[title="Effective Date"]' ] ],
+            [ "CaseEligibilityResultApproval.htm", [ 'div[title="Current Copay"]', 'div[title="New Copay"]', 'div[title="Effective Date"]' ] ],
+        ])
+        if (copayElements.get(thisPageNameHtm)) {
+            const [ currentCopay, newCopay, effectiveDate ] = copayElements.get(thisPageNameHtm)
+            copayChangeDates(document.querySelector(currentCopay), document.querySelector(newCopay), document.querySelector(effectiveDate))
+        }
+        function copayChangeDates(currAmt, newAmt, copayEff) {
+            if (copayEff && Date.parse(copayEff.innerText) < Date.parse(selectPeriodDates.start)) {
+                currAmt.style.opacity = '.6'
+                let currAmtLabel = currAmt.previousElementSibling ?? currAmt.parentElement.previousElementSibling
+                currAmtLabel.style.opacity = '.6'
+                currAmtLabel.innerText = "Previous Copay"
+                let newAmtLabel = newAmt.previousElementSibling ?? newAmt.parentElement.previousElementSibling
+                newAmtLabel.innerText = "Current Copay"
+            }
+        };
+    }();
 }(); // SECTION_END reviewing_Eligibility_Redirect;
 !function __CaseEligibilityResult() {
     if ( ["CaseEligibilityResultSelection.htm", "CaseEligibilityResultApprovalPackage.htm"].includes(thisPageNameHtm) ) { return };
@@ -3068,7 +3089,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 let oCaseName = nameFuncs.commaNameObject(pageTitle)
                 const formInfo = {
                     pdfType: "BillingForm",
-                    xNumber: countyInfo.info.userIdNumber,
+                    xNumber: countyInfo.info?.userIdNumber,
                     caseFirstName: oCaseName.first,
                     caseLastName: oCaseName.last,
                     caseName: oCaseName.full,
@@ -3281,13 +3302,13 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     }();
                     return;
                 } else if (editMode) {
-                    let userNameTitle = countyInfo.userSettings.promptUserNameTitle ? countyInfo.info.inputUserNameTitle : ""
+                    let userNameTitle = countyInfo.userSettings?.promptUserNameTitle ? countyInfo.info?.inputUserNameTitle : ""
                     document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
                     document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
-                    let signatureName, workerName = countyInfo.info.userName
+                    let signatureName, workerName = countyInfo.info?.userName
                     if (["CaseNotes.htm"].includes(thisPageNameHtm)) {
-                        if (noteInfo.xNumber) { signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? countyInfo.info.userName + userNameTitle : countyInfo.info.userName + userNameTitle + " for " + noteInfo.worker }
-                        else { signatureName = countyInfo.info.userName + userNameTitle }
+                        if (noteInfo.xNumber) { signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? countyInfo.info?.userName + userNameTitle : countyInfo.info?.userName + userNameTitle + " for " + noteInfo.worker }
+                        else { signatureName = countyInfo.info?.userName + userNameTitle }
                     }
                     setTimeout(() => {
                         if (noteInfo.intendedPerson) {
@@ -3477,7 +3498,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             }(); // SECTION_END Case_Notes_Only
         }
     }).catch(err => { console.trace(err) });
-}(); // SECTION_END _Notes__CaseNotes_ProviderNotes (major_subsection) =============================================================;
+}(); // SECTION_END _Notes__CaseNotes_ProviderNotes (major_subsection) ===============================================================================;
 !function CaseOverview() {
     if (!("CaseOverview.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
     $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order
@@ -3764,7 +3785,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     }
     let ssTransferCase = 'MECH2.caseTransfer.' + caseIdVal
     let ssError = "MECH2.transferError"
-    let transferWorkerId = countyInfo.info.closedCaseBank ?? ''
+    let transferWorkerId = countyInfo.info?.closedCaseBank ?? ''
     transferWorkerId = validateTransferWorkerId(transferWorkerId)
     let transferSS = sessionStorage.getItem(ssTransferCase) ?? ''
     if (!editMode && !iFramed) {
@@ -4070,7 +4091,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         if (!document.querySelector('table#billingProviderTable > tbody').children[0].children[1]) { return };
         listPageLinksAndList([ {listPageChild: 4, listPageLinkTo: "ProviderInformation"} ])
         !function shrinkPage() {
-            if (countyInfo.info.baseCssOnlyList.includes(thisPageNameHtm)) { return };
+            if (countyInfo.info?.baseCssOnlyList?.includes(thisPageNameHtm)) { return };
             const regFeeAddDeleteDiv = document.querySelector('div:has(> #addRegistrationFee)'), regFeeAddDeleteDivParent = regFeeAddDeleteDiv.parentElement, regFeeTableParent = document.getElementById('billingRegistrationFeesTable_wrapper').parentElement
             regFeeAddDeleteDiv.removeAttribute('class'); regFeeAddDeleteDiv.setAttribute('style', "width: fit-content; display: inline-block; vertical-align: top; margin: 10px 0 0 4%;"); regFeeTableParent.insertAdjacentElement('afterend', regFeeAddDeleteDiv)
             const addBilledTimeDiv = document.querySelector('div:has(> #addBilledTime)'), addBilledTimeDivInsert = document.querySelector('label[for=totalAmountBilled]').parentElement
@@ -4112,6 +4133,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             })
         }
         !function billingInfoForEmails() {
+            if (editMode) { return };
             let twoOrFourWeeksSlider = createSlider({ label: "", title: "", id: "twoOrFourWeeks", defaultOn: 0, classes: "slider-always-color" })
             tertiaryActionArea?.insertAdjacentHTML('beforeend', '<div id="weekBillingToggle" class="db-container"><span id="is2WkBilling">2-Week</span>' + twoOrFourWeeksSlider + '<span id="is4WkBilling" style="opacity: .6;">4-Week</span></div><div id="copyButtons" class="db-container"><button class="form-button" id="billingEmailTemplate">Template</button></div>')
             let billingEmailTemplate = document.getElementById('billingEmailTemplate'), is2WkBilling = document.getElementById('is2WkBilling'), is4WkBilling = document.getElementById('is4WkBilling'), twoOrFourWeeks = document.getElementById('twoOrFourWeeks')
@@ -4150,8 +4172,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                             totalHoursAllowed: (Number(child.totalHoursAllowedWeekOne) + Number(child.totalHoursAllowedWeekTwo)),
                             totalHoursBilled: (Number(child.totalHoursBilledWeekOne) + Number(child.totalHoursBilledWeekTwo)),
                             dailyHours: [
-                                [ child.weekOneMonday, child.weekOneTuesday, child.weekOneWednesday, child.weekOneThursday, child.weekOneFriday, child.weekOneSaturday, child.weekOneSunday, child.providerDesignationWeekOne, child.totalHoursBilledWeekOne, child.totalHoursAllowedWeekOne ],
-                                [ child.weekTwoMonday, child.weekTwoTuesday, child.weekTwoWednesday, child.weekTwoThursday, child.weekTwoFriday, child.weekTwoSaturday, child.weekTwoSunday, child.providerDesignationWeekTwo, child.totalHoursBilledWeekTwo, child.totalHoursAllowedWeekTwo ],
+                                [ child.weekOneMonday, child.weekOneTuesday, child.weekOneWednesday, child.weekOneThursday, child.weekOneFriday, child.weekOneSaturday, child.weekOneSunday, child.providerDesignationWeekOne ?? "LNL", child.totalHoursBilledWeekOne, child.totalHoursAllowedWeekOne ],
+                                [ child.weekTwoMonday, child.weekTwoTuesday, child.weekTwoWednesday, child.weekTwoThursday, child.weekTwoFriday, child.weekTwoSaturday, child.weekTwoSunday, child.providerDesignationWeekTwo ?? "LNL", child.totalHoursBilledWeekTwo, child.totalHoursAllowedWeekTwo ],
                             ],
                             startDate: Date.parse(child.effectiveStartDate),
                             endDate: Date.parse(child.effectiveEndDate),
@@ -4246,7 +4268,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                     let tableTableClone = (function() {
                         let tableTable = document.querySelector('table.table').cloneNode(true)
                         let dailyHoursData = billings.children[childId][clickedButtonId].dailyHours
-                        let replaceInputs = [...tableTable.querySelectorAll('tbody tr')].forEach((tRow, tRowI) => { tRow.querySelectorAll('input').forEach((input, inputI) => { input.parentElement.outerHTML = '<td class="col-lg-1">' + dailyHoursData[tRowI][inputI] + '</td>' }) })
+                        let replaceInputs = [...tableTable.querySelectorAll('tbody tr')].forEach((tRow, tRowI) => { tRow.querySelectorAll('input').forEach((input, inputI) => { input.parentElement.outerHTML = '<td class="col-lg-1">' + (dailyHoursData[tRowI][inputI] ?? "") + '</td>' }) })
                         return tableTable
                     })()
                     cloneHouse.appendChild(tableTableClone)
@@ -4328,7 +4350,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         focusEle = document.getElementById('new').disabled ? '#wrapUpDB' : '#newDB'
     } else if (editMode) {
         let basicSlidingFeeFundsAvailableCode = document.getElementById('basicSlidingFeeFundsAvailableCode'), bSfEffectiveDate = document.getElementById('bSfEffectiveDate')
-        if (countyInfo.userSettings.fundsAvailable) { basicSlidingFeeFundsAvailableCode.value = 'Y' }
+        if (countyInfo.userSettings?.fundsAvailable) { basicSlidingFeeFundsAvailableCode.value = 'Y' }
         focusEle = basicSlidingFeeFundsAvailableCode.value && bSfEffectiveDate.value ? '#saveDB' : bSfEffectiveDate
     }
 }(); // SECTION_END Funding_Availability;
@@ -4672,7 +4694,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 // ////////////////////////////////////////////////////////////////////////// PAGE_SPECIFIC_CHANGES SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ======================================================================================================================================================================================================
 !function duplicateFormButtons() { // SECTION_START Duplicate_Form_Buttons_Above_Form
-    if (iFramed || !duplicateButtons || !countyInfo.userSettings.duplicateFormButtons) { return };
+    if (iFramed || !duplicateButtons || !countyInfo.userSettings?.duplicateFormButtons) { return };
     if ("CaseWrapUp.htm".includes(thisPageNameHtm) && document.querySelector('.rederrortext')?.innerText === 'Case Wrap-Up successfully submitted.') { return };
     if (thisPageNameHtm.indexOf('List.htm') > -1 || doNotDupe.pages.includes(thisPageNameHtm)) { return; }
     if (thisPageNameHtm.indexOf('Provider') > -1 && rederrortextContent.find(arrItem => arrItem.indexOf("This page is not available") > -1)) { return };
@@ -4707,14 +4729,14 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 }(); // SECTION_END Duplicate_Form_Buttons_Above_Form;
 // ======================================================================================================================================================================================================
 // ////////////////////////////////////////////////////////////////////////// ELEMENT_FOCUS SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.panel-box-format .form-control:not(:disabled, [readonly])')].find( ele => values.includes(ele.value) )
+const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.panel-box-format .form-control:not(:disabled, [readonly])')].find( ele => values.includes(ele.value) );
 !function focusElement() {
     if (iFramed) { return };
     !function autoFocusOnPageLoad() {
     try { //========== Auto_Focus_On_Page_Load Start =================
         if ( gbl.eles.caseIdElement && !caseIdVal ) { focusEle = gbl.eles.caseIdElement; return; }
         else if ( gbl.eles.providerIdElement && !providerIdVal ) { focusEle = gbl.eles.providerIdElement; return; }
-        if (!countyInfo.userSettings.eleFocus) { return };
+        if (!countyInfo.userSettings?.eleFocus) { return };
         !function autoFocusCase() {
             if (("CaseApplicationInitiation.htm").includes(thisPageNameHtm)) { focusEle = !editMode ? '#new' : document.getElementById('pmiNumber').disabled ? '#next' : '#pmiNumber' };
             if (!caseIdVal) { return };
@@ -4956,33 +4978,6 @@ const firstEmptyElement = (values = ['']) => [...document.querySelectorAll('.pan
         }();
     } catch (error) { console.trace("eleFocus section", focusEle, error) } //========== Auto_Focus_On_Page_Load End =================
     }();
-    !function hotkeysForModals() {
-        try { //========== Hotkeys_for_Modals Start =================
-            let popupModal = [...document.getElementsByClassName('modal')]
-            if (popupModal?.length) {
-                const popupModalConfig = { attributes: true }
-                popupModal.forEach(ele => {
-                    let popupModalObserver = new TrackedMutationObserver(() => {
-                        const controllerModal = new AbortController()
-                        if ( document.querySelector('.modal.in') ) {
-                            window.addEventListener('keydown', keydownEvent => {
-                                if (['o', 'c'].includes(keydownEvent.key)) { keydownEvent.preventDefault() } else { return };
-                                switch (keydownEvent.key) {
-                                    case 'o': document.querySelector('.in input.form-button:nth-child(1)').click(); break;
-                                    case 'c': document.querySelector('.in input.form-button:nth-child(2)').click(); break;
-                                }
-                            }, { signal: controllerModal.signal })
-                            setTimeout(() => { eleFocus(document.querySelector('.modal.in input') ) }, 250)
-                            return false
-                        } else {
-                            controllerModal.abort()
-                        }
-                    })
-                    popupModalObserver.observe(ele, popupModalConfig);
-                });
-            }
-        } catch(err) { console.trace(err) }; //========== Hotkeys_for_Modals End =================
-    }();
 }();
 function eleFocus(ele) {
     if (ele === "blank") { return };
@@ -5027,7 +5022,7 @@ function closeDatePicker(dateInputElement=0) {
     }
 };
 !function autoHideDatePicker() {
-    if (!countyInfo.userSettings.autoHideDatePicker || !datepickerDiv) { return }
+    if (!countyInfo.userSettings?.autoHideDatePicker || !datepickerDiv) { return }
     datepickerDiv?.classList.add('hidden')
     let datepickerFields = [...document.querySelectorAll('.hasDatepicker')]
     let removeHidden = datepickerFields?.forEach(ele => ele.addEventListener('click', () => datepickerDiv.classList.remove('hidden') ))
@@ -5175,7 +5170,7 @@ async function evalData({caseProviderNumber = caseIdVal, pageName = thisPageName
     return parsedEvalData
 
     async function getEvalData(pageName, searchParamString) {
-        if (countyInfo.info.userAccessDenied.includes(allPagesMap.get(pageName)?.parentId)) { return undefined };
+        if (countyInfo.info?.userAccessDenied?.includes(allPagesMap.get(pageName)?.parentId)) { return undefined };
         return await fetchHTML('/ChildCare/' + pageName + '?' + searchParamString)
     }
     function parseEvalData(dataObject) {
@@ -5550,7 +5545,7 @@ function preventKeys(keyArray, ms=1500) {
                 case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
                 case 'n': document.querySelector(':is(#new, #next):not(:disabled)')?.click(); break;
                 case 'p': document.querySelector(':is(#previous):not(:disabled)')?.click(); break;
-                case 'c': document.querySelector(':is(#Cancel, #cancel, #cancelnotice, #revert, #exit, #confirm):not(:disabled)')?.click(); break;
+                case 'c': document.querySelector(':is(#confirm:not(.modal #confirm), #Cancel, #cancel, #cancelnotice, #revert, #exit):not(:disabled)')?.click(); break;
                 case 'e': document.querySelector('#edit:not(:disabled)')?.click(); break;
                 case 'r': document.querySelector(':is(#resend, #return, #removecancel):not(:disabled)')?.click(); break;
                 case 'w': document.querySelector('#wrapUp:not(:disabled)')?.click(); break;
@@ -5581,6 +5576,31 @@ function preventKeys(keyArray, ms=1500) {
         doChange(event.target)
         doInput(event.target)
     };
+    !function hotkeysForModals() {
+        let popupModal = [...document.getElementsByClassName('modal')]
+        if (popupModal?.length) {
+            const popupModalConfig = { attributes: true }
+            popupModal.forEach(ele => {
+                let popupModalObserver = new TrackedMutationObserver(() => {
+                    const controllerModal = new AbortController()
+                    if ( document.querySelector('.modal.in') ) {
+                        window.addEventListener('keydown', keydownEvent => {
+                            if (['o', 'c'].includes(keydownEvent.key)) { keydownEvent.preventDefault() } else { return };
+                            switch (keydownEvent.key) {
+                                case 'o': document.querySelector('.in input.form-button:nth-child(1)').click(); break;
+                                case 'c': document.querySelector('.in input.form-button:nth-child(2)').click(); break;
+                            }
+                        }, { signal: controllerModal.signal })
+                        setTimeout(() => { eleFocus(document.querySelector('.modal.in input') ) }, 250)
+                        return false
+                    } else {
+                        controllerModal.abort()
+                    }
+                })
+                popupModalObserver.observe(ele, popupModalConfig);
+            });
+        }
+    }();
 }();
 !function openIdOnPasteFromAnywhere() {
     try {
@@ -5601,7 +5621,7 @@ function preventKeys(keyArray, ms=1500) {
 function verbose() { if (!verboseMode) { return }; console.log(...arguments) };
 //           personal amusement;
 !function starFall() {
-    if (!countyInfo.userSettings.starFall) { return };
+    if (!countyInfo.userSettings?.starFall) { return };
     document.body.classList.add('starfall')
     let start = Date.now()
     const originPosition = { x: 0, y: 0 };
@@ -5699,7 +5719,7 @@ function mec2enhancements() {
             let negOneElements = '#quit, #countiesTable #letterChoice, #reset, #noteCreator, #leaveDetailTemporaryLeavePeriodFrom, #leaveDetailTemporaryLeavePeriodTo, #leaveDetailExtendedEligibilityBegin, #tempLeavePeriodBegin, #tempLeavePeriodEnd'
             + '#extendedEligibilityBegin, #extendedEligibilityExpires, #redeterminationDate, #tempPeriodStart, #tempPeriodEnd, #deferValue, #leaveDetailRedeterminationDue, #leaveDetailExpires, #caseInputSubmit, #caseIdVal, #selectPeriod'
             tabIndxNegOne(negOneElements); //quit, countiesTable=application; redet date, eEE=activity pages; cIS=submit button; lC=specialletter; reset=caseNotes; tempLeave = activities; defer=redet
-            !countyInfo.userSettings.userAccessibility && tabIndxNegOne(document.querySelectorAll('table>thead>tr>td'))
+            !countyInfo.userSettings?.userAccessibility && tabIndxNegOne(document.querySelectorAll('table>thead>tr>td'))
             tabIndxNegOne(document.querySelectorAll('.borderless'))
         })
     }();
