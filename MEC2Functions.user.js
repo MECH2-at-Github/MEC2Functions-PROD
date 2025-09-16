@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.31
+// @version      0.6.32
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -1481,7 +1481,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         !function shortenProgram() { [...document.querySelectorAll('tbody tr td:nth-child(3)')].forEach(td => { td.textContent = subprogramMap.get(td.textContent) }) }();
         listPageLinksAndList()
         let closedCaseLS = countyInfo.info?.closedCaseBank ?? ''
-        closedCaseLS === "${closedCaseBank}" ? '' : closedCaseLS
+        closedCaseLS.toLowerCase() === "${closedcasebank}" ? '' : closedCaseLS
         let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
         let closedCaseBankLastThree = (closedCaseBank) ? closedCaseBank.slice(4) : ''
         let todayDate = Date.now(), fortySixDays = 3974400000
