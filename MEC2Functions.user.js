@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.32
+// @version      0.6.33
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -122,14 +122,13 @@ const dateFuncs = {
         months -= datePassed
         return months <= 0 ? 0 : months;
     },
-    parm3date(date) { return date.replace(/\D/g, '') },
-    // parm3date(date) { return this.formatDate(date, 'mmddyyyy').replace(/\D/g, '') },
+    parm3date(date) { return this.formatDate(date, 'mmddyyyy').replace(/\D/g, '') },
 };
 const numberFuncs = {
     toUSD(num) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( sanitize.number(num) ) },
 }
 const clearStorageItems = (storage = "both") => {
-    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart|storePMIandCSnotes|storeOldNotes|earliestEditPeriod/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
+    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart|storePMIandCSnotes|storeOldNotes|earliestEditPeriod|copayDist/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
     if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
 };
 if ( thisPageNameHtm === "Welcome.htm" && document.getElementById('Alerts')?.style?.pointerEvents === "" ) { clearStorageItems(); location.assign("Alerts.htm"); return; }; //auto-redirect from Welcome to Alerts
@@ -169,7 +168,6 @@ const countyInfo = {
     document.getElementById('versionNumber')?.addEventListener('click', clickEvent => { let versionText = clickEvent.target.innerText + window.getComputedStyle(clickEvent.target, ':after').content.replace(/"/g, ''); copy( versionText, versionText ) })
     document.getElementById('mec2functionEnhancementsTooltip')?.addEventListener( 'click', mec2enhancements)
 }();
-if (["Logout.htm", "ExceptionError.htm"].includes(thisPageNameHtm)) { clearStorageItems(); return; };
 //
 const newFeatureNotice = {
     newNoticesToUsers: [ // ["lsValue", [ "Description_of_setting. Default: On_Off" ], trueIsOn_falseIsOff_omitForNonSettingNotices],
@@ -214,6 +212,8 @@ const newFeatureNotice = {
 newFeatureNotice.noticeToUsersBuildHTML();
 //
 const rederrortextContent = [...document.querySelectorAll('strong.rederrortext:not(div.error_alertbox_new > strong.rederrortext, #memberHelpDeskPanel strong)'), ...document.querySelectorAll('.error_alertbox_new:has(> strong)')].map(ele => ele.innerText.trim()).filter(ele => ele);
+// if (["Logout.htm", "ExceptionError.htm"].includes(thisPageNameHtm)) { clearStorageItems(); return; };
+if ( ["Logout.htm", "ExceptionError.htm"].includes(thisPageNameHtm) || rederrortextContent?.find(ele => ele.indexOf('You have been logged out.') > -1) ) { clearStorageItems(); return; }
 const noResultsForCase = rederrortextContent?.find(ele => ele.includes('No results for case'));
 const editMode = (!gbl.eles.pageWrap && !noResultsForCase), appModeNotEdit = (gbl.eles.quit && gbl.eles.save?.disabled);
 const iFramed = window.location !== window.parent.location;
@@ -433,7 +433,6 @@ const getParamsFromListOrAlertTable = { // Parameters for navigating from Alerts
 let newTabField;
 //
 function addRedTextWarning(redText) { gbl.eles.formContainer.appendChild(createNewEle('div', { classList: "error_alertbox_new", id: "noticeDetails" })).appendChild(createNewEle('strong', { classList: "redcolortext", textcontent: redText })) }
-// function addRedTextWarning(redText) { gbl.eles.formContainer.insertAdjacentHTML('afterbegin', '<div class="error_alertbox_new" id="noticeDetails"><strong class="redcolortext">' + redText + '</strong></div>') }
 function walkToTableRow(ele) {
     if (!sanitize.query(ele)) { return };
     while ( !["TR", "TBODY"].includes(ele.nodeName) ) { ele = ele.parentElement }
@@ -478,7 +477,6 @@ const mec2functionFeatures = [
 // ========================================================================================================================================================================================================
 // ///////////////////////////////////////////////////////////////////// SECTION_START CUSTOM_NAVIGATION \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ///////////////////////////////////////////////////////////////// PRIMARY_NAVIGATION_BUTTONS SECTION_START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// const searchIcon = "<span style='font-size: 80%; margin-left: 2px;'>🔍</span>";
 const allPagesMap = new Map([
     [ "Alerts.htm", { label: "Alerts", target: "_self", parentId: "Alerts", row: "1" }, ],
     [ "CaseNotes.htm", { label: "Notes", target: "_self", parentId: "Case Notes", row: "1" }, ],
@@ -727,10 +725,72 @@ const allPagesMap = new Map([
             buttonDivOneNTF
                 .appendChild(createNewEle('div', { id: "newTabInputDiv" }))
                 .appendChild(createNewEle('input', { id: "newTabField", autocomplete:"off", classList: "form-control", placeholder: "Case #", pattern: "^\\d{1,8}$", style: "width: 10ch;" }))
-                .parentElement.insertAdjacentElement('afterend', createNewEle('button', { type: "button", dataPageName: "CaseNotes", id: "FieldNotesNT", classList: "cButton nav", textContent: "Notes" }))
-                .insertAdjacentElement('afterend', createNewEle('button', { type: "button", dataPageName: "CaseNotes", id: "FieldOverviewNT", classList: "cButton nav", textContent: "Overview" }))
+                .parentElement.insertAdjacentElement('afterend', createNewEle('button', { type: "button", id: "FieldNotesNT", classList: "cButton nav", textContent: "Notes" }, {pageName: "CaseNotes"} ))
+                .insertAdjacentElement('afterend', createNewEle('button', { type: "button", id: "FieldOverviewNT", classList: "cButton nav", textContent: "Overview" }, {pageName: "CaseOverview"} ))
         }();
         newTabField = document.getElementById('newTabField')
+        //======================== Case_History Section_Start =================================
+        !function caseHistoryDatalist() {
+            if (iFramed || !(newTabField instanceof HTMLElement) || !countyInfo.userSettings?.caseHistory) { return };
+            try {
+                const caseHistory = sanitize.json(localStorage.getItem('MECH2.caseHistoryLS')) ?? []
+                if (pageTitle === pageTitle.toUpperCase() && thisPageNameHtm.indexOf('Provider') !== 0 && caseIdVal && !editMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
+                function addToCaseHistoryArray() {
+                    const caseName = nameFuncs.commaNameReorder(pageTitle), caseIdValTest = (entry) => entry.caseIdValNumber === caseIdVal, foundDuplicate = caseHistory.findIndex(caseIdValTest)
+                    if (foundDuplicate > -1) { caseHistory.splice(foundDuplicate, 1) }
+                    let timestamp = dateFuncs.formatDate(new Date(), "mmddhm"), newEntry = { caseIdValNumber: caseIdVal, caseName: caseName, time: timestamp };
+                    while (caseHistory.length > 9) { caseHistory.pop() }
+                    caseHistory.unshift(newEntry)
+                    localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
+                };
+                let viewHistoryDatalist = '<datalist id="caseHistory" style="visibility: hidden;">'
+                + caseHistory.map(item => '<div class="caseHistoryEntry" id="history' + parseInt(item.caseIdValNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdValNumber) + '</span></div>').join('')
+                + '</datalist>'
+                newTabField.insertAdjacentHTML('afterend', viewHistoryDatalist)
+                gbl.eles.caseHistory = document.getElementById('caseHistory')
+                let historyList = [...gbl.eles.caseHistory?.children]
+                newTabField.addEventListener('focus', focusEvent => {
+                    filterHistory(focusEvent.target.value, undefined)
+                    document.addEventListener('click', hideHistoryClick)
+                })
+                newTabField.addEventListener('paste', pasteEvent => {
+                    filterHistory(pasteEvent.target.value, undefined)
+                })
+                newTabField.addEventListener('input', inputEvent => { filterHistory(inputEvent.target.value, inputEvent.inputType) });
+                gbl.eles.caseHistory.addEventListener('click', clickEvent => {
+                    if ( !["SPAN", "DIV"].includes(clickEvent.target.nodeName) ) { return }
+                    hideCaseHistory()
+                    newTabField.value = Number(clickEvent.target.closest('div.caseHistoryEntry').id.split('history')[1])
+                    newTabField.select()
+                });
+                function filterHistory(inputValue, inputType) {
+                    if (!inputValue) {
+                        unhideElement(historyList, true)
+                        if (inputType && inputType === 'deleteByCut') {
+                            hideCaseHistory()
+                            newTabField.blur();
+                            return;
+                        }
+                        toggleVisible(gbl.eles.caseHistory, true)
+                        return
+                    }
+                    let inputMatch = historyList.filter( ele => ele.id.includes(inputValue) )
+                    if (inputMatch.length) {
+                        toggleVisible(gbl.eles.caseHistory, true)
+                        historyList.forEach(ele => inputMatch.includes(ele) ? unhideElement(ele, true) : unhideElement(ele, false) )
+                    } else { hideCaseHistory() }
+                }
+                function hideHistoryClick(clickEvent) {
+                    if ( clickEvent.target.closest('#newTabInputDiv') ) { return };
+                    hideHistory()
+                }
+                function hideHistory() {
+                    hideCaseHistory()
+                    document.removeEventListener('click', hideHistoryClick)
+                }
+            }
+            catch (err) { console.trace(err) }
+        }(); //======================== Case_History Section_End ===================================//
         !function newTabFieldEvents() {
             buttonDivOneNTF.addEventListener('click', clickEvent => {
                 if (clickEvent.target.closest('button')?.nodeName === 'BUTTON') { pageOpenNTF(clickEvent, clickEvent.target.dataset.pageName) };
@@ -749,23 +809,49 @@ const allPagesMap = new Map([
                     || [ 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Home', 'End', 'Tab' ].includes(keydownEvent.key)
                 ) { return; }
                 switch (keydownEvent.key) {
-                    case 'n': pageOpenNTF(keydownEvent, 'CaseNotes'); break;
+                    case 'n': pageOpenNTF(keydownEvent); break;
                     case 'o':
-                    case 'Enter': pageOpenNTF(keydownEvent, 'CaseOverview'); break;
-                    case 'Escape': toggleVisible(document.getElementById('caseHistory'), false); newTabField.blur(); break;
+                    case 'Enter': pageOpenNTF(keydownEvent); break;
+                    case 'Escape': hideCaseHistory(); newTabField.blur(); break;
+                    case 'ArrowUp':
+                    case 'ArrowDown': caseHistoryChangeFocus(keydownEvent); break;
+                    default: break;
                 }
                 keydownEvent.preventDefault()
             })
+            gbl.eles.caseHistory?.addEventListener('mouseover', mouseoverEvent => { let mouseoverTarget = mouseoverEvent.target.nodeName === "SPAN" ? mouseoverEvent.target.parentElement : mouseoverEvent.target; if (mouseoverTarget?.classList?.contains('caseHistoryFocus')) { return }; caseHistoryChangeFocus(mouseoverEvent) })
+            function caseHistoryChangeFocus(event) {
+                let currentFocusedTarget = gbl.eles.caseHistory?.querySelectorAll('.caseHistoryFocus')[0] ?? undefined
+                let focusedHistory = [...gbl.eles.caseHistory?.children].forEach(ele => ele.classList.remove('caseHistoryFocus', 'caseHistoryFocusKB'))
+                let focusTarget = (() => {
+                    switch (event.key) {
+                        case "ArrowDown": return !currentFocusedTarget ? gbl.eles.caseHistory?.children[0] : currentFocusedTarget === [...gbl.eles.caseHistory?.children]?.at(-1) ? currentFocusedTarget : currentFocusedTarget.nextElementSibling;
+                        case "ArrowUp": return !currentFocusedTarget ? [...gbl.eles.caseHistory?.children]?.at(-1) : currentFocusedTarget === gbl.eles.caseHistory?.children[0] ? currentFocusedTarget : currentFocusedTarget.previousElementSibling;
+                        default: return event.target.nodeName === "SPAN" ? event.target.parentElement : event.target;
+                    }
+                })()
+                let caseHistoryClassList = !!event.key ? ['caseHistoryFocus', 'caseHistoryFocusKB'] : ['caseHistoryFocus']
+                focusTarget?.classList.add(...caseHistoryClassList)
+            }
         }();
         function pageOpenNTF(event, pageNameNTF) {
             event.preventDefault();
+            let enterFromKB = event.key === 'Enter' ? gbl.eles.caseHistory?.querySelector('.caseHistoryFocusKB') : undefined
+            if (enterFromKB) {
+                toggleVisible(gbl.eles.caseHistory, false)
+                newTabField.value = Number(enterFromKB.id.split('history')[1])
+                newTabField.select()
+                enterFromKB.classList.remove('caseHistoryFocusKB', 'caseHistoryFocus')
+                return;
+            }
             if (!/^\d{1,8}$/.test(newTabField.value)) { return; }
             let pageTarget = gbl.eles.caseIdElement && !caseIdVal ? "_self" : "_blank"
-            window.open('/ChildCare/' + (pageNameNTF === "CaseOverview" ? "CaseOverview" : "CaseNotes") + '.htm?parm2=' + newTabField.value, pageTarget);
+            window.open('/ChildCare/' + (event.key === "n" ? "CaseNotes" : "CaseOverview") + '.htm?parm2=' + newTabField.value, pageTarget);
             newTabField.value = ''
-            toggleVisible(document.getElementById('caseHistory'), false);
+            hideCaseHistory()
             newTabField.blur()
         }
+        function hideCaseHistory() { toggleVisible(gbl.eles.caseHistory, false); let clearHistoryClasses = [...gbl.eles.caseHistory.children].forEach(ele => ele.classList.remove('caseHistoryFocusKB', 'caseHistoryFocus')) }
     }();
     editMode && (document.querySelectorAll('#buttonPanelTwo, #buttonPanelThree').forEach(ele => ele.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
 }();
@@ -775,11 +861,6 @@ function selectPeriodReversal(selectPeriodEleToReverse = gbl.eles.selectPeriod) 
     if (!selectPeriodEleToReverse || selectPeriodEleToReverse.disabled) { return };
     selectPeriodEleToReverse.innerHTML = [...selectPeriodEleToReverse.children].reverse().map(ele => ele.outerHTML).join('')
 };
-function selectOption(selectElement, selectedOptionValue) {
-    const originallySelectedOption = selectElement.querySelector('[selected]')
-    const selectedOption = selectElement.querySelector('[value="' + selectedOptionValue + '"')
-    if (originallySelectedOption !== selectedOptionValue) { originallySelectedOption.removeAttribute('selected'); selectedOption.setAttribute('selected', 'selected') }
-}
 !function nextPrevPeriodButtons() {
     if (iFramed || editMode || !gbl.eles.selectPeriod || !sanitize.query(gbl.eles.selectPeriod) || gbl.eles.selectPeriod.disabled || gbl.eles.selectPeriod.readOnly || gbl.eles.selectPeriod.type === "hidden" || reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
     try {
@@ -834,7 +915,6 @@ function inCurrentBWP( compareDate = Date.now() ) {
 };
 if (gbl.eles.selectPeriod && countyInfo.userSettings?.selectPeriodReversal && !editMode) { selectPeriodReversal() };
 docReady( document.body?.addEventListener('submit', () => { document.body.style.opacity = ".8" }) ); // Dim_Page_On_Submit
-// docReady (document.querySelectorAll('form input.form-control:read-write').forEach(ele => { ele.spellcheck = false }) )
 function addToFooter(...feet) {
     let separatorSpan = '<span class="footer">ı</span>'
     feet = Array.isArray(feet[0]) ? feet.flat(1) : [feet]
@@ -904,67 +984,6 @@ class TrackedMutationObserver extends MutationObserver { // https://stackoverflo
     }
     static getActive() { return this.instances };
 };
-//======================== Case_History Section_Start =================================
-!function caseHistoryDatalist() {
-    if (iFramed || !(newTabField instanceof HTMLElement) || !countyInfo.userSettings?.caseHistory) { return };
-    try {
-        const caseHistory = sanitize.json(localStorage.getItem('MECH2.caseHistoryLS')) ?? []
-        if (pageTitle === pageTitle.toUpperCase() && thisPageNameHtm.indexOf('Provider') !== 0 && caseIdVal && !editMode && localStorage.getItem('MECH2.note') === null) { addToCaseHistoryArray() }
-        function addToCaseHistoryArray() {
-            const caseName = nameFuncs.commaNameReorder(pageTitle), caseIdValTest = (entry) => entry.caseIdValNumber === caseIdVal, foundDuplicate = caseHistory.findIndex(caseIdValTest)
-            if (foundDuplicate > -1) { caseHistory.splice(foundDuplicate, 1) }
-            let timestamp = dateFuncs.formatDate(new Date(), "mmddhm"), newEntry = { caseIdValNumber: caseIdVal, caseName: caseName, time: timestamp };
-            while (caseHistory.length > 9) { caseHistory.pop() }
-            caseHistory.unshift(newEntry)
-            localStorage.setItem('MECH2.caseHistoryLS', JSON.stringify(caseHistory));
-        };
-        let viewHistoryDatalist = '<datalist id="caseHistory" style="visibility: hidden;">'
-        + caseHistory.map(item => '<div class="caseHistoryEntry" id="history' + parseInt(item.caseIdValNumber) + '"><span>' + sanitize.timeStamp(item.time) + '</span><span>' + sanitize.string(item.caseName) + '</span><span>' + parseInt(item.caseIdValNumber) + '</span></div>').join('')
-        + '</datalist>'
-        newTabField.insertAdjacentHTML('afterend', viewHistoryDatalist)
-        let history = document.getElementById('caseHistory'), historyList = [...history.children]
-        newTabField.addEventListener('focus', focusEvent => {
-            filterHistory(focusEvent.target.value, undefined)
-            document.addEventListener('click', hideHistoryClick)
-        })
-        newTabField.addEventListener('paste', pasteEvent => {
-            filterHistory(pasteEvent.target.value, undefined)
-        })
-        newTabField.addEventListener('input', inputEvent => { filterHistory(inputEvent.target.value, inputEvent.inputType) });
-        history.addEventListener('click', clickEvent => {
-            if ( !["SPAN", "DIV"].includes(clickEvent.target.nodeName) ) { return }
-            toggleVisible(history, false)
-            newTabField.value = Number(clickEvent.target.closest('div.caseHistoryEntry').id.split('history')[1])
-            newTabField.select()
-        });
-        function filterHistory(inputValue, inputType) {
-            if (!inputValue) {
-                unhideElement(historyList, true)
-                if (inputType && inputType === 'deleteByCut') {
-                    toggleVisible(history, false);
-                    newTabField.blur();
-                    return;
-                }
-                toggleVisible(history, true)
-                return
-            }
-            let inputMatch = historyList.filter( ele => ele.id.includes(inputValue) )
-            if (inputMatch.length) {
-                toggleVisible(history, true)
-                historyList.forEach(ele => inputMatch.includes(ele) ? unhideElement(ele, true) : unhideElement(ele, false) )
-            } else { toggleVisible(history, false) }
-        }
-        function hideHistoryClick(clickEvent) {
-            if ( clickEvent.target.closest('#newTabInputDiv') ) { return };
-            hideHistory()
-        }
-        function hideHistory() {
-            toggleVisible(history, false)
-            document.removeEventListener('click', hideHistoryClick)
-        }
-    }
-    catch (err) { console.trace(err) }
-}(); //======================== Case_History Section_End ===================================//
 const userCountyObj = new Map([
     ["x101", { county: "Aitkin", code: "101", neighbors: ["Cass", "Crow Wing", "Mille Lacs", "Kanabec", "Pine", "Carlton", "St. Louis", "Itasca"] }],
     ["x102", { county: "Anoka", code: "102", neighbors: ["Sherburne", "Wright", "Hennepin", "Ramsey", "Washington", "Chisago", "Isanti"] }],
@@ -1807,7 +1826,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     placeMfipResults(existingCashResults)
                 } else if (existingCashResults && !checkCashArray.length) { sessionStorage.removeItem('cashAlertResults') }
                 if (!checkCashArray.length) { return }
-                alertDetailRow.insertAdjacentHTML('beforeend', '<button type="button" id="doMfipCheck" class="cButton" tabindex="-1">Check MFIP Alerts</button>')
+                alertDetailRow.appendChild(createNewEle( 'button', { type: 'button', id: 'doMfipCheck', classList: 'cButton', tabIndex: '-1', textContent: 'Check MFIP Alerts', }))
                 document.getElementById('doMfipCheck').addEventListener( 'click', () => checkMfipResults(checkCashArray) )
                 function checkMfipResults(checkMFIPArray) {
                     forAwaitMultiCaseEval(checkCashArray, "CaseOverview.htm").then(function(checkMFIPArray) {
@@ -1819,7 +1838,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                                         ...cashAlertResults[thisCase],
                                         mfipStatus: programTable[row].programNameHistory + ': ' + programTable[row].programStatusHistory,
                                         inactiveDate: programTable[row].programStatusHistory === "Inactive" ? ' ' + programTable[row].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : '',
-                                        ccapStatus: ' | CCAP: ' + programTable[0].programNameHistory,
+                                        ccapStatus: ' | CCAP: ' + programTable[0].programNameHistory + (programTable[row].programNameHistory === "MFIP" && programTable[0].programNameHistory !== "CCMF" ? ' ' + programTable[0].programBeginDateHistory : ''),
                                     }
                                     break
                                 }
@@ -1833,9 +1852,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     for (let caseNum in resultsObj) {
                         let thisCaseObj = resultsObj[caseNum]
                         if (!thisCaseObj.rowIndex) { continue }
-                        let resultsTd = caseOrProviderAlertsTableTbodyChildren[thisCaseObj.rowIndex]?.children[1]
-                        !resultsTd.children.length && resultsTd.insertAdjacentHTML('beforeend', '<span class="tableSpan">' + thisCaseObj.mfipStatus + thisCaseObj.inactiveDate + thisCaseObj.ccapStatus +'</span>')
-                        }
+                        let resultsTd = caseOrProviderAlertsTableTbodyChildren[thisCaseObj.rowIndex]?.children[1];
+                        !resultsTd.children.length && resultsTd.appendChild(createNewEle('span', { classList: 'tableSpan', textContent: thisCaseObj.mfipStatus + thisCaseObj.inactiveDate + thisCaseObj.ccapStatus }))
+                    }
                 }
             }();
             !function preWorkerAlertClick() {
@@ -1942,11 +1961,12 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         document.getElementById('baseCategoryButtonsDiv').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             let alertTypeParameters = getAlertType(caseOrProviderType.value).parameters
-            if (foundAlert.noteMessage === "Approve new results (BSF/TY/extended eligibility) if MFIP not reopened.") {
+            if (foundAlert.noteMessage === "Approve new results (BSF/TY/extended eligibility) if MFIP not reopened." && (/\d{1,2}\/\d{1,2}\/\d{2,4}/).test(selectedCaseOrProvider.tableRow.innerText)) {
                 let eligChangeDate = Date.parse(selectedCaseOrProvider.tableRow.innerText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)[0]), baseDate = 1748192400000
                 while (baseDate < eligChangeDate) { baseDate += dateFuncs.bwpInMs }
                 let thirteenDays = 1123200000
                 alertTypeParameters.parm3 = "&parm3=" + dateFuncs.parm3date(baseDate - thirteenDays) + dateFuncs.parm3date(baseDate)
+                verbose(alertTypeParameters)
             }
             window.open('/ChildCare/' + clickEvent.target.id + '.htm' + alertTypeParameters.parm2 + alertTypeParameters.parm3, '_blank')
         });
@@ -1998,7 +2018,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         h4objects.alertdetail.h4.parentElement.style.display = "inline-block"
         let alertDetailRow = createNewEle( 'div', { style: 'display: inline-flex; gap: 10px; margin-left: 10px;', id: 'alertDetailRow', }), autonoteButton = createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: "-1", id: 'autonoteButton', textContent: 'Automated Note', })
         h4objects.alertdetail.h4.parentElement.insertAdjacentElement('afterend', alertDetailRow).appendChild(autonoteButton)
-        // let alertDetailRow = document.getElementById('alertDetailRow')
         async function automatedCaseNote() {
             let alertType = getAlertType(caseOrProviderType.value)
             let [ , effectiveDate, selectedRowName ] = foundAlert.selectedAlertTableRow.children
@@ -2034,7 +2053,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             foundAlert.parameters = alertType.parameters.parm2 + alertType.parameters.parm3
             foundAlert.numberId = alertType.numberId
             foundAlert.noteSummary = foundAlert.noteSummary.replace(/(\d{2}\/\d{2}\/\d{4}|\d{13})/g, (date) => dateFuncs.formatDate(date, "mdyy"))
-            return foundAlert
+            return foundAlert;
+
             function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) {
                 switch (alertByCategory) {
                     case "childsupport.csCSES": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('CSES') )
@@ -2150,8 +2170,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             if (!matchingPeriod) { return };
             selectPeriod.value = matchingPeriod
             eleFocus(gbl.eles.save)
+            preventKeys(["Tab"])
         }
-        $('#applicationReceivedDate').on("change", appDateChanged ) // jQuery event doesn't allow for additional 'click' events on its datepicker, so can't replace.
+        $('#applicationReceivedDate').on("input change", appDateChanged ) // forcedjQuery //
     }(); // SECTION_END Case_Application_Initiation;
     !function __CaseReapplicationAddCcap() {
         if (!("CaseReapplicationAddCcap.htm").includes(thisPageNameHtm)) { return };
@@ -2639,8 +2660,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     if (!("CaseCSIA.htm").includes(thisPageNameHtm)) { return };
     let csiahidden = ['middleInitial', 'birthDate', 'ssn', 'gender'].map(itemId => document.getElementById(itemId).parentElement.parentElement)
     let deceased = document.getElementById('deceased'), deceasedDateFormGroup = document.getElementById('deceasedDate').parentElement.parentElement
-    let toggleAbsentParentName = createSlider({ label: "Show extra info", title: "Toggle displaying some name fields", id: "toggleAbsentParentNameSlider", defaultOn: false, classes: "h4-line float-right-imp", })
-    h4objects.absentparent.h4.insertAdjacentHTML('afterend', toggleAbsentParentName)
+    let toggleAbsentParentName = createSlider({ textContent: "Show extra info", title: "Toggle displaying some name fields", id: "toggleAbsentParentNameSlider", defaultOn: false, classes: "h4-line float-right-imp", })
+    h4objects.absentparent.h4.insertAdjacentElement('afterend', toggleAbsentParentName)
     document.getElementById('toggleAbsentParentNameSlider').addEventListener( 'click', ele => unhideElement(csiahidden, ele.target.checked) )
     unhideElement(csiahidden, false)
     h4objects.address.h4.click()
@@ -2662,9 +2683,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         disabilityMemberTableTbody = document.querySelector('#disabilityMemberTable > tbody')
     disabilityMemberTableTbody.addEventListener('click', checkDisabilityType)
     tertiaryActionArea.addEventListener('click', doTertiaryAction)
-    !async function checkTableOnLoad() {
-        await waitForTableCells().then(e => { disabilityMemberTableTbody.children[0].click() })
-    }();
+    !function clickTableOnLoad() { waitForTableCells().then(() => { disabilityMemberTableTbody.children[0].click() }) }();
     function doTertiaryAction({ target: clickEvent } = {}) {
         if (clickEvent.nodeName !== "BUTTON") { return };
         switch (clickEvent.id) {
@@ -2741,7 +2760,10 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             alreadyRedirecting = 1
         }
     }, 200, 5)
-    if ( ["CaseEligibilityResultApprovalPackage.htm"].includes(thisPageNameHtm) ) { doNotDupe.doNotUnderline.push('cancel') };
+    if ( ["CaseEligibilityResultApprovalPackage.htm"].includes(thisPageNameHtm) ) {
+        doNotDupe.doNotUnderline.push('cancel')
+        let highlightIneligible = [...document.querySelectorAll('table > tbody td:nth-child(3)')].forEach(ele => { if (ele.textContent === "Ineligible") { ele.style.color = "var(--textColorNegative" } })
+    };
     !function fixCopayLabels() {
         const copayElements = new Map([
             [ "CaseEligibilityResultOverview.htm", [ 'div[title="Current Copay"]', 'div[title="New Copay"]', 'div[title="Effective Date"]', 'Copay' ] ],
@@ -2759,39 +2781,40 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             }
         })
         function copayRecoupChanges(currAmt, newAmt, effDate, payType) {
-            if (effDate.innerText && Date.parse(effDate.innerText) <= Date.parse(selectPeriodDates.start)) {
-                currAmt.style.opacity = '.5'
-                let currAmtLabel = currAmt.previousElementSibling ?? currAmt.parentElement.previousElementSibling
-                currAmtLabel.style.opacity = '.5'
-                currAmtLabel.innerText = "Previous " + payType + ": "
-                let newAmtLabel = newAmt.previousElementSibling ?? newAmt.parentElement.previousElementSibling
-                newAmtLabel.innerText = "Current " + payType + ": "
+            if (effDate.innerText) {
+                if (Date.parse(effDate.innerText) <= Date.parse(selectPeriodDates.start)) {
+                    currAmt.style.opacity = '.5'
+                    let currAmtLabel = currAmt.previousElementSibling ?? currAmt.parentElement.previousElementSibling
+                    currAmtLabel.style.opacity = '.5'
+                    currAmtLabel.innerText = "Previous " + payType + ": "
+                    let newAmtLabel = newAmt.previousElementSibling ?? newAmt.parentElement.previousElementSibling
+                    newAmtLabel.innerText = "Current " + payType + ": "
+                } else if (Date.parse(effDate.innerText) > Date.parse(selectPeriodDates.end)) {
+                    let newAmtLabel = newAmt.previousElementSibling ?? newAmt.parentElement.previousElementSibling
+                    newAmtLabel.innerText = "Future " + payType + ": "
+                }
             } else if (!effDate.innerText) {
                 const noAmounts = [ newAmt.previousElementSibling ?? newAmt.parentElement.previousElementSibling, effDate.previousElementSibling ?? effDate.parentElement.previousElementSibling ].forEach(ele => { ele.style.opacity = '.5' })
-            }
+                }
         };
     }();
 }(); // SECTION_END reviewing_Eligibility_Redirect;
 !function __CaseEligibilityResult() {
     if ( ["CaseEligibilityResultSelection.htm", "CaseEligibilityResultApprovalPackage.htm"].includes(thisPageNameHtm) ) { return };
-    let eligTableArray = { // Page: { result.category: ["TextToMatch", tableColumnToHighlight] }
-        CaseEligibilityResultPerson: { eligibility: ["Ineligible", 3], inFamilySize: ["No", 5] },
-        CaseEligibilityResultOverview: { eligibility: ["Ineligible", 2], inFamilySize: ["No", 4] },
-    }
-    let eligTableArrayMultiRefNums = {
-        CaseEligibilityResultFinancial: [ ["No", 9], ],
-        CaseEligibilityResultActivity: [ ["Ineligible", 7], ["Fail", 8] ],
-    }
-    let eligTableArrayMatch = eligTableArray[thisPageName]
     let tableRows = [...document.querySelectorAll('table > tbody > tr')]
     let setTrIds = tableRows?.forEach(ele => { ele.id = "ref" + (ele.firstElementChild.innerText) })
     function eligHighlight() {
         document.querySelectorAll('select, input:is(.eligibility-highlight)').forEach(ele => { ele.classList.remove('eligibility-highlight', 'ineligible') })
-        let selectInputFail = [...document.querySelectorAll('.panel-box-format :is(select, input')].filter(ele => (/\bF\b|\bFail\b/).test(ele.value) ).forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible'));
+        let selectInputFail = [...document.querySelectorAll('.panel-box-format :is(select, input')].filter(ele => (/^\bF\b|^\bFail\b/).test(ele.value) ).forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible'));
     }
     function eligHighlightPageLoad() {
-        let divFail = [...document.querySelectorAll('#caseEligibilityResultFamilyDetail div.form-group > div')].filter(ele => ele.innerText === "Fail").forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible'))
-        if (eligTableArrayMatch) {
+        let divFail = [...document.querySelectorAll('#caseEligibilityResultFamilyDetail div.form-group > div')].filter(ele => ele.innerText === "Fail").forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible')) // Pages: Family //
+        if (["CaseEligibilityResultPerson.htm", "CaseEligibilityResultOverview.htm"].includes(thisPageNameHtm)) {
+            let eligTableArray = { // Page: { result.category: ["TextToMatch", tableColumnToHighlight] }
+                CaseEligibilityResultPerson: { eligibility: ["Ineligible", 3], inFamilySize: ["No", 5] },
+                CaseEligibilityResultOverview: { eligibility: ["Ineligible", 2], inFamilySize: ["No", 4] },
+            }
+            let eligTableArrayMatch = eligTableArray[thisPageName]
             evalData().then(({ 0: people } = {}) => {
                 people.forEach((person, i) => {
                     let membNumber = ('reference' in person) ? person.reference : person.ref
@@ -2808,7 +2831,14 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                     }
                 })
             }).catch(err => { console.trace(err) })
-        } else {
+            let notInUnit = [...document.querySelectorAll('tbody > tr > td')].filter(ele => ele.textContent === "Not in Unit").forEach(ele2 => ele2.parentElement.classList.add('notInUnit') )
+            document.querySelector('div[title="Family Result"]')?.innerText === "Ineligible" && document.querySelector('div[title="Family Result"]').classList.add('eligibility-highlight', 'ineligible')
+        }
+        if (["CaseEligibilityResultFinancial.htm", "CaseEligibilityResultActivity.htm"].includes(thisPageNameHtm)) { // Pages: Financial, Activity //
+            let eligTableArrayMultiRefNums = {
+                CaseEligibilityResultFinancial: [ ["No", 9], ],
+                CaseEligibilityResultActivity: [ ["Ineligible", 7], ["Fail", 8] ],
+            }
             let eligTableArrayMultiRefNumsMatch = eligTableArrayMultiRefNums[thisPageName]
             if (eligTableArrayMultiRefNumsMatch) {
                 eligTableArrayMultiRefNumsMatch.forEach( ([eleValue, tableCol] = []) => {
@@ -2818,8 +2848,6 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                 })
             }
         }
-        let notInUnit = [...document.querySelectorAll('tbody > tr > td')].filter(ele => ele.textContent === "Not in Unit").forEach(ele2 => ele2.parentElement.classList.add('notInUnit') )
-        document.querySelector('div[title="Family Result"]')?.innerText === "Ineligible" && document.querySelector('div[title="Family Result"]').classList.add('eligibility-highlight', 'ineligible')
     }
     queueMicrotask(() => { eligHighlightPageLoad(); eligHighlight() })
     document.querySelector('tbody')?.addEventListener('click', () => eligHighlight() )
@@ -2841,7 +2869,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             let tempInelig = { type: document.getElementById('type').value, reason: document.getElementById('reason').value, start: document.getElementById('beginDate').value, end: document.getElementById('allowedExpirationDate').value }
             sessionStorage.setItem('MECH2.TI.' + caseIdVal, JSON.stringify(tempInelig))
         })
-        $('#beginDate').on("input change", changeEvent => {
+        $('#beginDate').on("input change", changeEvent => { // forcedjQuery //
             if (changeEvent.target.value.length < 10) { return false }
             let extEligPlus90 = dateFuncs.formatDate( dateFuncs.addDays(document.getElementById('beginDate').value, 90), "ddmmyyyy" )
             document.getElementById('allowedExpirationDate').value = extEligPlus90
@@ -2852,7 +2880,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 !function __CaseEligibilityResultFinancial() {
     if (!("CaseEligibilityResultFinancial.htm").includes(thisPageNameHtm)) { return };
     let totalAnnualizedIncome = sanitize.number(document.querySelector('label[for="totalAnnualizedIncome"]+div').innerText), maxAllowed = sanitize.number(document.querySelector('label[for="maxIncomeAllowed"]+div').innerText)
-    if (totalAnnualizedIncome > maxAllowed) { document.querySelector('label[for="totalAnnualizedIncome"]').closest('div').classList.add('eligibility-highlight', 'ineligible') }
+    if (totalAnnualizedIncome > maxAllowed) {["totalAnnualizedIncome", "maxIncomeAllowed"].forEach( ele => document.querySelector('label[for=' + ele + ']').closest('div').classList.add('eligibility-highlight', 'ineligible') )}
     !function parensAroundExpenses() {
         const accountingNegative = [...document.querySelectorAll('table tbody tr')].forEach(tRow => {
             let [,,financialType,,, financialAmount] = tRow.children
@@ -2880,11 +2908,15 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     let priorityEligResult = "unapproved" in eligibilityResults ? ("eligible" in eligibilityResults ? eligibilityResults.eligible[0] : eligibilityResults.ineligible[0]) : eligibilityResults.current[0]
     priorityEligResult.click()
     if (!("unapproved" in eligibilityResults)) {
-        document.getElementById('delete').insertAdjacentHTML('afterend', `
-        <div id="goSA" style="display: inline-block; margin-left: 5rem;">
-            <button type="button" id="goSAOverview" class="form-button">SA Overview</button>
-            <button type="button" id="goSAApproval" class="form-button">SA Approval</button>
-        </div>`)
+        document.getElementById('delete')
+            .insertAdjacentElement( 'afterend', createNewEle('div', { id: "goSA", style: "display: inline-block; margin-left: 5rem;" }) )
+            .appendChild( createNewEle('button', { type: "button", id: "goSAOverview", classList: "form-button", textContent: "SA Overview" }) )
+            .insertAdjacentElement( 'afterend', createNewEle('button', { type: "button", id: "goSAApproval", classList: "form-button", textContent: "SA Approval" }) )
+        // document.getElementById('delete').insertAdjacentHTML('afterend', `
+        // <div id="goSA" style="display: inline-block; margin-left: 5rem;">
+        //     <button type="button" id="goSAOverview" class="form-button">SA Overview</button>
+        //     <button type="button" id="goSAApproval" class="form-button">SA Approval</button>
+        // </div>`)
         document.getElementById('goSA').addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return };
             clickEvent.preventDefault()
@@ -2951,8 +2983,8 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         }
     };
     checkEmploymentType()
-    let toggleEmployerAddress = createSlider({ label: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", defaultOn: false, classes: "float-right-imp h4-line", })
-    h4objects.details.h4.insertAdjacentHTML('afterend', toggleEmployerAddress)
+    let toggleEmployerAddress = createSlider({ textContent: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", defaultOn: false, classes: "float-right-imp h4-line", })
+    h4objects.details.h4.insertAdjacentElement('afterend', toggleEmployerAddress)
     document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressGroups, ele.target.checked) )
     unhideElement(ceiAddressGroups, false)
     if (editMode) {
@@ -3091,23 +3123,58 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 !function __CaseServiceAuthorizationApprovalPackage() {
     if (!("CaseServiceAuthorizationApprovalPackage.htm").includes(thisPageNameHtm)) { return };
     let serviceAuthorizationInfoTable = document.getElementById('serviceAuthorizationInfoTable'), providerInfoTable = document.getElementById('providerInfoTable')
-    let providerInfoTableRowIndex = 1
-    providerInfoTable.addEventListener('click', clickEvent => {
-        if (clickEvent.screenX !== 0) {
-            providerInfoTableRowIndex = providerInfoTable.querySelector('tbody > tr.selected').rowIndex
-        }
-    })
-    serviceAuthorizationInfoTable.addEventListener('click', () => {
-        if (providerInfoTableRowIndex !== providerInfoTable.querySelector('tbody > tr.selected').rowIndex) {
-            queueMicrotask(() => {
-                providerInfoTable.querySelector('tbody > tr:nth-child(' + providerInfoTableRowIndex + ')').click()
+    doNotDupe.doNotUnderline.push('cancel')
+    tbodiesFocus('#confirmDB')
+    !function reselectProvider() {
+        queueMicrotask(() => {
+            serviceAuthorizationInfoTable.rows[1].classList.add('selected')
+            providerInfoTable.rows[1].classList.add('selected')
+        })
+        waitForTableCells().then(() => {
+            serviceAuthorizationInfoTable.rows[1].classList.add('selected')
+            providerInfoTable.rows[1].classList.add('selected')
+            let providerInfoTableSelectedProviderId = providerInfoTable.querySelector('tbody > tr.selected > td').textContent
+            providerInfoTable.addEventListener('click', clickEvent => {
+                if (clickEvent.screenX !== 0) {
+                    providerInfoTableSelectedProviderId = providerInfoTable.querySelector('tbody > tr.selected > td').textContent
+                    verbose(providerInfoTableSelectedProviderId)
+                }
             })
-        }
-    })
-    queueMicrotask(() => {
-        serviceAuthorizationInfoTable.rows[1].classList.add('selected')
-        providerInfoTable.rows[1].classList.add('selected')
-    })
+            serviceAuthorizationInfoTable.addEventListener('click', () => {
+                [...providerInfoTable.querySelectorAll('tbody > tr > td:first-child')].find(cell => cell.textContent === providerInfoTableSelectedProviderId)?.click()
+                providerInfoTableSelectedProviderId = providerInfoTable.querySelector('tbody > tr.selected > td').textContent
+            })
+        })
+    }();
+    !function summarizeAuthorizations() {
+    //     let tableHead = createNewEle('thead'), tableBody = createNewEle('tbody')
+    //     document.getElementById('serviceAuthorizationApprovalPackageActionsArea').insertAdjacentElement('beforebegin', createNewEle('div', { id="saSummaryTableData", classList: "panel panel-default panel-box-format", }))
+    //         .appendChild(createNewEle('h4', { textContent: "Summary"}))
+    //         .insertAdjacentElement('afterend', createNewEle('table', {}))
+    //         .appendChild(tableHead)
+    //         .insertAdjacentElement('afterend', tableBody)
+    //     tableHead.append(createTableRow(['Child', 'Provider', 'Hours', 'SA Begin', 'SA End']))
+    //     function createTableRow(cellArray, cellsWide) { // make thead and tbody outside of function // thead > tr: { style: "color: white; background: "url(images/honeycomb-header-bg.jpg) no-repeat;" }
+    //         let tableRow = createNewEle('tr')
+    //         if (cellsWide && cellArray.length < Number(cellsWide)-1) {
+    //             cellArrayLen = cellArray.length; cellArray.length = cellsWide; cellArray = cellArray.fill("", cellArray.length)
+    //             cellArray.forEach( cell => tableRow.appendChild(createNewEle('td', { textContent: cell })) )
+    //             return tableRow
+    //         }
+    //     }
+    //     Issues: For SA changes, list SA hours comma separated? "M03: 40, 100". Would need to use Set or reduceArrToUniques()
+    //     For multiple start or end dates: Add check if start/end is the same date? Exclude from start/end dates if true and SA is 1? Leave hours in list if not 1?
+    //         Some SAs are dumb, and include a previously ended provider. Check end dates. If only 1, and date < SA range start, exclude?
+    //         End result: (1865134, 9/1/25. Examples case has 2 providers, one of which is present for 2/4 periods, the other 4/4 periods. There are 2 start dates for one provider. 9/8/25 - 9/8/25, and 9/15/25 - . )
+    //     on load, build object. object = { bwps: {}, providers: {} }.
+    //         .bpws populated by Result[1].parentRowIndex (BWP). object.bwps: { 0: [], 1: [], 2: [], 3: [] }. if (![1].parentRowIndex in object.bwps)...
+    //             .providers populated by Result[2].parentRowIndex. object.providers: { 0: {}, 1: {} }.
+    //             object.providers[#]: { childRefNumber: { childAuthorizedHours: [], childSABegin: "", childSAEnd: "" }, }
+    // Result[0]: BWPs, FRA, Copay.
+    // Result[1] and [2] will have an item for each provider in each period the SA exists for. If SA ending, may have 6 items for 2 providers over 4 BWPs.
+    // Result[1]: providerName, providerId, rowIndex (=== Result[2].parentRowIndex), rowIndex (BWP of Result[0])
+    // Result[2]: childSABegin, childSAEnd, childAuthorizedHours, childRefNumber, rowIndex (=== child), parentRowIndex (=== Result[1].rowIndex)
+    }();
 }(); // SECTION_END Case_SA_Approval_Package;
 !function __CaseServiceAuthorizationOverview() {
 if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { return };
@@ -3325,7 +3392,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     if (["ProviderNotes.htm"].includes(thisPageNameHtm)) { restyleCreated(); doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage'); return };
     if (!["CaseNotes.htm"].includes(thisPageNameHtm)) { return };
     doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
-    let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new')
+    let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new'), notesActionsArea = document.getElementById('notesActionsArea').children[0]
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody'), notesTableNoRecords = caseNotesTableTbody?.firstElementChild.textContent === "No records found" ? 1 : 0
     let noteTable = document.querySelector('.dataTables_scrollBody'), noteTableStyle = editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"
     noteCategory?.removeAttribute('onchange')
@@ -3396,8 +3463,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     return;
                 } else if (editMode) {
                     let userNameTitle = countyInfo.userSettings?.promptUserNameTitle ? countyInfo.info?.inputUserNameTitle : ""
-                    // document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Application">Application</option><option value="Child Support Note">Child Support Note</option>');
-                    // document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
                     let signatureName, workerName = countyInfo.info?.userName
                     if (["CaseNotes.htm"].includes(thisPageNameHtm)) {
                         if (noteInfo.xNumber) { signatureName = document.getElementById('noteCreator').value.toLowerCase() === noteInfo.xNumber ? countyInfo.info?.userName + userNameTitle : countyInfo.info?.userName + userNameTitle + " for " + noteInfo.worker }
@@ -3426,42 +3491,54 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 }
             })
             !function duplicateNote() { // SECTION_START Duplicate_Note
-                let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.storedNote")) ?? {}, storedNoteExists = "noteCategory" in storedNoteDetails ? 1 : 0
-                if (!storedNoteExists || storedNoteDetails?.noteSummary?.trim() === noteSummary?.value?.trim()) { localStorage.removeItem("MECH2.storedNote"); storedNoteExists = 0 }
+                let backupNoteDetails = sanitize.json(localStorage.getItem("MECH2.backupNote")) ?? {}, backupNoteExists = "noteCategory" in backupNoteDetails ? 1 : 0
+                if (!backupNoteExists || backupNoteDetails?.noteSummary?.trim() === noteSummary?.value?.trim()) { localStorage.removeItem("MECH2.backupNote"); backupNoteExists = 0 }
                 if (!editMode) {
-                    let storedNoteInfoHTML = storedNoteExists ? '<div id="unsavedNoteDiv" style="display: flex; align-items: center; gap: 5px;"><span style="margin-left: 10px;" title="' + storedNoteDetails.noteSummary + '">Unsaved note exists for case</span><a target="_self" href="/ChildCare/CaseNotes.htm?parm2=' + storedNoteDetails.identifier + '">'+ storedNoteDetails.identifier +'</a><span id="deleteUnsaved" style="cursor: pointer; color: red !important; padding-bottom: 2px;">✖</span></div>' : ''
-                    tertiaryActionArea?.insertAdjacentHTML('afterbegin', '<button type="button" id="duplicate" class="form-button">Duplicate</button> ' + storedNoteInfoHTML)
-                    document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.storedNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
+                    addTertiaryEle( 'button', { type: 'button', id: 'duplicate', classList: 'form-button', textContent: 'Duplicate', } )
+                    backupNoteExists && tertiaryActionArea
+                        .appendChild( createNewEle( 'div', { id: 'unsavedNoteDiv', style: 'display: flex; align-items: center; gap: 5px;', }) )
+                        .appendChild( createNewEle( 'span', { style: 'margin-left: 10px;', title:backupNoteDetails.noteSummary, textContent: 'Unsaved note exists for case', }) )
+                        .insertAdjacentElement( 'afterend', createNewEle( 'a', { target: "_self", href: "/ChildCare/CaseNotes.htm?parm2=" + backupNoteDetails.identifier, textContent: backupNoteDetails.identifier }) )
+                        .insertAdjacentElement( 'afterend', createNewEle( 'span', { id: 'deleteUnsaved', style: "cursor: pointer; color: red !important; padding-bottom: 2px;", textContent: '✖' }) )
+                    document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.backupNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
                     document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
                     function copyNoteToLS() {
                         let selectedLength = document.getElementsByClassName('selected')?.length
                         if (noteCategory?.value && selectedLength) {
-                            localStorage.setItem("MECH2.copiedNote", JSON.stringify( getNoteDetails() ))
+                            saveNoteDetails('copiedNote')
                             snackBar('Copied note!', 'notitle')
+                            eleFocus("#newDB")
                         } else if (!selectedLength) { snackBar('No note selected') }
-                        eleFocus("#newDB")
                     }
                 } else if (editMode) {
-                    window.addEventListener('beforeunload', getDetailsStoreInLS)
-                    document.getElementById('cancel')?.addEventListener('click', () => window.removeEventListener('beforeunload', getDetailsStoreInLS) )
-                    if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
-                    let noteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
-                    if (!noteDetailsExists && !storedNoteExists) { return };
-                    //
-                    let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
-                    if (noteDetailsExists && ["Application", "Redetermination" ].includes(noteCategorySplit0)) { noteDetails.noteSummary = noteCategorySplit0 + " update"; noteDetails.noteCategory = noteCategorySplit0 + " Incomplete" }
-                    let autofillButton = noteDetailsExists ? '<button type="button" id="autofill" class="form-button">Autofill</button>' : '', storedNoteButton = storedNoteExists ? '<button type="button" id="storedNote" class="form-button">Stored Note</button>' : ''
-                    tertiaryActionArea?.insertAdjacentHTML('afterbegin', autofillButton + storedNoteButton)
-                    tertiaryActionArea?.addEventListener('click', clickEvent => {
-                        if (clickEvent.target.nodeName !== "BUTTON" || noteCategory?.value) { return };
-                        let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : storedNoteDetails
-                        fillNoteDetails(selectedNoteDetails)
-                    })
-                    gbl.eles.save?.addEventListener('click', function() { localStorage.removeItem('MECH2.storedNote') })
-                    function getDetailsStoreInLS() { if (noteCategory?.value === '') { return }; localStorage.setItem('MECH2.storedNote', JSON.stringify( getNoteDetails() )) };
+                    !function storedNotes() {
+                        window.addEventListener('beforeunload', saveNoteDetails)
+                        setInterval(saveNoteDetails, 3000)
+                        notesActionsArea.addEventListener('click', clickEvent => {
+                            if (["cancel"].includes(clickEvent.target.id)) { window.removeEventListener('beforeunload', saveNoteDetails) }
+                            if (["save", "cancel"].includes(clickEvent.target.id)) { localStorage.removeItem('MECH2.backupNote') }
+                        })
+                        if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
+                        let noteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in noteDetails ? 1 : 0
+                        if (!noteDetailsExists && !backupNoteExists) { return };
+                        //
+                        if (noteDetailsExists) { addTertiaryEle( 'button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }) }
+                        if (backupNoteExists) { addTertiaryEle( 'button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }) }
+                        tertiaryActionArea?.addEventListener('click', clickEvent => {
+                            if (clickEvent.target.nodeName !== "BUTTON" || noteCategory?.value || !noteDetailsExists) { return };
+                            let selectedNoteDetails = clickEvent.target.id === "autofill" ? noteDetails : backupNoteDetails
+                            fillNoteDetails(selectedNoteDetails)
+                        })
+                    }();
                 }
-                function getNoteDetails() { return { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, }; };
+                function saveNoteDetails(copiedOrBackup="backupNote") {
+                    if (noteCategory?.value === '') { return };
+                    localStorage.setItem('MECH2.' + copiedOrBackup, JSON.stringify( { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, } ))
+                };
                 function fillNoteDetails(noteDetails) {
+                    let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
+                    if (["Application Approved", "Redetermination Complete" ].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = "Post-" + noteCategorySplit0 + " update"; noteDetails.noteCategory = noteCategorySplit0 + " - Other" }
+                    if (["Application Incomplete", "Application - Other", "Redetermination Incomplete", "Redetermination - Other" ].includes(noteDetails.noteCategory)) { noteDetails.noteSummary = noteCategorySplit0 + " update"; noteDetails.noteCategory = noteCategorySplit0 + " Incomplete" }
                     noteSummary.value = noteDetails.noteSummary
                     noteCategory.value = noteDetails.noteCategory
                     noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber
@@ -3473,10 +3550,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             !function caseNotes() { // SECTION_START Case_Notes_Only
                 if (!caseIdVal) { return };
                 if (editMode && !notesTableNoRecords) {
-                    document.querySelector('option[value="Application Incomplete"]')?.insertAdjacentHTML('afterend', '<option value="Child Support Note">Child Support Note</option>');
-                    document.querySelector('option[value="Reinstatement"]')?.insertAdjacentHTML('beforebegin', '<option value="Redetermination">Redetermination</option>');
-                    let autoFormatSlider = createSlider({ label: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
-                    h4objects.note.h4.insertAdjacentHTML('afterend', autoFormatSlider)
+                    let autoFormatSlider = createSlider({ textContent: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
+                    h4objects.note.h4.insertAdjacentElement('afterend', autoFormatSlider)
                     let autoFormat = document.getElementById('autoFormat')
                     gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles;
                         if (!autoFormat.checked) { return }
@@ -3518,8 +3593,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         let noteStyle = cssStyle()
                         noteStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
                         caseNotesTableTbody.parentElement.classList.add('toggledTable')
-                        let unhideElementCaseNotes = createSlider({ label: 'Show ' + hiddenTrCount + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', defaultOn: false, classes: 'float-right-imp h4-line', })
-                        document.getElementById('reset').insertAdjacentHTML('afterend', unhideElementCaseNotes)
+                        let unhideElementCaseNotes = createSlider({ textContent: 'Show ' + hiddenTrCount + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', defaultOn: false, classes: 'float-right-imp h4-line', })
+                        document.getElementById('reset').insertAdjacentElement('afterend', unhideElementCaseNotes)
                         let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
                         document.getElementById('unhideElementCaseNotes').addEventListener('click', clickEvent => {
                             clickEvent.target.checked === true ? noteStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }") : noteStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
@@ -3550,7 +3625,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                             else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
                         } else {
                             if (lastNoteIsOld) {
-                                document.getElementById('notesActionsArea').children[0].setAttribute('class', 'col-lg-12 textInherit')
+                                notesActionsArea.setAttribute('class', 'col-lg-12 textInherit')
                                 document.getElementById('storage').insertAdjacentHTML('afterend', '<button id="autoStorage" class="form-button" title="Archives eligible old (10 years+) notes." type="button">Auto-Store Old</button>')
                                 document.getElementById('autoStorage').addEventListener('click', () => {
                                     sessionStorage.setItem('MECH2.storeOldNotes.' + caseIdVal, true)
@@ -3577,7 +3652,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                             else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
                         } else {
                             if (isNoteStorable) {
-                                document.getElementById('notesActionsArea').children[0].setAttribute('class', 'col-lg-12 textInherit')
+                                notesActionsArea.setAttribute('class', 'col-lg-12 textInherit')
                                 document.getElementById('storage').insertAdjacentHTML('afterend', '<button id="autoStorage" class="form-button" title="Archives old (6mo+) CS Payment and PMI Merge notes." type="button">Auto-Store Merge/CS</button>')
                                 document.getElementById('autoStorage').addEventListener('click', () => {
                                     sessionStorage.setItem('MECH2.storePMIandCSnotes.' + caseIdVal, true)
@@ -3594,7 +3669,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END _Notes__CaseNotes_ProviderNotes (major_subsection) ===============================================================================;
 !function CaseOverview() {
     if (!("CaseOverview.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
-    $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order
+    $('#participantInformationData').DataTable().order([1, 'asc']).draw() // jQuery table sort order //
     let redetLabel = document.querySelectorAll('div.visible-lg > label[for=servicingAgency]')[1], redetDate = redetLabel?.parentElement.nextElementSibling?.nextElementSibling?.innerText
     if (redetDate) {
         gbl.eles.submitButton.insertAdjacentHTML('afterend', '<button type="button" id="copyFollowUpButton" class="cButton afterH4" tabindex="-1">Redet Follow Up Date</button>');
@@ -3605,40 +3680,45 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     }
     let programInformationData = document.getElementById('programInformationData')
     waitForElmHeight('#programInformationData > tbody > tr > td').then(() => {
-        let programInformationDataTbody = programInformationData?.querySelector('tbody'), programInformationTrows = [...programInformationDataTbody?.children] || [], trLength = programInformationTrows.length
+        let programInformationDataTbody = programInformationData?.querySelector('tbody'), programInformationTrows = [...programInformationDataTbody?.children] || []//, trLength = programInformationTrows.length
         let hcWbTrs = programInformationTrows.filter( ele => ["HC", "WB"].includes(ele.firstElementChild?.innerText) )
         let stickyTrs = programInformationTrows.filter( ele => ["MFIP", "DWP", "FS"].includes(ele.firstElementChild?.innerText) )
         if (stickyTrs.length && hcWbTrs.length) {
             hcWbTrs.forEach(ele => { stickyTrs[0].insertAdjacentElement('beforebegin', ele) })
-            programInformationData?.classList.add('toggleTable')
+            // programInformationData?.classList.add('toggleTable')
         }
         if (programInformationTrows.length > 16) {
             programInformationTrows.slice(17).forEach(ele => {
                 if (stickyTrs.includes(ele)) { return };
                 ele.classList.add('hiddenRow')
             })
-            programInformationData?.classList.add('toggledTable')
+            // programInformationData?.classList.add('toggledTable')
             let overviewStyle = cssStyle()
             const invisEle = document.createElement('div')
             overviewStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
-            let unhideElementProgInfo = createSlider({ label: 'Show hidden rows', title: "Shows or hides rows exceeding 20, including all 'HC' / 'WB' rows.", id: 'unhideElementProgInfo', defaultOn: false, classes: 'float-right-imp h4-line' }) // Reported Firefox bug: sticky rows > 20 break sticky.
-            h4objects.programinformation.h4.insertAdjacentHTML('afterend', unhideElementProgInfo)
-            let nothiddenTrCountLength = programInformationTrows.filter( ele => !ele.classList.contains('hiddenRow') ).length
+            let unhideElementProgInfo = createSlider({ textContent: 'Show hidden rows', title: "Shows or hides rows exceeding 20, including all 'HC' / 'WB' rows.", id: 'unhideElementProgInfo', defaultOn: false, classes: 'float-right-imp h4-line' }) // Reported Firefox bug: sticky rows > 20 break sticky.
+            h4objects.programinformation.h4.insertAdjacentElement('afterend', unhideElementProgInfo)
+            // let nothiddenTrCountLength = programInformationTrows.filter( ele => !ele.classList.contains('hiddenRow') ).length
             document.getElementById('unhideElementProgInfo').addEventListener('click', clickEvent => {
                 let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
                 if (clickEvent.target.checked === true) {
                     overviewStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }")
-                    calculateAndSetBottomHeight(programInformationData, trLength, stickyTrs)
+                    // calculateAndSetBottomHeight(programInformationData, stickyTrs)
+                    // calculateAndSetBottomHeight(programInformationData, trLength, stickyTrs)
                 } else {
                     overviewStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
-                    calculateAndSetBottomHeight(programInformationData, nothiddenTrCountLength, stickyTrs)
+                    // calculateAndSetBottomHeight(programInformationData, stickyTrs)
+                    // calculateAndSetBottomHeight(programInformationData, nothiddenTrCountLength, stickyTrs)
                 }
             })
-            calculateAndSetBottomHeight(programInformationData, nothiddenTrCountLength, stickyTrs);
-            setTimeout(() => { programInformationDataTbody.style.scrollSnapAlign = "start" }, 500)
-        } else { calculateAndSetBottomHeight(programInformationData, trLength, stickyTrs) }
+            calculateAndSetBottomHeight(programInformationData, stickyTrs);
+            // calculateAndSetBottomHeight(programInformationData, nothiddenTrCountLength, stickyTrs);
+            // setTimeout(() => { programInformationDataTbody.style.scrollSnapAlign = "start" }, 500)
+        } else { calculateAndSetBottomHeight(programInformationData, stickyTrs) }
+        // } else { calculateAndSetBottomHeight(programInformationData, trLength, stickyTrs) }
     });
-    function calculateAndSetBottomHeight(tableElement, tableRowCount, elementQuery) {
+    function calculateAndSetBottomHeight(tableElement, elementQuery) {
+    // function calculateAndSetBottomHeight(tableElement, tableRowCount, elementQuery) {
         tableElement = sanitize.query(tableElement)
         elementQuery = Array.isArray(elementQuery) ? elementQuery : sanitize.query(elementQuery)
         let bottomHeights = [...elementQuery].reverse().forEach((ele, index) => { ele.classList.add('stickyRow'); ele.style.bottom = index + 'lh' });
@@ -3795,9 +3875,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     } else if (editMode) {
         sessionStorage.removeItem('MECH2.suspendPlus45')
         let today = Date.now()
-        $('#receiveDate').on('keyup change', event => { //jQuery
-            if (!event.target.value || event.target.value.length !== 10) { return }
-            if (today - Date.parse(event.target.value) < 31536000000) { //365 days
+        $('#receiveDate').on('input change', jQueryEvent => { // forcedjQuery //
+            if (!jQueryEvent.target.value || jQueryEvent.target.value.length !== 10) { return }
+            if (today - Date.parse(jQueryEvent.target.value) < 31536000000) { //365 days
                 preventKeys(["Tab"])
                 eleFocus(gbl.eles.save)
                 $('.hasDatepicker').datepicker("hide")
@@ -4025,7 +4105,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             if (!earliestEditPeriod) { return }
             if ( Date.parse(earliestEditPeriod.slice(0, 10)) < Date.parse(selectPeriodDates.start) ) {
                 // addRedTextWarning("Edits were made in the " + earliestEditPeriod + " period.")
-                addRedTextWarning('Edits were made in the <a href="/ChildCare/CaseReinstate.htm?parm2=' + caseIdVal + '&parm3=' + dateFuncs.parm3(earliestEditPeriod) + '" target="_self" style="color: #CC0000 !important; text-decoration: underline;">earliestEditPeriod</a> period.')
+                addRedTextWarning('Unwrapped edits were made in the <a href="/ChildCare/CaseWrapUp.htm?parm2=' + caseIdVal + '&parm3=' + dateFuncs.parm3(earliestEditPeriod) + '" target="_self" style="color: #CC0000 !important; text-decoration: underline;">earliestEditPeriod</a> period.')
+                // addRedTextWarning({ textContent'Unwrapped edits were made in the <a href="/ChildCare/CaseWrapUp.htm?parm2=' + caseIdVal + '&parm3=' + dateFuncs.parm3(earliestEditPeriod) + '" target="_self" style="color: #CC0000 !important; text-decoration: underline;">earliestEditPeriod</a> period.')
             }
         }();
         sessionStorage.setItem('MECH2.previousPage', document.referrer)
@@ -4239,8 +4320,8 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         }
         !function billingInfoForEmails() {
             if (editMode) { return };
-            let twoOrFourWeeksSlider = createSlider({ label: "", title: "", id: "twoOrFourWeeks", defaultOn: 0, classes: "slider-always-color" })
-            tertiaryActionArea?.insertAdjacentHTML('beforeend', '<div id="weekBillingToggle" class="db-container"><span id="is2WkBilling">2-Week</span>' + twoOrFourWeeksSlider + '<span id="is4WkBilling" style="opacity: .6;">4-Week</span></div><div id="copyButtons" class="db-container"><button class="form-button" id="billingEmailTemplate">Template</button></div>')
+            let twoOrFourWeeksSlider = createSlider({ textContent: "", title: "", id: "twoOrFourWeeks", defaultOn: 0, classes: "slider-always-color" })
+            tertiaryActionArea?.insertAdjacentElement('beforeend', '<div id="weekBillingToggle" class="db-container"><span id="is2WkBilling">2-Week</span>' + twoOrFourWeeksSlider + '<span id="is4WkBilling" style="opacity: .6;">4-Week</span></div><div id="copyButtons" class="db-container"><button class="form-button" id="billingEmailTemplate">Template</button></div>')
             let billingEmailTemplate = document.getElementById('billingEmailTemplate'), is2WkBilling = document.getElementById('is2WkBilling'), is4WkBilling = document.getElementById('is4WkBilling'), twoOrFourWeeks = document.getElementById('twoOrFourWeeks')
             twoOrFourWeeks.addEventListener('click', clickEvent => {
                 switch(clickEvent.target.checked) {
@@ -4579,6 +4660,12 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
         maxRatesTable.insertAdjacentElement('afterbegin', document.createElement('thead'))
         maxRatesTable.querySelector('thead').insertAdjacentElement('afterbegin', maxRatesTable.querySelector('tr'))
     }();
+    ratesProviderType.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) })
+    maximumRatesCounty.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) })
+    if (maximumRatesCounty.value === "" && typeof userCountyObj !== undefined) { maximumRatesCounty.value = userCountyObj.county; doChange('#maximumRatesCounty') }
+    if (providerType === '') { ratesProviderType.value = "Child Care Center"; doChange(ratesProviderType) }
+    if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) }
+    if (!maxRatesTable.querySelector('tbody > tr > td:nth-child(2)').textContent) { return };
     !function fixRegFeeAgesHTML() {
         let regFeeLabel = document.querySelector('label[for=registrationFee]')
         regFeeLabel.closest('.form-group').outerHTML = '<div class="form-group"><label for="registrationFee" control-label textR textInherit">Registration Fee:</label> <div>' + regFeeLabel.parentElement.nextElementSibling.innerText + '</div></div>'
@@ -4589,39 +4676,32 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     !function addTextToTable() {
         if (providerType === '') { return };
         if (providerType !== "Legal Non-licensed") {
-            document.querySelectorAll('thead > tr > th:nth-child(n+2):nth-child(-n+4)').forEach( ele => ele.insertAdjacentHTML('beforeend', '<span class="maxRates"> (15%, 20%)</span>') )
+            document.querySelectorAll('thead > tr > th:nth-child(n+2):nth-child(-n+4)').forEach( ele => ele.appendChild(createNewEle( 'span', { classList: 'maxRates', textContent: ' (15%, 20%)', }) ) )
             let maxRatesTds = [...document.querySelectorAll('tbody > tr > td')].forEach(ele2 => {
                 if (!ele2.textContent || ele2.textContent === "0.00" || isNaN(Number(ele2.textContent))) { return }
                 ele2.insertAdjacentHTML('beforeend', '<span class="maxRates"> (' + (ele2.textContent * 1.15).toFixed(2) + ", " + (ele2.textContent * 1.2).toFixed(2) + ')</span>')
             })
-            maxRatesTable.insertAdjacentHTML('afterend', '<span id="diffDisclaimer" class="maxRates" style="display: block; width: 100%; font-style: italic; text-align: center;">Note: Table includes max rates for providers with approved accreditations (15%) and Parent Aware 3★ (15%) and 4★ (20%) ratings.</span>')
+            maxRatesTable.insertAdjacentElement('afterend', createNewEle( 'span', { id: 'diffDisclaimer', classList: 'maxRates', style: 'display: block; width: 100%; font-style: italic; text-align: center;', textContent: 'Note: Table includes max rates for providers with approved accreditations (15%) and Parent Aware 3★ (15%) and 4★ (20%) ratings.', }) )
         } else if (providerType === "Legal Non-licensed") {
-            document.querySelector('thead > tr > th:nth-child(2)').insertAdjacentHTML('beforeend', '<span class="maxRates">(15%)</span>')
+            document.querySelector('thead > tr > th:nth-child(2)').appendChild( createNewEle('span', { classList: "maxRates", textContent: "(15%)" }) )
             let maxRatesTds = [...document.querySelectorAll('tbody > tr > td')].forEach(ele3 => {
                 if ( !ele3.textContent || ele3.textContent === "0.00" || isNaN(Number(ele3.textContent)) ) { return }
-                ele3.insertAdjacentHTML('beforeend', '<span class="maxRates"> (' + (ele3.textContent * 1.15).toFixed(2) + ')</span>')
+                ele3.appendChild( createNewEle('span', { classList: "maxRates", textContent: ' ' + (ele3.textContent * 1.15).toFixed(2) }) )
             });
-            maxRatesTable.insertAdjacentHTML('afterend', '<span id="diffDisclaimer" class="maxRates" style="display: block; width: 100%; font-style: italic; text-align: center;">Note: Table includes max rates for providers with approved accreditations (15%).</span>')
+            maxRatesTable.insertAdjacentElement('afterend', createNewEle( 'span', { id: 'diffDisclaimer', classList: 'maxRates', style: "display: block; width: 100%; font-style: italic; text-align: center;", textContent: 'Note: Table includes max rates for providers with approved accreditations (15%).' }))
         }
         document.querySelector('h4').innerText = "Maximum Rates for " + providerType + " effective " + maximumRatesPeriod.value
     }();
     !function copyRates() {
-        let toggleDifferentialRates = createSlider({ label: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", defaultOn: true })
-        tertiaryActionArea?.insertAdjacentHTML(
-            'afterbegin', ''
-            + '<button type="button" class="form-button" id="copyRates">Copy Rates</button>'
-            + toggleDifferentialRates)
+        let toggleDifferentialRates = createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", defaultOn: true })
+        addTertiaryEle('button', { type: 'button', classList: 'form-button', id: 'copyRates', textContent: 'Copy Rates', })
+        tertiaryActionArea.appendChild(toggleDifferentialRates)
         document.getElementById('copyRates').addEventListener('click', () => {
             copyFormattedHTML(formatHTMLtoCopy({ htmlCode: maxRatesTable.parentElement.innerHTML.replace(/(<span class="maxRates hidden".+?<\/span>)/g, ''), addTableStyle: true, removeStyles: true, extraStyle: 'table.display { width: 50em; }' }))
         })
         let maxRatesSpans = [...document.querySelectorAll('.maxRates')]
         document.getElementById('toggleDifferentialRatesSlider').addEventListener( 'click', ele => unhideElement(maxRatesSpans, ele.target.checked) )
     }();
-    ratesProviderType.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) })
-    maximumRatesCounty.addEventListener('change', () => { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) })
-    if (maximumRatesCounty.value === "" && typeof userCountyObj !== undefined) { maximumRatesCounty.value = userCountyObj.county; doChange('#maximumRatesCounty') }
-    if (providerType === '') { ratesProviderType.value = "Child Care Center"; doChange(ratesProviderType) }
-    if (maximumRatesPeriod.value === '') { maximumRatesPeriod.value = firstNonBlankPeriod.value; doChange(maximumRatesPeriod) }
 }(); // SECTION_END Maximum_Rates;
 !function Notices_Case_Provider() {
     if (!["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) { return };
@@ -4671,6 +4751,7 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
 //     if ("CaseNotices.htm" !== thisPageNameHtm) { return };
 //     evalData().then( ({ 0: noticesData } = []) => {
 //         if (!noticesData.find(e => e.caseNoticePrintStatus === "Waiting to Print" && e.caseNoticeTitleDescription.indexOf("Parent Special Letter") > -1)?.caseNoticePrintStatus) { return };
+//         //add button to create email. onClick, evalData the email address.
 //     })
 // }(); // tertiaryActionArea: Button with case email address, opens CaseAddress mailto.
 !function CaseNotices_CaseSpecialLetter_CaseMemo() {
@@ -4708,6 +4789,10 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
     }
     document.addEventListener('paste', pasteEventAHK )
     !function addTextareaButtons() {
+        let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
+        : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').firstElementChild
+        : textbox.closest('.col-lg-12')
+        if (!targetDiv) { return }
         let textareaButtonText = {
             jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
                 + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
@@ -4717,32 +4802,29 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
                 + 'If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility.' },
             abpsInHh() {
                 let abpsInput = prompt("What is the absent parent's name?")
-                return 'I have been notified that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is now residing in your household, please submit the following verifications:'
-                    + '\n1. Verification of ' + abpsInput + '\'s work schedule, which must include the days of the week and start/end times\n2. Most recent 30 days income for ' + abpsInput + '\n3. ID for ' + abpsInput + '\n'
-                    + 'If this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days.' },
+                return abpsInput ? 'I have been notified by Child Support that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is residing in your household, please submit the following verifications:'
+                    + '\n1. Verification of ' + abpsInput + '\'s participation in a CCAP eligible activity, such as employment or education;'
+                    + '\n2. Most recent 30 days income for ' + abpsInput + ';'
+                    + '\n3. ID for ' + abpsInput + ';'
+                    + '\n\nIf this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days, which may impact your CCAP eligibility.' : "" },
             lnlSfsTraining() {
                 return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n'
-                    + 'and search for Course Title:\n "Supervising for Safety Legally Nonlicensed"\nContact DCYF through the Provider Hub with questions about trainings and your registration.' },
+                    + 'and search for Course Title:\n "Supervising for Safety - Legal Nonlicensed"\nContact DCYF through the Provider Hub with questions about trainings or your registration.' },
             deniedOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.' },
-            noNoticeProviderSwitch() { return "CCAP is required to give your currently authorized daycare provider a 15-day advance notice of adverse changes.\nAs your change is earlier than 15 days, I must contact the provider and confirm they were given proper notice.\nIf not, the provider can bill absent days during those 15 days, and we aren't able to pay another provider until either after those 15 days, or they bill 10 consecutive absent days during those 15 days." },
+            deniedTiOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently "Temporarily Ineligible."\n\nYour CCAP case has been updated with the information reported on this application.\n\nPlease contact me if you are unsure why your CCAP is temporarily ineligible.' },
+            noNoticeProviderSwitch() { return "CCAP is required to give your currently authorized daycare provider notice 15 days in advance of an adverse change.\n\nYou reported a provider switch to CCAP that is sooner than the 15-day period, so we must contact your provider to confirm they were given proper notice and won't be billing after the switch date.\n\nOtherwise, the provider can bill absent days during those 15 days, and we may not be able to pay your new provider until after those 15 days." },
             fosterChildCcap() { return 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)' },
         }
-        let textareaButtonsDivHTML = (
-            '<div class="float-right-imp" id="textareaButtonsDiv" style="display: flex; flex-direction: column; gap: 8px;">'
-            + '<button type="button" class="cButton" tabindex="-1" title="Client: Job Search hours are expended, explains eligible activities" id="jsHoursUsed">JS Hours Used</button>'
-            + '<button type="button" class="cButton" tabindex="-1" title="Client: Extended Eligibility ending, explains eligible activities" id="extEligEnds">Ext Elig Ends</button>'
-            + '<button type="button" class="cButton" tabindex="-1" title="Client: ABPS allegedly in the household, need confirm/deny" id="abpsInHh">ABPS in HH</button>'
-            + '<button type="button" class="cButton" tabindex="-1" title="Client: Client must report receiving CCAP to their Foster Care case manager" id="fosterChildCcap">CCAP for Foster</button>'
-            + '<button type="button" class="cButton" tabindex="-1" title="Client: Applied for CCAP with open CCAP case" id="deniedOpen">Denied, Case Open</button>'
-            + '<button type="button" class="cButton" tabindex="-1" title="Client: Provider reported copay as unpaid, submit verification of it being paid" id="closingUnpaidCopay">Closing, Unpaid Copay</button>'
-            + '<button type="button" class="cButton" tabindex="-1" title="Client: Client didn\'t give 15-day notice to CCAP of provider switch" id="noNoticeProviderSwitch">Provider Switch: Notice</button>'
-            + ("CaseMemo.htm".includes(thisPageNameHtm) ? '<button type="button" class="cButton" tabindex="-1" title="LNL provider: Supervising for Safety training requirement" id="lnlSfsTraining">LNL SfS Training</button>' : '')
-            + '</div>'
-        )
-        let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
-        : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').firstElementChild
-        : textbox.closest('.col-lg-12')
-        targetDiv?.insertAdjacentHTML('beforeend', textareaButtonsDivHTML)
+        targetDiv
+            .appendChild(createNewEle('div', { classList: 'float-right-imp', id: 'textareaButtonsDiv', style: 'display: flex; flex-direction: column; gap: 8px;', }) )
+            .appendChild(createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Job Search hours are expended. Defines eligible activities.', id: 'jsHoursUsed', textContent: 'JS Hours Used', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Extended Eligibility ending. Defines eligible activities.', id: 'extEligEnds', textContent: 'Ext Elig Ends', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title:"Client: ABPS allegedly in the household, need confirm/deny", id: 'abpsInHh', textContent: 'ABPS in HH', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Client must report receiving CCAP to their Foster Care case manager', id: 'fosterChildCcap', textContent: 'CCAP for Foster', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Applied for CCAP with open CCAP case', id: 'deniedOpen', textContent: 'Denied, Case Open', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Provider reported copay as unpaid, submit verification of it being paid', id: 'closingUnpaidCopay', textContent: 'Closing, Unpaid Copay', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Client didn\'t give 15-day notice to CCAP of provider switch', id: 'noNoticeProviderSwitch', textContent: 'Provider Switch: Notice', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'LNL provider: Supervising for Safety training requirement', id: 'lnlSfsTraining', textContent: 'LNL SfS Training', }) )
         document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             insertTextAndMoveCursor( (textbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), textbox )
@@ -4872,12 +4954,15 @@ if (("ClientSearch.htm").includes(thisPageNameHtm)) {
             }
             let openActiveNearby = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle, .outOfAreaToggle').length, openActive = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle').length
             let inactiveCount = document.getElementsByClassName('inactiveToggle').length, outOfAreaCount = document.getElementsByClassName('outOfAreaToggle').length
-            let inactiveToggle = inactiveCount > 0 ? createSlider({ label: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", defaultOn: false, }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ label: "Show Out-of-Area", title: "Toggle showing providers that are further than 1 county away", id: "outOfAreaToggle", defaultOn: false, }) : ""
+            let inactiveToggle = inactiveCount > 0 ? createSlider({ textContent: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", defaultOn: false, }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ textContent: "Show Out-of-Area", title: "Toggle showing providers that are further than 1 county away", id: "outOfAreaToggle", defaultOn: false, }) : ""
             if ( (inactiveCount + outOfAreaCount) > 0 ) {
                 let h5element = document.querySelector('h5')
                 let h5elementText = document.querySelector('h5').innerText.split(".")
                 h5element.textContent = h5elementText[0] + ". " + openActiveNearby + " active local providers. " + openActive + " active providers total." + h5elementText[1] + "."
-                h5element.insertAdjacentHTML('afterend', '<div id="searchFilters" style="gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;">' + inactiveToggle + outOfAreaToggle + '</div>')
+                // h5element.insertAdjacentHTML('afterend', '<div id="searchFilters" style="gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;">' + inactiveToggle + outOfAreaToggle + '</div>')
+                h5element.insertAdjacentElement('afterend', createNewEle( 'div', { id: 'searchFilters', style: 'gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;', }) )
+                .appendChild(inactiveToggle).insertAdjacentElement( 'afterend', outOfAreaToggle )
+                // h5element.insertAdjacentHTML('afterend', '<div id="searchFilters" style="gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;">' + inactiveToggle + outOfAreaToggle + '</div>')
                 document.getElementById('searchFilters')?.addEventListener('click', clickEvent => {
                     if (clickEvent.target.nodeName !== "INPUT") { return }
                     let replaceStyle = doTableStyleToggle(invisEle, clickEvent.target.id)
@@ -5441,7 +5526,7 @@ function waitForTableCells(tableStr = 'table') { // table = 'table' or '#tableId
     if (typeof tableStr !== "string") { return };
     return new Promise(resolve => {
         let waitForTable = document.querySelector('div.dataTables_scrollBody > ' + tableStr)
-        if (waitForTable?.children[1]?.firstElementChild?.children) {
+        if ( waitForTable?.querySelector('tbody > tr > td:nth-child(2)') ) {
             let recordsFound = waitForTable?.children[1]?.firstElementChild?.children.length
             return resolve(waitForTable, recordsFound);
         };
@@ -5642,8 +5727,8 @@ function convertFromAHK(ahkString) { // don't decode at this step - string may c
     ahkString = ahkString.split('AHKJSON')[1].replace(/(%(?![A-Z0-9]))/g, "%25") // Failsafe if AHK fails to encode % as %25 //
     return sanitize.json(ahkString)
 };
-function reduceArrToUniques(redArray=[]) {
-    return redArray.reduce((accumulator, currentValue) => {
+function reduceArrToUniques(reduceArray=[]) {
+    return reduceArray.reduce((accumulator, currentValue) => {
         let areValuesEqual = Array.isArray(currentValue) ? accumulator.some(accum => arraysEqual(accum, currentValue)) : accumulator.includes(currentValue)
         if (!areValuesEqual) { accumulator.push(currentValue) }
         return accumulator;
@@ -5658,17 +5743,17 @@ function arraysEqual(a, b) {
     }
     return true;
 };
-function tableHasData(table) { return !!sanitize.query(table)?.querySelector('tbody > tr:nth-child(2)') };
+function tableHasData(table) { return !!sanitize.query(table)?.querySelector('tbody > tr > td:nth-child(2)') };
 //
 //           return value to operate on page;
-function createSlider({ label, title, id: sliderId, defaultOn: isChecked, font: sliderFontSize, classes: extraClasses, styles: extraStyles } = {}) {
-    isChecked = isChecked ? "checked" : ''
-    extraClasses = !extraClasses ? ' "'
-    : Array.isArray(extraClasses) ? ' ' + extraClasses.join(" ") + '"' : ' ' + extraClasses + '"'
-    extraStyles = !extraStyles ? ''
-    : Array.isArray(extraStyles) ? ' style="' + extraStyles.join(" ") + '"' : ' style="' + extraStyles + '"'
-    sliderFontSize = !sliderFontSize ? '' : ' style="font-size: ' + sliderFontSize + ';"'
-    return '<div class="toggle-slider' + extraClasses + extraStyles + '><label title="' + title + '">' + label + '</label><label class="switch"' + sliderFontSize + '><input type="checkbox" id="' + sliderId + '" ' + isChecked + '><span class="slider round"></span></label></div>'
+function createSlider({ textContent, title, id: sliderId, defaultOn, fontSize, classes: extraClasses, styles: extraStyles } = {}) {
+    defaultOn = defaultOn ? "checked" : ""
+    let toggleSlider = createNewEle('div', { classList: ["toggle-slider", extraClasses].join(' '), style: extraStyles })
+    toggleSlider.appendChild( createNewEle('label', { title, textContent }) )
+    .insertAdjacentElement( 'afterend', createNewEle('label', { classList: "switch", style: (fontSize && "font-size: " + fontSize + ";") }) )
+    .appendChild( createNewEle('input', { type: "checkbox", id: sliderId, defaultOn }) )
+    .insertAdjacentElement( 'afterend', createNewEle('span', { classList: "slider round" }) )
+    return toggleSlider
 };
 function createNewEle(nodeName, attribObj={}, dataObj) {
     let newEle = Object.assign(document.createElement(nodeName), attribObj);
@@ -5729,7 +5814,8 @@ function tbodiesFocus(elementToFocus, tablesForFocus) {
     elementToFocus = sanitize.query(elementToFocus)
     if (!elementToFocus) { return };
     tablesForFocus = tablesForFocus ? sanitize.query(tablesForFocus) : document.querySelectorAll('tbody')
-    document.querySelectorAll('tbody')?.forEach(ele => {
+    let addEvent = [...tablesForFocus]?.forEach(ele => {
+    // document.querySelectorAll('tbody')?.forEach(ele => {
         ele?.addEventListener('click', clickEvent => {
             if (clickEvent.altKey || clickEvent.shiftKey) { return };
             clickCountEvents(clickEvent, function() { eleFocus(elementToFocus) })
