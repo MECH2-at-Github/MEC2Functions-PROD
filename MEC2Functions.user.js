@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.34
+// @version      0.6.35
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -2686,7 +2686,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     if (!("CaseCSIA.htm").includes(thisPageNameHtm)) { return };
     let csiahidden = ['middleInitial', 'birthDate', 'ssn', 'gender'].map(itemId => document.getElementById(itemId).parentElement.parentElement)
     let deceased = document.getElementById('deceased'), deceasedDateFormGroup = document.getElementById('deceasedDate').parentElement.parentElement
-    let toggleAbsentParentName = createSlider({ textContent: "Show extra info", title: "Toggle displaying some name fields", id: "toggleAbsentParentNameSlider", defaultOn: false, classes: "h4-line float-right-imp", })
+    let toggleAbsentParentName = createSlider({ textContent: "Show extra info", title: "Toggle displaying some name fields", id: "toggleAbsentParentNameSlider", classes: "h4-line float-right-imp", })
     h4objects.absentparent.h4.insertAdjacentElement('afterend', toggleAbsentParentName)
     document.getElementById('toggleAbsentParentNameSlider').addEventListener( 'click', ele => unhideElement(csiahidden, ele.target.checked) )
     unhideElement(csiahidden, false)
@@ -3009,7 +3009,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         }
     };
     checkEmploymentType()
-    let toggleEmployerAddress = createSlider({ textContent: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", defaultOn: false, classes: "float-right-imp h4-line", })
+    let toggleEmployerAddress = createSlider({ textContent: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", classes: "float-right-imp h4-line", })
     h4objects.details.h4.insertAdjacentElement('afterend', toggleEmployerAddress)
     document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressGroups, ele.target.checked) )
     unhideElement(ceiAddressGroups, false)
@@ -3579,7 +3579,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             !function caseNotes() { // SECTION_START Case_Notes_Only
                 if (!caseIdVal) { return };
                 if (editMode && !notesTableNoRecords) {
-                    let autoFormatSlider = createSlider({ textContent: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", defaultOn: true, classes: "float-right-imp h4-line", })
+                    let autoFormatSlider = createSlider({ textContent: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", checked: "checked", classes: "float-right-imp h4-line", })
                     h4objects.note.h4.insertAdjacentElement('afterend', autoFormatSlider)
                     let autoFormat = document.getElementById('autoFormat')
                     gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles;
@@ -3622,7 +3622,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         let noteStyle = cssStyle()
                         noteStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
                         caseNotesTableTbody.parentElement.classList.add('toggledTable')
-                        let unhideElementCaseNotes = createSlider({ textContent: 'Show ' + hiddenTrCount + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', defaultOn: false, classes: 'float-right-imp h4-line', })
+                        let unhideElementCaseNotes = createSlider({ textContent: 'Show ' + hiddenTrCount + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', classes: 'float-right-imp h4-line', })
                         document.getElementById('reset').insertAdjacentElement('afterend', unhideElementCaseNotes)
                         let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
                         document.getElementById('unhideElementCaseNotes').addEventListener('click', clickEvent => {
@@ -3725,7 +3725,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             let overviewStyle = cssStyle()
             const invisEle = document.createElement('div')
             overviewStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
-            let unhideElementProgInfo = createSlider({ textContent: 'Show hidden rows', title: "Shows or hides rows exceeding 20, including all 'HC' / 'WB' rows.", id: 'unhideElementProgInfo', defaultOn: false, classes: 'float-right-imp h4-line' }) // Reported Firefox bug: sticky rows > 20 break sticky.
+            let unhideElementProgInfo = createSlider({ textContent: 'Show hidden rows', title: "Shows or hides rows exceeding 20, including all 'HC' / 'WB' rows.", id: 'unhideElementProgInfo', classes: 'float-right-imp h4-line' }) // Reported Firefox bug: sticky rows > 20 break sticky.
             h4objects.programinformation.h4.insertAdjacentElement('afterend', unhideElementProgInfo)
             // let nothiddenTrCountLength = programInformationTrows.filter( ele => !ele.classList.contains('hiddenRow') ).length
             document.getElementById('unhideElementProgInfo').addEventListener('click', clickEvent => {
@@ -4376,14 +4376,14 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                 let lastApprovedVersion = Object.entries(approvedVersions)?.at(-1)[1]
                 let authorizedHours = lastApprovedVersion?.[selectedProviderId]?.[selectedChildId];
                 let totalHoursOfCareAuthorized = document.getElementById('totalHoursOfCareAuthorized')
-                totalHoursOfCareAuthorized.closest('.col-lg-12').appendChild( createNewEle('div', { id: "lastApprovedHoursDiv", classList: "col-lg-5" }) ).appendChild(createNewEle('label', { classList: "textR control-label", style: "width: fit-content;", textContent: "Last Approved Hours:" }) ).insertAdjacentElement('afterend', createNewEle('output', { id: "lastApprovedHours", textContent: authorizedHours }) )
+                totalHoursOfCareAuthorized.closest('.col-lg-12').appendChild( createNewEle('div', { id: "lastApprovedHoursDiv", classList: "col-lg-5" }) ).appendChild(createNewEle('label', { classList: "textR control-label", style: "width: fit-content;", textContent: "Current Authorized Hours:" }) ).insertAdjacentElement('afterend', createNewEle('output', { id: "lastApprovedHours", textContent: authorizedHours }) )
                 if (Number(authorizedHours) !== Number(totalHoursOfCareAuthorized.value)) { document.getElementById('lastApprovedHoursDiv').classList.add('redcolortext') };
             })
         }();
     }
     !function billingInfoForEmails() {
         if (editMode) { return };
-        let twoOrFourWeeks = createSlider({ textContent: "", title: "", id: "twoOrFourWeeks", defaultOn: 0, classes: "slider-always-color" })
+        let twoOrFourWeeks = createSlider({ textContent: "", title: "", id: "twoOrFourWeeks", classes: "slider-always-color" })
         let is2WkBilling = createNewEle('span', { id: 'is2WkBilling', textContent: '2-Week' }), billingEmailTemplate = createNewEle('button', { classList: 'form-button', id: 'billingEmailTemplate', textContent: 'Template' }), is4WkBilling = createNewEle('span', { id: 'is4WkBilling', style: 'opacity: .6;', textContent: '4-Week', })
         let weekBillingToggle = addTertiaryEle('div', { id: 'weekBillingToggle', classList: 'db-container', })
         weekBillingToggle.append(is2WkBilling, twoOrFourWeeks, is4WkBilling)
@@ -4659,21 +4659,31 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
 }(); // SECTION_END Financial_Billing_Approval;
 !function __FinancialBilling_FinancialBillingApproval() {
     if (!["FinancialBillingApproval.htm", "FinancialBilling.htm"].includes(thisPageNameHtm)) { return };
-    let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody')
+    let screenshotButton = addTertiaryEle('button', { type: 'button', id: 'screenshotButton', classList: 'form-button', textContent: 'Screenshot' })
+    screenshotButton.addEventListener('click', () => {
+        //
+    })
+    let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody'), billingChildTable = document.getElementById('billingChildTable')
     if (!billingProviderTableTbody.children[0].children[1]) { return };
-    !function reselectSelectedProvider() { // when switching between these pages, remembers selected provider, and reselects on page load //
+    !function reselectSelectedProviderAndChild() { // when switching between these pages or editing Billing, remembers selected provider and child, and reselects on page load //
         if (editMode) { return };
-        let billingEvalLookup = { FinancialBilling: { child: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { child: 0, providerIdInArr: "memberproviderId" }, }
+        let billingEvalLookup = { FinancialBilling: { providerTd: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { providerTd: 0, providerIdInArr: "memberproviderId" }, }
         let billingProviderTableChildren = document.querySelector(':is(table#billingProviderTable, table#financialBillingApprovalTable) > tbody').children
-        document.getElementById('buttonPanelThree')?.addEventListener('click', () => {
-            let selectedTRow = billingProviderTableTbody.querySelector('tr.selected')
-            if (selectedTRow) { sessionStorage.setItem('MECH2.billingApproval.' + caseIdVal, selectedTRow.children[billingEvalLookup[thisPageName].child]?.textContent) }
-        })
+        gbl.eles.buttonPanelThree?.addEventListener('click', storeSelectedProviderAndChild)
+        document.getElementById('edit')?.addEventListener('click', storeSelectedProviderAndChild)
+        function storeSelectedProviderAndChild() {
+            let selectedProviderTRow = billingProviderTableTbody.querySelector('tr.selected')
+            let selectedChildTRow = billingChildTable?.querySelector('tr.selected')?.rowIndex ?? ''
+            let providerChildObj = { provider: selectedProviderTRow.children[billingEvalLookup[thisPageName].providerTd]?.textContent, child: selectedChildTRow }
+            if (selectedProviderTRow) { sessionStorage.setItem('MECH2.billingApproval.' + caseIdVal, JSON.stringify(providerChildObj) ) }
+        }
         evalData().then(({ 0: billingProviderListDataArr } = {}) => {
             if (!billingProviderListDataArr) { return };
-            let lastSelectedProvider = sessionStorage.getItem('MECH2.billingApproval.' + caseIdVal), billingReferAndSelectedProvider = document.referrer.indexOf("FinancialBilling") > -1 && lastSelectedProvider
+            let lastSelected = sanitize.json( sessionStorage.getItem('MECH2.billingApproval.' + caseIdVal) ),
+                billingReferAndSelectedProvider = ( document.referrer.indexOf("FinancialBilling") > -1 && lastSelected?.provider )
             if (!billingReferAndSelectedProvider) { return };
-            let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelectedProvider) { billingProviderTableChildren[i].click() } })
+            let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelected?.provider) { billingProviderTableChildren[i].click() } })
+            lastSelected?.child && billingChildTable.rows[lastSelected?.child].click()
             }).catch(err => { console.trace(err) })
     }();
 }(); // SECTION_END Financial_Billing_Financial_Billing_Approval_page_switch;
@@ -4762,7 +4772,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         document.querySelector('h4').innerText = "Maximum Rates for " + providerType + " effective " + maximumRatesPeriod.value
     }();
     !function copyRates() {
-        let toggleDifferentialRates = createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", defaultOn: true })
+        let toggleDifferentialRates = createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", checked: "checked" })
         addTertEle([ ['button', { type: 'button', classList: 'form-button', id: 'copyRates', textContent: 'Copy Rates', }], ])
         tertiaryActionArea.appendChild(toggleDifferentialRates)
         document.getElementById('copyRates').addEventListener('click', () => {
@@ -4772,7 +4782,94 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         document.getElementById('toggleDifferentialRatesSlider').addEventListener( 'click', ele => unhideElement(maxRatesSpans, ele.target.checked) )
     }();
 }(); // SECTION_END Maximum_Rates;
-!function Notices_Case_Provider() {
+!function CaseNotices_CaseSpecialLetter_CaseMemo() {
+    if (thisPageNameHtm === "CaseSpecialLetter.htm" && !editMode) { document.getElementById('changeAgency').style.display = "none"; };
+    if (!["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) || !editMode) { return };
+    let textbox = document.querySelector('textarea:not([disabled])')
+    if (!textbox) { return };
+    let status = document.getElementById('status')
+    if (status) {
+        status.value = "Application"
+        void doChange(status)
+        status.value = ""
+    }
+    document.querySelector('.panel-default.panel-box-format')?.addEventListener('click', clickEvent => { //click checkbox if clicking label
+        if (clickEvent.target.nodeName !== "STRONG") { return }
+        let checkboxParent = clickEvent.target.closest('div.col-lg-4')
+        checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
+    })
+    document.querySelector('#caseData input#other')?.addEventListener('click', clickEvent => { document.getElementById('otherTextbox').value = clickEvent.target.checked ? 'See Worker Comments below' : '' })
+    document.querySelectorAll('div.col-lg-offset-3')?.forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
+    function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKJSON{"IdList":"List, comma separated", "CaseStatus":"status", "LetterText":"letter text"}
+        let pastedText = (event.clipboardData || window.clipboardData).getData("text")
+        if (pastedText.indexOf("FromAHKJSON") < 0) { return }
+        // if (pastedText.indexOf("LetterTextFromAHKJSON") < 0) { return }
+        pasteEvent.preventDefault()
+        pasteEvent.stopImmediatePropagation()
+        let ahkObj = convertFromAHK(pastedText)
+        if (!status) {
+            textbox.value = decodeURIComponent(ahkObj.LetterText)
+            eleFocus(gbl.eles.save)
+        } else if (status) {
+            let decodedCaseStatus = decodeURIComponent(ahkObj.CaseStatus)
+            if (!decodedCaseStatus && !status.value) {
+                alert('ERROR: You must first either select a "Case Status" on this page or select an Eligibility status in CaseNotes.')
+            } else {
+                status.value = decodedCaseStatus
+                void doChange(status)
+                queueMicrotask(() => { ahkObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) }) /* [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ] */
+                textbox.value = decodeURIComponent(ahkObj.LetterText)
+                eleFocus(gbl.eles.save)
+            }
+        }
+    }
+    document.addEventListener('paste', pasteEventAHK )
+    !function addTextareaButtons() {
+        let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
+        : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').firstElementChild
+        : textbox.closest('.col-lg-12')
+        if (!targetDiv) { return }
+        let textareaButtonText = {
+            jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
+                + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+            extEligEnds() { return 'Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,'
+                + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
+            closingUnpaidCopay() { return 'Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n'
+                + 'If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility.' },
+            abpsInHh() {
+                let abpsInput = prompt("What is the absent parent's name?")
+                return abpsInput ? 'I have been notified by Child Support that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is residing in your household, please submit the following verifications:'
+                    + '\n1. Verification of ' + abpsInput + '\'s participation in a CCAP eligible activity, such as employment or education;'
+                    + '\n2. Most recent 30 days income for ' + abpsInput + ';'
+                    + '\n3. ID for ' + abpsInput + ';'
+                    + '\n\nIf this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days, which may impact your CCAP eligibility.' : "" },
+            lnlSfsTraining() {
+                return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n'
+                    + 'and search for Course Title:\n "Supervising for Safety - Legal Nonlicensed"\nContact DCYF through the Provider Hub with questions about trainings or your registration.' },
+            deniedOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.' },
+            deniedTiOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently "Temporarily Ineligible."\n\nYour CCAP case has been updated with the information reported on this application.\n\nPlease contact me if you are unsure why your CCAP is temporarily ineligible.' },
+            noNoticeProviderSwitch() { return "CCAP is required to give your currently authorized daycare provider notice 15 days in advance of an adverse change.\n\nYou reported a provider switch to CCAP that is sooner than the 15-day period, so we must contact your provider to confirm they were given proper notice and won't be billing after the switch date.\n\nOtherwise, the provider can bill absent days during those 15 days, and we may not be able to pay your new provider until after those 15 days." },
+            fosterChildCcap() { return 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)' },
+        }
+        targetDiv
+            .appendChild(createNewEle('div', { classList: 'float-right-imp', id: 'textareaButtonsDiv', style: 'display: flex; flex-direction: column; gap: 8px;', }) )
+            .appendChild(createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Job Search hours are expended. Defines eligible activities.', id: 'jsHoursUsed', textContent: 'JS Hours Used', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Extended Eligibility ending. Defines eligible activities.', id: 'extEligEnds', textContent: 'Ext Elig Ends', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title:"Client: ABPS allegedly in the household, need confirm/deny", id: 'abpsInHh', textContent: 'ABPS in HH', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Client must report receiving CCAP to their Foster Care case manager', id: 'fosterChildCcap', textContent: 'CCAP for Foster', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Applied for CCAP with open CCAP case', id: 'deniedOpen', textContent: 'Denied, Case Open', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Provider reported copay as unpaid, submit verification of it being paid', id: 'closingUnpaidCopay', textContent: 'Closing, Unpaid Copay', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Client didn\'t give 15-day notice to CCAP of provider switch', id: 'noNoticeProviderSwitch', textContent: 'Provider Switch: Notice', }) )
+            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'LNL provider: Supervising for Safety training requirement', id: 'lnlSfsTraining', textContent: 'LNL SfS Training', }) )
+        document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
+            if (clickEvent.target.nodeName !== "BUTTON") { return }
+            insertTextAndMoveCursor( (textbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), textbox )
+            let keyboardEvent = new KeyboardEvent('keyup')
+            textbox.dispatchEvent(keyboardEvent);
+        })
+    }();
+}(); // SECTION_END _Notices_SpecialLetter_Memo__Case_Provider;
+!function CaseNotices_ProviderNotices() {
     if (!["CaseNotices.htm", "ProviderNotices.htm"].includes(thisPageNameHtm)) { return };
     if (!editMode) {
         addDateControls("month", '#selectionBeginDate', '#selectionEndDate')
@@ -4823,85 +4920,6 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
 //         //add button to create email. onClick, evalData the email address.
 //     })
 // }(); // tertiaryActionArea: Button with case email address, opens CaseAddress mailto.
-!function CaseNotices_CaseSpecialLetter_CaseMemo() {
-    if (!["CaseSpecialLetter.htm", "CaseMemo.htm", "CaseNotices.htm"].includes(thisPageNameHtm) || !editMode) { return };
-    let textbox = document.querySelector('textarea:not([disabled])')
-    if (!textbox) { return };
-    let status = document.getElementById('status')
-    if (status) {
-        status.value = "Application"
-        void doChange(status)
-        status.value = ""
-    }
-    document.querySelector('.panel-default.panel-box-format')?.addEventListener('click', clickEvent => { //click checkbox if clicking label
-        if (clickEvent.target.nodeName !== "STRONG") { return }
-        let checkboxParent = clickEvent.target.closest('div.col-lg-4')
-        checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
-    })
-    document.querySelector('#caseData input#other')?.addEventListener('click', clickEvent => { document.getElementById('otherTextbox').value = clickEvent.target.checked ? 'See Worker Comments below' : '' })
-    document.querySelectorAll('div.col-lg-offset-3')?.forEach( ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
-    function pasteEventAHK(pasteEvent) { //AHK code: "LetterTextFromAHKJSON{"IdList":"List, comma separated", "CaseStatus":"status", "LetterText":"letter text"}
-        let pastedText = (event.clipboardData || window.clipboardData).getData("text")
-        if (pastedText.indexOf("FromAHKJSON") < 0) { return }
-        // if (pastedText.indexOf("LetterTextFromAHKJSON") < 0) { return }
-        pasteEvent.preventDefault()
-        pasteEvent.stopImmediatePropagation()
-        let ahkObj = convertFromAHK(pastedText)
-        if (status) {
-            status.value = decodeURIComponent(ahkObj.CaseStatus)
-            void doChange(status)
-            queueMicrotask(() => { ahkObj.IdList.split(',').forEach( ele => document.getElementById(ele)?.click() ) })
-            /* [ "proofOfIdentity", "proofOfActivitySchedule", "proofOfBirth", "providerInformation", "proofOfRelation", "childSchoolSchedule", "citizenStatus", "proofOfDeductions", "proofOfResidence", "scheduleReporter", "proofOfAty", "twelveMonthReporter", "proofOfFInfo", "other" ] */
-        }
-        textbox.value = decodeURIComponent(ahkObj.LetterText)
-        eleFocus(gbl.eles.save)
-    }
-    document.addEventListener('paste', pasteEventAHK )
-    !function addTextareaButtons() {
-        let targetDiv = "CaseMemo.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group')
-        : "CaseNotices.htm".includes(thisPageNameHtm) ? textbox.closest('.form-group').firstElementChild
-        : textbox.closest('.col-lg-12')
-        if (!targetDiv) { return }
-        let textareaButtonText = {
-            jsHoursUsed() { return 'Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:'
-                + '\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
-            extEligEnds() { return 'Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,'
-                + ' you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions.' },
-            closingUnpaidCopay() { return 'Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n'
-                + 'If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility.' },
-            abpsInHh() {
-                let abpsInput = prompt("What is the absent parent's name?")
-                return abpsInput ? 'I have been notified by Child Support that ' + abpsInput + '\'s address has been changed to match your address. If ' + abpsInput + ' is residing in your household, please submit the following verifications:'
-                    + '\n1. Verification of ' + abpsInput + '\'s participation in a CCAP eligible activity, such as employment or education;'
-                    + '\n2. Most recent 30 days income for ' + abpsInput + ';'
-                    + '\n3. ID for ' + abpsInput + ';'
-                    + '\n\nIf this household change is not accurate, please contact me for further instructions. Otherwise ' + abpsInput + ' will be added to your household in 15 days, which may impact your CCAP eligibility.' : "" },
-            lnlSfsTraining() {
-                return 'As a reminder, you must complete "Supervising for Safety" through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n'
-                    + 'and search for Course Title:\n "Supervising for Safety - Legal Nonlicensed"\nContact DCYF through the Provider Hub with questions about trainings or your registration.' },
-            deniedOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application.' },
-            deniedTiOpen() { return 'Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently "Temporarily Ineligible."\n\nYour CCAP case has been updated with the information reported on this application.\n\nPlease contact me if you are unsure why your CCAP is temporarily ineligible.' },
-            noNoticeProviderSwitch() { return "CCAP is required to give your currently authorized daycare provider notice 15 days in advance of an adverse change.\n\nYou reported a provider switch to CCAP that is sooner than the 15-day period, so we must contact your provider to confirm they were given proper notice and won't be billing after the switch date.\n\nOtherwise, the provider can bill absent days during those 15 days, and we may not be able to pay your new provider until after those 15 days." },
-            fosterChildCcap() { return 'You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\'s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)' },
-        }
-        targetDiv
-            .appendChild(createNewEle('div', { classList: 'float-right-imp', id: 'textareaButtonsDiv', style: 'display: flex; flex-direction: column; gap: 8px;', }) )
-            .appendChild(createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Job Search hours are expended. Defines eligible activities.', id: 'jsHoursUsed', textContent: 'JS Hours Used', }) )
-            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Extended Eligibility ending. Defines eligible activities.', id: 'extEligEnds', textContent: 'Ext Elig Ends', }) )
-            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title:"Client: ABPS allegedly in the household, need confirm/deny", id: 'abpsInHh', textContent: 'ABPS in HH', }) )
-            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Client must report receiving CCAP to their Foster Care case manager', id: 'fosterChildCcap', textContent: 'CCAP for Foster', }) )
-            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Applied for CCAP with open CCAP case', id: 'deniedOpen', textContent: 'Denied, Case Open', }) )
-            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Provider reported copay as unpaid, submit verification of it being paid', id: 'closingUnpaidCopay', textContent: 'Closing, Unpaid Copay', }) )
-            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'Client: Client didn\'t give 15-day notice to CCAP of provider switch', id: 'noNoticeProviderSwitch', textContent: 'Provider Switch: Notice', }) )
-            .insertAdjacentElement( 'afterend', createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', title: 'LNL provider: Supervising for Safety training requirement', id: 'lnlSfsTraining', textContent: 'LNL SfS Training', }) )
-        document.getElementById('textareaButtonsDiv')?.addEventListener('click', clickEvent => {
-            if (clickEvent.target.nodeName !== "BUTTON") { return }
-            insertTextAndMoveCursor( (textbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), textbox )
-            let keyboardEvent = new KeyboardEvent('keyup')
-            textbox.dispatchEvent(keyboardEvent);
-        })
-    }();
-}(); // SECTION_END _Notices_SpecialLetter_Memo__Case_Provider;
 !function _Provider_Pages() {
     if ( thisPageNameHtm.indexOf("Provider") !== 0 ) { return; }
     !function __ProviderAddress() {
@@ -5023,7 +5041,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             }
             let openActiveNearby = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle, .outOfAreaToggle').length, openActive = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle').length
             let inactiveCount = document.getElementsByClassName('inactiveToggle').length, outOfAreaCount = document.getElementsByClassName('outOfAreaToggle').length
-            let inactiveToggle = inactiveCount > 0 ? createSlider({ textContent: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", defaultOn: false, }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ textContent: "Show Out-of-Area", title: "Toggle showing providers that are further than 1 county away", id: "outOfAreaToggle", defaultOn: false, }) : ""
+            let inactiveToggle = inactiveCount > 0 ? createSlider({ textContent: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ textContent: "Show Out-of-Area", title: "Toggle showing providers that are further than 1 county away", id: "outOfAreaToggle", }) : ""
             if ( (inactiveCount + outOfAreaCount) > 0 ) {
                 let h5element = document.querySelector('h5')
                 let h5elementText = document.querySelector('h5').innerText.split(".")
@@ -5628,7 +5646,7 @@ function waitForElmHeight(selectorStr) { // selector must be string;
     });
 };
 //
-//           show user text via popup (typical: copied text);
+//           shows text to user via popup (typical usage: show text copied to clipboard);
 function snackBar(sbText, title = "Copied!", textAlign = "left") {
     document.getElementById('snackBarDiv')?.remove()
     let snackBarDiv = createNewEle('div', { id: "snackBarDiv" })
@@ -5815,12 +5833,11 @@ function arraysEqual(a, b) {
 function tableHasData(table) { return !!sanitize.query(table)?.querySelector('tbody > tr > td:nth-child(2)') };
 //
 //           return value to operate on page;
-function createSlider({ textContent, title, id: sliderId, defaultOn, fontSize, classes: extraClasses, styles: extraStyles } = {}) {
-    defaultOn = defaultOn ? "checked" : ""
+function createSlider({ textContent, title, id: sliderId, checked, fontSize, classes: extraClasses, styles: extraStyles } = {}) {
     let toggleSlider = createNewEle('div', { classList: ["toggle-slider", extraClasses].join(' '), style: extraStyles })
     toggleSlider.appendChild( createNewEle('label', { title, textContent }) )
     .insertAdjacentElement( 'afterend', createNewEle('label', { classList: "switch", style: (fontSize && "font-size: " + fontSize + ";") }) )
-    .appendChild( createNewEle('input', { type: "checkbox", id: sliderId, defaultOn }) )
+    .appendChild( createNewEle('input', { type: "checkbox", id: sliderId, checked }) )
     .insertAdjacentElement( 'afterend', createNewEle('span', { classList: "slider round" }) )
     return toggleSlider
 };
