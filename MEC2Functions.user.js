@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.43
+// @version      0.6.44
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -1347,6 +1347,16 @@ function waitForElmHeight(selectorStr) { // selector must be string;
         observer.observe(document.body, { attributes: true, childList: true, subtree: true });
     });
 };
+function triggerFnOnProgrammaticChange(inputElement, triggerFn) {
+    const { get, set } = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(inputElement, 'value', {
+        get() { return get.call(this) },
+        set(newVal) {
+            set.call(this, newVal); // Set the actual value using the native setter //
+            triggerFn()
+        },
+    });
+};
 function waitForTableCells(tableStr = 'table') { // table = 'table' or '#tableId', must be string;
     return new Promise((resolve, reject) => {
         if (typeof tableStr !== "string") { reject("waitForTableCells: Parameter 1 is not of type 'String'.") };
@@ -1591,7 +1601,7 @@ function inCurrentBWP( compareDate = Date.now() ) {
     else { return false }
 };
 function inRange(x, min, max) { return Number(x).isNan ? undefined : x >= min && x <= max };
-function getChildNum(childEle) { return ( childEle?.nodeName === "TR" ? (childEle?.rowIndex -1) : [...childEle?.parentElement.children].indexOf(childEle) ) ?? undefined };
+function getChildNum(childEle) { return ( 'rowIndex' in childEle ? (childEle?.rowIndex -1) : [...childEle?.parentElement.children].indexOf(childEle) ) ?? undefined };
 function convertFromAHK(ahkString) { // don't decode at this step - string may contain newlines which breaks JSON //
     ahkString = ahkString.split('AHKJSON')[1].replace(/(%(?![A-Z0-9]))/g, "%25") // Failsafe if AHK fails to encode % as %25 //
     return sanitize.json(ahkString)
@@ -1771,16 +1781,6 @@ function toggleVisible(element, trueFalse) {
 function unhideElement(element, trueFalse) { // true to remove hidden, false to add hidden;
     element = Array.isArray(element) ? element : element instanceof NodeList ? [...element] : [element]
     element.forEach( ele => { ele = sanitize.query(ele); trueFalse ? ele.classList.remove('hidden') : ele.classList.add('hidden') } );
-};
-function waitForProgrammicChange(inputElement, triggerFn) {
-    const { get, set } = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-    Object.defineProperty(inputElement, 'value', {
-        get() { return get.call(this) },
-        set(newVal) {
-            set.call(this, newVal); // Set the actual value using the native setter //
-            triggerFn()
-        }
-    });
 };
 //
 // ///////////////////////////////////////////////////////////////////////////// FUNCTION_LIBRARY SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -3561,7 +3561,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         if ( !alreadyRedirecting && document.querySelector('[id$="TableAndPanelData"]')?.style?.display === "none" ) {
             window.open(document.getElementById("Eligibility Results Selection").firstElementChild.href, '_self')
             alreadyRedirecting = 1
-        }
+        };
     }, 200, 5)
     if ( ["CaseEligibilityResultApprovalPackage.htm"].includes(thisPageNameHtm) ) {
         doNotDupe.doNotUnderline.push('cancel')
@@ -3572,20 +3572,19 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             [ "CaseEligibilityResultOverview.htm", [ 'div[title="Current Copay"]', 'div[title="New Copay"]', 'div[title="Effective Date"]', 'Copay' ] ],
             [ "CaseEligibilityResultFinancial.htm", [ 'div[title="Current Copay"]', 'div[title="New Amount"]', 'div[title="Effective Date"]', 'Copay' ] ],
             [ "CaseEligibilityResultApproval.htm", [ 'div[title="Current Copay"]', 'div[title="New Copay"]', 'div[title="Effective Date"]', 'Copay' ] ],
-        ])
+        ]);
         const recoupElements = new Map([
             [ "CaseEligibilityResultOverview.htm", [ 'div[title="Current Recoupment"]', 'div[title="New Recoupment"]', 'label[for=recoupmentEffDate]+div', 'Recoupment' ] ],
             [ "CaseEligibilityResultApproval.htm", [ 'div[title="Current Recoupment"]', 'div[title="New Recoupment"]', 'label[for=recoupEffective]+div', 'Recoupment' ] ],
-        ])
+        ]);
         const fixCopayRecoup = [ copayElements, recoupElements ].forEach(map => {
             if (map.get(thisPageNameHtm)) {
                 const [ currentAmount, newAmount, effectiveDate, paymentType ] = map.get(thisPageNameHtm)
                 copayRecoupChanges(document.querySelector(currentAmount), document.querySelector(newAmount), document.querySelector(effectiveDate), paymentType)
-            }
-        })
+            };
+        });
         function copayRecoupChanges(currAmt, newAmt, effDate, payType) {
             if (effDate.innerText) {
-                verbose(Date.parse(effDate.innerText) <= Date.parse(selectPeriodDates.start), Date.parse(effDate.innerText), Date.parse(selectPeriodDates.start))
                 if (Date.parse(effDate.innerText) < Date.parse(selectPeriodDates.start)) { // eff. before period //
                     currAmt.style.opacity = '.5'
                     let currAmtLabel = currAmt.previousElementSibling ?? currAmt.parentElement.previousElementSibling
@@ -3601,7 +3600,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                     let currAmtLabel = currAmt.previousElementSibling ?? currAmt.parentElement.previousElementSibling
                     currAmtLabel.style.opacity = '.5'
                     currAmtLabel.innerText = "Previous " + payType + ": "
-                }
+                };
             } else if (!effDate.innerText) {
                 Array.from([ newAmt.previousElementSibling ?? newAmt.parentElement.previousElementSibling, effDate.previousElementSibling ?? effDate.parentElement.previousElementSibling ], ele => { ele.style.opacity = '.5' });
             };
@@ -3615,7 +3614,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     function eligHighlight() {
         document.querySelectorAll('select, input:is(.eligibility-highlight)').forEach(ele => { ele.classList.remove('eligibility-highlight', 'ineligible') })
         Array.from( document.querySelectorAll('.panel-box-format :is(select, input') ).filter(ele => (/^\bF\b|^\bFail\b/).test(ele.value) ).forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible'));
-    }
+    };
     function eligHighlightPageLoad() {
         Array.from( document.querySelectorAll('#caseEligibilityResultFamilyDetail div.form-group > div') ).filter(ele => ele.innerText === "Fail").forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible')) // Pages: Family //
         if (["CaseEligibilityResultPerson.htm", "CaseEligibilityResultOverview.htm"].includes(thisPageNameHtm)) {
@@ -3640,9 +3639,9 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                         personRowChildren[eligTableMatch.eligibility[1]].classList.add('eligibility-highlight', 'ineligible')
                         if (person.inFamilySize === "No") {
                             personRowChildren[eligTableMatch.inFamilySize[1]].classList.add('eligibility-highlight', 'ineligible')
-                        }
+                        };
                     };
-                })
+                });
             }).catch(err => { console.trace(err) });
             document.querySelector('div[title="Family Result"]')?.innerText === "Ineligible" && document.querySelector('div[title="Family Result"]').classList.add('eligibility-highlight', 'ineligible')
         };
@@ -3651,17 +3650,17 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             let eligTableMultiRefNums = new Map([
                 [ "CaseEligibilityResultFinancial", [ ["No", 8, "No", -1], ] ],
                 [ "CaseEligibilityResultActivity", [ ["Ineligible", 6], ["Fail", 7], ] ]
-            ]).get(thisPageName)
+            ]).get(thisPageName);
             if (eligTableMultiRefNums) {
                 eligTableMultiRefNums.forEach( ([ eleValue, tableCol, negateEleValue=undefined, negateTableCellLoc=undefined ] = []) => {
                     tableRows.map(tRow => tRow.children[tableCol])
                     .filter(tdCell => tdCell.innerText === eleValue && (negateEleValue !== undefined ? ( tdCell.parentElement.children[tableCol+negateTableCellLoc]?.innerText !== negateEleValue) : 1) )
                     .forEach(match => { match.classList.add('eligibility-highlight', 'ineligible') })
-                })
-            }
+                });
+            };
             if (["CaseEligibilityResultFinancial.htm"].includes(thisPageNameHtm)) {
                 tableRows.filter(tRow => tRow.children[7].innerText === "No").forEach(ele => { ele.classList.add('notInUnit') }) // "Included: No" //
-            }
+            };
         };
     };
     queueMicrotask(() => { eligHighlightPageLoad(); eligHighlight() })
@@ -3888,20 +3887,20 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         } else {
             addValueClassdoChange(overrideReason, 'Copay Distribution Adjustment', 'red-outline', false)
             eleFocus(copay)
-        }
+        };
         gbl.eles.save.addEventListener("click", () => {
             let copayDist = {
                 copay: copay.value,
                 recoupment: recoupment.value,
                 overrideReason: overrideReason.value,
                 copayproviderIdVal: copayproviderIdVal.textContent,
-            }
+            };
             sessionStorage.setItem('MECH2.copayDist.' + caseIdVal + '.' + copayDist.copayproviderIdVal, JSON.stringify(copayDist))
-        })
-    })
+        });
+    });
 }(); // SECTION_END Case_Copay_Distribution;
-["CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm) &&
-!function test() {verbose("testing")}();
+// ["CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm) &&
+// !function test() {verbose("testing")}();
 !function __CaseServiceAuthorizationApproval() { // overrideReason: "Copay Distribution Adjustment"
     if (!["CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm)) { return };
     listPageLinksAndList([ { listPageParm2Col: 0, listPageLinkTo: "ProviderOverview" }, ])
@@ -3919,7 +3918,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                 .then(emailEle => {
                     let encodedEmailSubject = encodeURIComponent((nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal + ' (authorization resumed in the ' + dateFuncs.formatDate(selectPeriodDates.start, 'mdyy') + ' period)').toWellFormed())
                     return '<a href="mailto:' + emailEle?.children[0]?.value + '?subject=' + encodedEmailSubject + '">' + billProviderName + '</a>'
-                })
+                });
             return providerEmailLink
         };
         !async function checkIfResumingSA() {
@@ -3957,7 +3956,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         queueMicrotask(() => {
             serviceAuthorizationInfoTable.rows[1].classList.add('selected')
             providerInfoTable.rows[1].classList.add('selected')
-        })
+        });
         waitForTableCells().then(() => {
             let confirmDB = document.getElementById('confirmDB')
             serviceAuthorizationInfoTable.rows[1].classList.add('selected')
@@ -3968,15 +3967,16 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
                     providerInfoTableSelectedProviderId = providerInfoTable.querySelector('tbody > tr.selected > td').textContent
                     verbose(providerInfoTableSelectedProviderId)
                 }
-            })
+            });
             serviceAuthorizationInfoTable.addEventListener('click', () => {
                 [...providerInfoTable.querySelectorAll('tbody > tr > td:first-child')].find(cell => cell.textContent === providerInfoTableSelectedProviderId)?.click()
                 eleFocus(confirmDB)
                 providerInfoTableSelectedProviderId = providerInfoTable.querySelector('tbody > tr.selected > td').textContent
-            })
-        })
+            });
+        });
     }();
     !function summarizeAuthorizations() {
+        return;
     //     let tableHead = createNewEle('thead'), tableBody = createNewEle('tbody')
     //     document.getElementById('serviceAuthorizationApprovalPackageActionsArea').insertAdjacentElement( 'beforebegin', createNewEle('div', { id="saSummaryTableData", classList: "panel panel-default panel-box-format", }))
     //         .appendChild( createNewEle('h4', { textContent: "Summary"}))
@@ -4010,7 +4010,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { return };
     let status = document.getElementById('status'), providerInfoTable = document.getElementById('providerInfoTable')
     listPageLinksAndList([{listPageParm2Col: 0, listPageLinkTo: "ProviderOverview"}])
-    !function billingFormGen() {
+    !function billingFormGenerator() {
         let providerAddressButton = createNewEle( 'button', { type: 'button', classList: 'cButton', tabIndex: '-1', id: 'providerAddressButton', style: 'display: inline-flex;', textContent: 'Copy Provider Address', }),
             copayAmountGet = createNewEle( 'input', { id: 'copayAmountGet', classList: 'form-control', style: 'display: inline-flex; margin-left: -10px; width: 7.2ch; visibility: hidden;', }),
             copayAmountGetLabel = createNewEle( 'label', { for: 'copayAmountGet', classList: 'control-label', style: 'display: inline-flex;', textContent: ' Copay Amount: $' }),
@@ -4029,11 +4029,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 const providerMailToAddress = determineProviderAddress(providerAddress, providerNameInTable)
                 copy(providerMailToAddress, providerMailToAddress, 'notitle')
             }).catch(err => { console.trace(err) });
-        })
+        });
         function determineProviderAddress(providerAddr, providerName) {
             if (providerAddr.mailingStreet1 === '') { return providerName + "\n" + providerAddr.mailingSiteHomeStreet1 + " " + providerAddr.mailingSiteHomeStreet2 + "\n" + providerAddr.mailingSiteHomeCity + ", " + providerAddr.mailingSiteHomeState + " " + providerAddr.mailingSiteHomeZipCode }
             else { return providerName + "\n" + providerAddr.mailingStreet1 + " " + providerAddr.mailingStreet2 + "\n" + providerAddr.mailingCity + ", " + providerAddr.mailingState + " " + providerAddr.mailingZipCode }
-        }
+        };
         billingForm?.addEventListener('click', () => fetchCopay("billingForm"))
         copySAinfo?.addEventListener('click', () => fetchCopay("clipboard"))
         async function fetchCopay(destination) {
@@ -4043,7 +4043,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     document.getElementById('billingAddress')?.click()
                     return;
                 }
-            }
+            };
             let providerNameInTable = providerInfoTable.querySelector('tbody > tr.selected > td:nth-child(2)').textContent
             if (copayAmountGet?.value) { saFilterEvalData(sanitize.number(copayAmountGet.value), destination, providerNameInTable) }
             else if (copayAmountGet.nextElementSibling.nodeName === "A") { snackBar('Enter copay manually.', 'notitle'); return undefined }
@@ -4064,7 +4064,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     const providerMatch = copayArray.find(provider => {
                         let [ versionA, versionB ] = provider.version.split(' of ')
                         return (versionA === versionB) && providerNameInTable === sanitize.html(provider.providerName)
-                    })
+                    });
                     const copayAmt = sanitize.number(providerMatch.copay).toString()
                     copayAmountGet.value = copayAmt
                     return saFilterEvalData(copayAmt, destination, providerNameInTable)
@@ -4096,7 +4096,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 children: childList,
             };
             switch(destination) {
-                case "billingForm": { window.open("https://mech2-at-github.github.io/MEC2FormFiller/?parm1=" + encodeURIComponent((JSON.stringify(formInfo)).toWellFormed()), "_blank") }
+                case "billingForm": { window.open("https://mech2-at-github.github.io/MEC2FormFiller/?parm1=" + encodeURIComponent((JSON.stringify(formInfo)).toWellFormed()), "_blank"); break }
                 case "clipboard": {
                     let joinedChildInfoArray = [
                         formInfo.caseName + " - CCAP case number: " + formInfo.caseNumber + "\nCopayment for biweekly period " + selectPeriodDates.range + ": $" + formInfo.copayAmount,
@@ -4108,22 +4108,9 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     ].join('\n\n') // joining children data and case data
                     navigator.clipboard.writeText(joinedChildInfoArray)
                     snackBar('Copied Service Authorization Info!', 'notitle')
+                    break
                 }
             };
-//             if (destination === "billingForm") { window.open("https://mech2-at-github.github.io/MEC2FormFiller/?parm1=" + encodeURIComponent((JSON.stringify(formInfo)).toWellFormed()), "_blank") }
-//             else if (destination === "clipboard") {
-//                 let joinedChildInfoArray = [
-//                     formInfo.caseName + " - CCAP case number: " + formInfo.caseNumber + "\nCopayment for biweekly period " + selectPeriodDates.range + ": $" + formInfo.copayAmount,
-//                     childList.map(thisChild => [
-//                         ["Child: " + thisChild.name, "Authorized Hours: " + thisChild.authHours, "Age Category: " + (thisChild.ageCat0 || thisChild.ageCat1), "Authorization Start Date: " + thisChild.saBegin].join(",  "), // joining child data line 1
-//                         ["Max Rates: Hourly: $" + thisChild.hourly + ", Daily: $" + thisChild.daily + ", Weekly: $" + thisChild.weekly, "Provider Primary/Secondary Designation: " + thisChild.providerDesignation].join(",  ") // joining child data line 2
-//                     ].join("\n")) // joining child data lines together
-//                     .join('\n\n') // joining children data together
-//                 ].join('\n\n') // joining children data and case data
-
-//                 navigator.clipboard.writeText(joinedChildInfoArray)
-//                 snackBar('Copied Service Authorization Info!', 'notitle')
-//             }
         };
     }();
 }(); // SECTION_END Case SA_Overview Fill_manual_Billing_Forms;
@@ -5058,6 +5045,15 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     gbl.eles.selectPeriod.insertAdjacentElement('afterbegin', gbl.eles.selectPeriod.querySelector('option[value=""]'))
 }(); // SECTION_END Electronic_Bills;
 if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
+    function fourWeekStart(date) {
+        let [ month, day, year ] = date.split('/'), baseParseDate = 1702252800000 // Date.UTC(2023, 12-1, 11); // month is -1 indexed;
+        let num = ( (Date.UTC(year, month-1, day) - baseParseDate) / 2419200000) // 28 days;
+        return ( num - Math.floor(num) )
+    };
+    async function getWorkerInfo() {
+        let workerData = await evalData({caseProviderNumber: caseIdVal, pageName: "CaseWorker.htm", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'});
+        return workerData.find(data => data.progId === "CC")?.workerName.split(" ")[0] ?? ""
+    };
 !function __FinancialAbsentDayHolidayTracking() {
     if (!("FinancialAbsentDayHolidayTracking.htm").includes(thisPageNameHtm)) { return };
     let allDays = [...document.querySelectorAll('.fc-daygrid-day-bg')]
@@ -5404,12 +5400,12 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                 { id: "saReopenedNote", textContent: "SA Reopened", },
                 { id: "providerCorrectionNote", textContent: "Provider Correction", },
                 { id: "workerCorrectionNote", textContent: "Worker Correction", },
-            ]
-            .forEach(buttonObj => commentsButtonsDiv.appendChild( createNewEle('button', Object.assign(buttonObj, { classList: "cButton inColumn", tabindex: "-1", type: "button"}) )))
+            ].forEach(buttonObj => commentsButtonsDiv.appendChild( createNewEle('button', Object.assign(buttonObj, { classList: "cButton inColumn", tabindex: "-1", type: "button"}) )));
 
-            document.getElementById('commentsButtons').addEventListener('click', async ({ target: clickEventTarget} = {}) => {
+            commentsButtonsDiv.addEventListener('click', async ({ target: clickEventTarget} = {}) => {
                 if (clickEventTarget.nodeName !== "BUTTON") { return };
-                document.getElementById('userComments').value = await getUserCommentsText()
+                insertTextAndMoveCursor(await getUserCommentsText(), document.getElementById('userComments'))
+                // document.getElementById('userComments').value = await getUserCommentsText()
                 function getUserCommentsText() {
                     const selectedProviderRow = getChildNum(document.querySelector('.selected')), selectedProviderData = billingApproval[Number(selectedProviderRow)]
                     switch (clickEventTarget.id) {
@@ -5421,11 +5417,11 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                         case "providerCorrectionNote": return 'Provider submitted a correction on ' + selectedProviderData.receivedDate + '.  '
                         case "workerCorrectionNote": return 'Case Worker updated SA. New billing version generated and approved. '
                         default: return ''
-                    }
-                }
-            })
+                    };
+                };
+            });
         }();
-    })
+    });
 }(); // SECTION_END Financial_Billing_Approval;
 !function __FinancialBilling_FinancialBillingApproval() {
     if (!["FinancialBillingApproval.htm", "FinancialBilling.htm"].includes(thisPageNameHtm)) { return };
@@ -5433,26 +5429,28 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     // screenshotButton.addEventListener('click', () => {})
     let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody'), billingChildTable = document.getElementById('billingChildTable')
     if (!billingProviderTableTbody.children[0].children[1]) { return };
-    !function reselectSelectedProviderAndChild() { // when switching between these pages or editing Billing, remembers selected provider and child, and reselects on page load //
+    !function reselectSelectedProviderAndChild() { // when switching between these pages or editing Billing, remembers selected provider and child, and reselects on page load //financialBillingApprovalTable
         if (editMode) { return };
-        let billingEvalLookup = { FinancialBilling: { providerTd: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { providerTd: 0, providerIdInArr: "memberproviderId" }, }
-        let billingProviderTableChildren = document.querySelector(':is(table#billingProviderTable, table#financialBillingApprovalTable) > tbody').children
+        let billingEvalLookup = { FinancialBilling: { providerTd: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { providerTd: 0, providerIdInArr: "memberProviderId" }, }
+        let billingProviderTableChildren = billingProviderTableTbody?.children
         gbl.eles.buttonPanelThree?.addEventListener('click', storeSelectedProviderAndChild)
         gbl.eles.edit?.addEventListener('click', storeSelectedProviderAndChild)
         function storeSelectedProviderAndChild() {
             let selectedProviderTRow = billingProviderTableTbody.querySelector('tr.selected')
             let selectedChildTRow = billingChildTable?.querySelector('tr.selected')?.rowIndex ?? ''
+            getChildNum(billingChildTable?.querySelector('tr.selected'))
             let providerChildObj = { provider: selectedProviderTRow.children[billingEvalLookup[thisPageName].providerTd]?.textContent, child: selectedChildTRow }
             if (selectedProviderTRow) { sessionStorage.setItem('MECH2.billingApproval.' + caseIdVal, JSON.stringify(providerChildObj) ) }
-        }
+        };
         evalData().then(({ 0: billingProviderListDataArr } = {}) => {
             if (!billingProviderListDataArr) { return };
             let lastSelected = sanitize.json( sessionStorage.getItem('MECH2.billingApproval.' + caseIdVal) ),
                 billingReferAndSelectedProvider = ( document.referrer.indexOf("FinancialBilling") > -1 && lastSelected?.provider )
             if (!billingReferAndSelectedProvider) { return };
-            let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelected?.provider) { billingProviderTableChildren[i].click() } })
-            lastSelected?.child && billingChildTable.rows[lastSelected?.child].click()
-            }).catch(err => { console.trace(err) })
+            let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelected?.provider) { billingProviderTableChildren[i].click() } });
+            verbose(lastSelected)
+            lastSelected?.child && billingChildTable?.rows[lastSelected?.child]?.click()
+            }).catch(err => { console.trace(err) });
     }();
 }(); // SECTION_END Financial_Billing_Financial_Billing_Approval_page_switch;
 !function __FinancialManualPayment() {
@@ -5463,15 +5461,6 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     if (!"FinancialPaymentDetail.htm".includes(thisPageNameHtm)) { return };
     listPageLinksAndList([ { listPageParm2Col: 2, listPageLinkTo: "CasePaymentHistory"} ])
 }(); // SECTION_END Financial_Payment_Detail;
-    function fourWeekStart(date) {
-        let [ month, day, year ] = date.split('/'), baseParseDate = 1702252800000 // Date.UTC(2023, 12-1, 11); // month is -1 indexed;
-        let num = ( (Date.UTC(year, month-1, day) - baseParseDate) / 2419200000) // 28 days;
-        return ( num - Math.floor(num) )
-    }
-    async function getWorkerInfo() {
-        let workerData = await evalData({caseProviderNumber: caseIdVal, pageName: "CaseWorker.htm", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'});
-        return workerData.find(data => data.progId === "CC")?.workerName.split(" ")[0] ?? ""
-    }
 }(); // SECTION_END _Financial_Pages;
 !function FundingAvailability() {
     if (!("FundingAvailability.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
@@ -5727,7 +5716,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             { title: 'Client: Provider reported copay as unpaid, submit verification of it being paid', id: 'closingUnpaidCopay', textContent: 'Closing, Unpaid Copay', },
             { title: 'Client: Client didn\'t give 15-day notice to CCAP of provider switch', id: 'noNoticeProviderSwitch', textContent: 'Provider Switch: Notice', },
             { title: 'LNL provider: Supervising for Safety training requirement', id: 'lnlSfsTraining', textContent: 'LNL SfS Training', },
-            { title: 'Locations for submitting documents. Right click to update.', id: 'docSubmitInst', textContent: 'Document Submittal', },
+            // { title: 'Locations for submitting documents. Right click to update.', id: 'docSubmitInst', textContent: 'Document Submittal', },
         ];
         let textareaButtonsDiv = createNewEle('div', { classList: 'float-right-imp', id: 'textareaButtonsDiv', style: 'display: flex; flex-direction: column; gap: 8px;', })
         targetDiv.appendChild(textareaButtonsDiv).append(...buttonSettings.map(({ title, id, textContent } = {}) => createNewEle( 'button', { type: "button", classList: "cButton", tabIndex: "-1", title, id, textContent }) ))
@@ -6311,7 +6300,7 @@ function eleFocus(ele) {
                     gbl.eles.submitButton.click()
                 } else if ( (/^x[0-9]{3,}[0-9A-Z]{3,}$/i).test(pastedText) && thisPageNameHtm.indexOf("CaseList") > -1 ) {
                     function clickSearch() { document.getElementById('search').click() }
-                    waitForProgrammicChange(document.getElementById('nameDisplay'), clickSearch)
+                    triggerFnOnProgrammaticChange(document.getElementById('nameDisplay'), clickSearch)
                     let workerIdField = document.querySelector('form input.form-control:not(.borderless)')
                     workerIdField.value = pastedText.toUpperCase()
                     doChange(workerIdField)
