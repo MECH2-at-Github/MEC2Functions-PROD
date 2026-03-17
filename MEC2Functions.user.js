@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         _beta-mec2functions
+// @name         mec2functions
 // @namespace    http://github.com/MECH2-at-Github
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.44
+// @version      0.6.45
 // ==/UserScript==
 /* globals jQuery, $ */
 
