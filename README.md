@@ -23,25 +23,23 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
 * Focus on page load:
   * Almost all pages have a default field or button that is 'focused' on page load to allow for quicker data entry or button press. By default, spacebar 'pushes' a focused button.
 
-* New! Massive rework done to style rules to prevent a page from 'bouncing' before the page is fully loaded.
+* Load a case or provider by pasting the case number or provider ID from anywhere on the page, not just in the "Case:" or "Provider:" field. Pages that lack this field (such as Alerts, or Case Lists) will load the Case Notes page for the pasted number.
 
-* New! Load a case or provider by pasting the case number or provider ID from anywhere on the page, not just in the "Case:" or "Provider:" field. Pages that lack this field will load the Case Notes page for the pasted number.
-
-* New! Navigation buttons can now be used from Alerts and the CaseLoad/ProviderList pages to load specific pages. 
+* Navigation buttons can now be used from Alerts and the CaseLoad/ProviderList pages to load pages, based on the selected case.
 
 * Dark Mode will be selected if your Windows "Colors" theme is set to Dark.
 
-* Pages with addresses have buttons to copy the mailing address to the clipboard.
+* Pages with addresses have buttons to copy the mailing address to the clipboard. Email addresses have links that start a new email with a subject line entered.
 
 * "Period Selection" dropdown has buttons added to each side. Single arrow buttons (‹ ›) change the selection 1 period per click. Double arrow buttons (« ») change the selection 1 period and then load that period.
   * « ‹ [Daterange - Dropdown] › »
 
 * Hotkeys are available! ALT + ?:
-  * N (new), W (wrap-up), S (save), C (cancel), E (edit), R (resend/return), A (add), D (delete), ArrowLeft (previous), ArrowRight (next)
-  * Where possible, buttons will have the letter for the hotkey button underlined.
+  * N (new), W (wrap-up), S (save/select), C (cancel), E (edit), R (resend/return), A (add), D (delete), ArrowLeft (previous), ArrowRight (next)
+  * If Duplicate buttons are enabled in settings, the duplicate buttons will have the letter for the hotkey button underlined.
 
 * Footer Links:
-  * Many new sites added to the Footer. The new but incomplete User Manual is renamed '"New" User Manual' and a link for the old manual is added.
+  * Many new sites added to the Footer. A few pages have extra links added (extra links are orange-ish in color. Example page: Maximum Rates.)
 
 * CaseNotes & ProviderNotes pages: 
   * [_Duplicate_] button has been added to the upper duplicated button row. Clicking will store the Category, Summary, and Text of the shown note. When a new note is created, the button will change to Autofill. 
@@ -60,7 +58,7 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
   * Mailing Address and Phone 2/3 fields are hidden when blank.
 
 * Alerts:
-  * [ Delete All ] will change to [ Deleting... ], and clicking [ Deleting... ] will stop the Delete All process (may still delete 1 or 2 alerts after clicking)
+  * [ Delete All ] deletes all alerts for a case. Due to how MEC2 works, cases with a large amount of alerts will increasingly slow down as more alerts are deleted.
   * [ Create Alert ] moved next to [ Delete ].
   * Duplicate [ Delete ] created next to the alert count.
   * [ Automated Note ] will create a case/provider note based on the "Explanation:". 
@@ -69,7 +67,7 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
     * An auto-case note is signed with the worker's name. When assisting other case workers, the signature will be "Worker A for Worker B".
 
 * WorkerCreatedAlerts:
-  * Buttons on the right will input a date and message intended for when a case has MFIP closing but needs the approval delayed. Dates are always set for the 1st of the month.
+  * Added buttons will input a date and message intended for when a case has MFIP closing but needs the approval delayed. Dates are always set for the 1st of the month.
 
 * ProviderSearch:
   * For searches that return more than 1 result: Filter buttons are available to filter out Inactive and county non-adjacent providers. Default behavior is both inactive and out-of-area providers are filtered.
@@ -83,7 +81,7 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
   * Retains selected provider when switching biweekly period.
 
 * CaseServiceAuthorizationOverview:
-  * [ Create Billing Form ] loads a page to create, fill, and save a manual billing form for the current period with all county fields filled. If there is more than one child, a billing form 'page 2' is created with a $0 copay.
+  * [ Create Billing Form ] loads a page to create, fill, and save a manual billing form for the current period with all county fields filled. A billing form 'page 2' is created for each child.
   * [ Open Provider Address Page ] loads the ProviderAddress page.
 
 * CaseSpecialLetter:
@@ -91,7 +89,8 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
 
 * CaseMember:
   * "Ref #:" label is now a button that opens CaseMemberHistory.
-  * "Birthdate:" will calculate the age of a child (years/months, months).
+  * Next to the "Birthdate:" label will be the current of the child (years/months, months).
+  * Children's ages as of the start of the biweekly period are also added to the member list.
 
 * CaseExpense:
   * Selecting "Lump Sum Exemption" will cause all but the start date to auto-fill.
