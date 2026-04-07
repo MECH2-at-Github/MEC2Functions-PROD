@@ -7,9 +7,9 @@ Tip: Right click links and then click "Open link in new tab". Tabs can be closed
 3. Install [Stylus](https://chromewebstore.google.com/detail/stylus/clngdbkpkpeebahjckkjfobafhncgmne)
 4. Open [MEC2Stylus](https://userstyles.world/style/13359/mec2stylus) and click the [ Install ] button to the bottom right of the image. On the next page, click the [ Install Style_] button in the upper left.
 5. Due to Chrome/Edge browser changes, you must enable "Developer Mode" in Chrome/Edge's Extension's settings area.
-   5a. Chrome: In [Extension settings](chrome://extensions) the Developer Mode slider is located in the top right.
-   5b. Edge: In [Extension settings](edge://extensions/) the Developer Mode slider is located on the left bar.
-   5c. Chrome and Edge will also require a setting to be set in Extensions settings > Tampermonkey. On the Extension settings page, click "Details" under Tampermonkey, and then click the checkbox or slider for "Allow User Scripts".
+   * Chrome: In [Extension settings](chrome://extensions) the Developer Mode slider is located in the top right.
+   * Edge: In [Extension settings](edge://extensions/) the Developer Mode slider is located on the left bar.
+   * Chrome and Edge will also require a setting to be set in Extensions settings > Tampermonkey. On the Extension settings page, click "Details" under Tampermonkey, and then click the checkbox or slider for "Allow User Scripts".
 8. Done!
 
 # Features
