@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.47
+// @version      0.6.48
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -154,12 +154,13 @@ const dateFuncs = {
         if ( [-86400000, -64800000 ].includes(dateVal) || Number.isNaN(dateVal) ) { return undefined }; // -64800000 === 12/31/1969, epoch date (-86400000 UTC epoch) //
         dateFormat = dateFormat.toLowerCase()
         switch (dateFormat) {
-            case "mmddyy": return dateVal.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" });
+            case "inputelement": return dateVal.toLocaleDateString('en-CA');
+            case "utc": return Date.UTC(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDay());
             case "mdyy": return dateVal.toLocaleDateString(undefined, { year: "2-digit", month: "numeric", day: "numeric" });
             case "mdyyyy": return dateVal.toLocaleDateString(undefined, { year: "numeric", month: "numeric", day: "numeric" });
+            case "mmddyy": return dateVal.toLocaleDateString(undefined, { year: "2-digit", month: "2-digit", day: "2-digit" });
             case "mmddyyyy": return dateVal.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
             case "mmddhm": return dateVal.toLocaleDateString('en-US', { hour: "numeric", minute: "2-digit", month: "2-digit", day: "2-digit" });
-            case "utc": return Date.UTC(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDay());
             default: return dateVal.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
         }
     },
@@ -1620,15 +1621,8 @@ function addCssStyleSheet() {
     document.adoptedStyleSheets.push(newStyleSheet)
     return newStyleSheet;
 };
-function addTertEle(elementArr=[]) { elementArr.forEach(([ node, attribObj={} ]) => node instanceof HTMLElement ? gbl.eles.tertiaryActionArea.appendChild(node) : gbl.eles.tertiaryActionArea.appendChild( createNewEle(node, attribObj)) )};
+function addTertEles(...elementArr) { elementArr.forEach(node => node instanceof HTMLElement ? gbl.eles.tertiaryActionArea.appendChild(node) : gbl.eles.tertiaryActionArea.appendChild( createNewEle(node[0], node[1])) )};
 function addTertiaryEle(node, attribObj={}) { return node instanceof HTMLElement ? gbl.eles.tertiaryActionArea.appendChild(node) : gbl.eles.tertiaryActionArea.appendChild( createNewEle(node, attribObj)) };
-// function createNewEle(nodeName, attribObj={}, htmlDataArr=[]) {
-//     let newEle = Object.assign(document.createElement(nodeName), attribObj)
-//     if (htmlDataArr.length) {
-//         htmlDataArr.forEach(([dataName, dataValue]) => { newEle.dataset[dataName] = dataValue });
-//     };
-//     return newEle;
-// };
 function createNewEle(nodeName, attribObj={}, dataObj={}) {
     let newEle = Object.assign(document.createElement(nodeName), attribObj);
     Object.entries(dataObj)?.forEach(([dataName, dataValue] = []) => { newEle.dataset[dataName] = dataValue })
@@ -1673,10 +1667,7 @@ async function clickTableOnLoad() {
 };
 function doWrap({ ele, type='div', classList='' } = {}) {
     ele = ele.nodeType === 3 ? ele : sanitize.query(ele)
-    // if (!ele) { return }
     const wrappingElement = createNewEle(type, { classList });
-    // const wrappingElement = document.createElement(type);
-    // classList !== '' && wrappingElement.setAttribute('class', classList)
     ele.replaceWith(wrappingElement);
     wrappingElement.append(ele);
 };
@@ -1957,9 +1948,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         if (!caseResultsData) { return };
         let aclQuerySelect = createNewEle( 'select', { classList: 'form-control', style: 'width: fit-content;', id: 'aclQuerySelect', }),
             getAclData = createNewEle( 'button', { type: 'button', id: 'getAclData', disabled: 'disabled', classList: 'cButton', type: 'button', textContent: 'Get Selected Data', }),
-            exportLoadedData = createNewEle( 'button', { type: 'button', id: 'exportLoadedData', classList: 'cButton', type: 'button', disabled: 'disabled', textContent: 'Copy Excel Data', })
+            exportLoadedData = createNewEle( 'button', { type: 'button', id: 'exportLoadedData', classList: 'cButton', type: 'button', style: 'display: none;', textContent: 'Copy Excel Data', })
         aclQuerySelect.append( ...["", "Redet/Suspend", "Subprogram", "Edit Summary", "Job Search Hours", "Phone Numbers", "Self-Employment", "Reporter Type", "Homeless", "Residence", "Find Case Note"].map(optionText => createNewEle( 'option', { value: optionText, id: optionText, textContent: optionText })) );
-        let afterResults = createNewEle( 'div', { id: 'afterResults', style: 'display: inline-flex; gap: 5px;', }); afterResults.append( aclQuerySelect, exportLoadedData, getAclData )
+        let afterResults = createNewEle( 'div', { id: 'afterResults', style: 'display: inline-flex; gap: 5px;', }); afterResults.append( aclQuerySelect, getAclData, exportLoadedData )
         caseResultsData.insertAdjacentElement('afterend', afterResults)
         let csvDataOutput = {};
         function addSpan({ tr, child, extraClasses="", baseClasses="ACLaddedSpan float-right-imp tableAmend", attribObj={}, dataObj }) {
@@ -2213,7 +2204,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             csvDataOutput[activeCaseSearchWorkerId] ??= {}
             csvDataOutput[activeCaseSearchWorkerId][aclQuerySelect.value] = storeDataResults
             sessionStorage.setItem("aclQueryOutput." + activeCaseSearchWorkerId, JSON.stringify(csvDataOutput[activeCaseSearchWorkerId]))
-            exportLoadedData.disabled = false
+            exportLoadedData.style.display = 'flex'
         };
         function excelifyData(evalDataToExcelify) {
             let excelData = JSON.stringify(evalDataToExcelify)
@@ -2227,7 +2218,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         aclQuerySelect.addEventListener('change', changeEvent => {
             getAclData.disabled = !changeEvent.target.value
             csvDataOutput[activeCaseSearchWorkerId] = sanitize.json( sessionStorage.getItem("aclQueryOutput." + activeCaseSearchWorkerId) ) ?? {}
-            exportLoadedData.disabled = !(changeEvent.target.value in csvDataOutput[activeCaseSearchWorkerId])
+            exportLoadedData.style.display = !(changeEvent.target.value in csvDataOutput[activeCaseSearchWorkerId]) ? 'none' : 'flex'
         });
         exportLoadedData.addEventListener('click', () => { copy(aclQuerySelect.value + ' query for ' + activeCaseSearchWorkerId + ":" + excelifyData(csvDataOutput[activeCaseSearchWorkerId][aclQuerySelect.value]), "Excel Data", "notitle") });
     }(); // SECTION_END Active_Case_List;
@@ -2320,9 +2311,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         };
         async function createIframe() {
             return new Promise((resolve, reject) => {
-                gbl.eles.footerLinks.insertAdjacentHTML('beforebegin', '<div id="iframeContainer" style="visibility: hidden;"><iframe id="transferiframe" name="transferiframe" style="width: 100%; height: 100%;"></iframe></div>')
-                transferiframe = document.getElementById('transferiframe')
-                iframeContainer = document.getElementById('iframeContainer')
+                transferiframe = createNewEle("iframe", { id: "transferiframe", name: "transferiframe", style: "width: 100%; height: 100%;" })
+                iframeContainer = createNewEle("div", { id: "iframeContainer", style: "visibility: hidden;" })
+                gbl.eles.footerLinks.insertAdjacentElement('beforebegin', iframeContainer).appendChild(transferiframe)
                 window.onmessage = (messageEvent) => {
                     if (messageEvent.origin !== "https://mec2.childcare.dhs.state.mn.us") { reject() }
                     if (messageEvent.data[1] === "pageLoaded") { resolve() }
@@ -2542,51 +2533,39 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             !function workerAlerts() {
                 if (typeof tableTwoAlerts !== "object") { return };
                 // for pending: Add pending date to the alert text. Put pending days in the table textContent //
-//                 const [ checkAlertArray, parsedAlertResults ] = parseTableTwoAlerts("Approve new")
-//                 function parseTableTwoAlerts(checkForText) {
-//                     const parseAlertArray = []
-//                     const parseAlertResults = {}
-//                     tableTwoAlerts.forEach(item => {
-//                         if (item.message.indexOf(checkForText) === 0) {
-//                             let thisRow = caseOrProviderAlertsTableTbody.children[item.rowIndex]
-//                             if (parseAlertArray.includes(thisRow.id)) { return };
-//                             thisRow.id = thisRow.children[2].textContent
-//                             parseAlertArray.push(thisRow.id)
-//                             parseAlertResults[thisRow.id] = { rowIndex: item.rowIndex }
-//                         };
-//                     });
-//                     return [ parseAlertArray, parseAlertResults ]
-//                 };
-//                 function parseStoredResults(sessStoreName) {
-//                     let existingResults = sanitize.json(sessionStorage.getItem(sessStoreName)) ?? undefined
-//                     if (!existingResults) { return };
-//                     if (existingResults && !checkAlertArray.length) { sessionStorage.removeItem(sessStoreName); return; };
-//                     for (let caseNum in existingResults) { existingResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined };
-//                     return existingResults
-//                 };
-                // function placeResults(resultsObj) {
-                //     for (let caseNum in resultsObj) {
-                //         let thisCaseObj = resultsObj[caseNum]
-                //         if (!thisCaseObj.rowIndex) { continue };
-                //         let resultsTd = caseOrProviderAlertsTableTbodyChildren[thisCaseObj.rowIndex]?.children[1];
-                //         Array.from(resultsTd.children, child => { child.remove() })
-                //         resultsTd.appendChild( createNewEle('span', { classList: 'tableSpan', textContent: thisCaseObj.textContent }))
-                //     };
-                // };
-//                 !function workerAlertPending() {
-//                     // parseTableTwoAlerts("Pending:")
-//                     // parseTableTwoAlerts("Approve new")
-//                     // tableTwoAlerts.forEach(item => {
-//                     //     if (item.message.indexOf("Approve new") === 0) {
-//                     //         let thisRow = caseOrProviderAlertsTableTbody.children[item.rowIndex]
-//                     //         if (checkAlertArray.includes(thisRow.id)) { return };
-//                     //         thisRow.id = thisRow.children[2].textContent
-//                     //         checkAlertArray.push(thisRow.id)
-//                     //         parsedAlertResults[thisRow.id] = { rowIndex: item.rowIndex }
-//                     //     };
-//                     // });
-//                 }();
-
+                // const [ checkAlertArray, parsedAlertResults ] = parseTableTwoAlerts("Approve new")
+// parseTableTwoAlerts("Pending").then(([ checkAlertArray, parsedAlertResults ] = []) => { Text-based specific instructions? //checkPendingResults() }
+// parseTableTwoAlerts("Approve new").then(([ checkAlertArray, parsedAlertResults ] = []) => { Text-based specific instructions? //checkMfipResults() }
+                async function parseTableTwoAlerts(checkForText) {
+                    const parseAlertArray = []
+                    const parseAlertResults = {}
+                    tableTwoAlerts.forEach(item => {
+                        if (item.message.indexOf(checkForText) === 0) {
+                            let thisRow = caseOrProviderAlertsTableTbody.children[item.rowIndex]
+                            if (parseAlertArray.includes(thisRow.id)) { return };
+                            thisRow.id = thisRow.children[2].textContent
+                            parseAlertArray.push(thisRow.id)
+                            parseAlertResults[thisRow.id] = { rowIndex: item.rowIndex }
+                        };
+                    });
+                    return [ parseAlertArray, parseAlertResults ]
+                };
+                function parseStoredResults(sessStoreName, checkAlertArray) {
+                    let existingResults = sanitize.json(sessionStorage.getItem(sessStoreName)) ?? undefined
+                    if (!existingResults) { return };
+                    if (existingResults && !checkAlertArray.length) { sessionStorage.removeItem(sessStoreName); return; };
+                    for (let caseNum in existingResults) { existingResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined };
+                    return existingResults
+                };
+                function placeResults(resultsObj) {
+                    for (let caseNum in resultsObj) {
+                        let thisCaseObj = resultsObj[caseNum]
+                        if (!thisCaseObj.rowIndex) { continue };
+                        let resultsTd = caseOrProviderAlertsTableTbodyChildren[thisCaseObj.rowIndex]?.children[1];
+                        Array.from(resultsTd.children, child => { child.remove() })
+                        resultsTd.appendChild( createNewEle('span', { classList: 'tableSpan', textContent: thisCaseObj.textContent }))
+                    };
+                };
 
                 !function workerAlertMfip() { // find alerts that have "Approve new" and store their rowIndex //
                     const checkCashArray = [];
@@ -2595,7 +2574,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         if (item.message.indexOf("Approve new") === 0) {
                             let thisRow = caseOrProviderAlertsTableTbody.children[item.rowIndex]
                             if (checkCashArray.includes(thisRow.id)) { return };
-                            // thisRow.classList.add('checkCash') // unused? //
                             thisRow.id = thisRow.children[2].textContent
                             checkCashArray.push(thisRow.id)
                             cashAlertResults[thisRow.id] = { rowIndex: item.rowIndex }
@@ -2608,7 +2586,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         for (let caseNum in existingCashResults) { existingCashResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined };
                         placeMfipResults(existingCashResults)
                     }();
-
                     if (!checkCashArray.length) { return };
                     alertDetailRow.appendChild( createNewEle('button', { type: 'button', id: 'doMfipCheck', classList: 'cButton', tabIndex: '-1', textContent: 'Check MFIP Alerts', }))
                     document.getElementById('doMfipCheck').addEventListener( 'click', () => checkMfipResults(checkCashArray) )
@@ -2981,13 +2958,13 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
 !function CaseAddress() {
     if (!("CaseAddress.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
     if (!editMode) {
-        addTertEle([ [ 'button', { type: 'button', classList: 'form-button', tabIndex: '-1', id: 'copyMailing', textContent: 'Copy Mail Address', }], ])
+        let copyMailing = addTertiaryEle('button', { type: 'button', classList: 'form-button', tabIndex: '-1', id: 'copyMailing', textContent: 'Copy Mail Address', })
         evalData({ evalString: '0' }).then(addressData => { // ({ 0: addressData } = {})
             if (addressData[0].email) {
                 const emailSubject = encodeURIComponent((nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal).toWellFormed())
                 document.querySelector('label[for=email]').innerHTML = '<a href="mailto:' + addressData[0].email + '?subject=' + emailSubject + '">Email:</a>'
             }
-            document.getElementById('copyMailing').addEventListener('click', () => {
+            copyMailing.addEventListener('click', () => {
                 let addressTableRow = getChildNum(document.querySelector('.selected')), selectedAddressData = addressData[addressTableRow]
                 let mailingData = selectedAddressData.mailingStreet1 ? {
                     streetData: [selectedAddressData.mailingStreet1, selectedAddressData.mailingStreet2].join(' '),
@@ -3089,8 +3066,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     checkForDates()
                     eleFocus(editDB)
                 })
-                addTertEle([ ['button', { type: 'button', id: 'copyStart', classList: 'form-button hidden', textContent: 'Copy Start', }], [ 'button', { type: 'button', id: 'copyEndings', classList: 'form-button hidden', textContent: 'Copy Endings', }] ])
-                let copyStartButton = document.getElementById('copyStart'), copyEndingsButton = document.getElementById('copyEndings')
+                let copyStartButton = addTertiaryEle('button', { type: 'button', id: 'copyStart', classList: 'form-button hidden', textContent: 'Copy Start', }), copyEndingsButton = addTertiaryEle('button', { type: 'button', id: 'copyEndings', classList: 'form-button hidden', textContent: 'Copy Endings', })
                 copyStartButton.addEventListener('click', () => copyStartToSS() )
                 copyEndingsButton.addEventListener('click', (() => copyEndingsToSS()))
                 checkForDates()
@@ -3121,8 +3097,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             if (editMode) {
                 let oProviderEndings = sanitize.json(sessionStorage.getItem("MECH2.providerEndings"))
                 if (oProviderEndings) {
-                    addTertEle([ ['button', { type: 'button', id: 'pasteEndings', classList: 'form-button', textContent: 'Autofill Endings', }], ])
-                    document.getElementById('pasteEndings').addEventListener('click', pasteEndingData)
+                    let pasteEndings = addTertiaryEle('button', { type: 'button', id: 'pasteEndings', classList: 'form-button', textContent: 'Autofill Endings', })
+                    pasteEndings.addEventListener('click', pasteEndingData)
                     function pasteEndingData() {
                         if (ccpEle.providerId?.value?.length) {
                             [ 'primaryEndDate', 'secondaryEndDate', 'carePeriodEndDate', 'careEndReason' ].forEach(item => { ccpEle[item].value = oProviderEndings[item] })
@@ -3133,8 +3109,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 let oProviderStart = sanitize.json(sessionStorage.getItem("MECH2.providerStart"))
                 if (oProviderStart) {
                     const childDropDown = document.getElementById('memberReferenceNumberNewMember')
-                    addTertEle([ ['button', {type: 'button', id: 'pasteStart', classList: 'form-button', textContent: 'Autofill Start', }], ])
-                    document.getElementById('pasteStart').addEventListener('click', pasteStartData)
+                    let pasteStart = addTertiaryEle('button', {type: 'button', id: 'pasteStart', classList: 'form-button', textContent: 'Autofill Start', })
+                    pasteStart.addEventListener('click', pasteStartData)
                     function pasteStartData() {
                         if (!ccpEle.providerId?.value?.length) {
                             ccpEle.providerId.value = oProviderStart.providerId
@@ -4279,7 +4255,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = document.getElementById('noteSummary')?.closest('.row')
         noteCreatorChildren.forEach(ele => noteSummaryRow.append(ele))
         tabIndxNegOne('#noteArchiveType, #noteSearchStringText, #noteImportant #noteCreator')
-    }
+    };
     document.addEventListener('paste', pasteEventAHK )
     function pasteEventAHK(pasteEvent) { //pasted from AHK
         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
@@ -4304,22 +4280,22 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             noteSummary.value = decodeURIComponent(ahkObj.noteTitle).slice(0, 50)
             noteStringText.value = decodeURIComponent(ahkObj.noteText)
             eleFocus(gbl.eles.save)
-        }
-    }
+        };
+    };
     let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrproviderIdVal] : undefined
     evalData().then( ({ 0: notesTableData} = []) => {
         if (notesTableData === undefined) { return };
-        // if (noteInfo) {
+        let today = Date.now()
         !function doAutoNote() { // Auto_Case_Noting
             if (!noteInfo) { return };
             if (!editMode) {
                 !function checkForDuplicates() {
                     let continueToMakeNote = 1
                     let firstTenAlerts = notesTableData.slice(0, 10)
-                    let todayValue = Date.now(), twoMonthsValue = 5270400000
+                    let twoMonthsValue = 5270400000
                     firstTenAlerts.forEach(alert => {
                         let alertDateValue = sanitize.date(alert.noteCreateDate, "number")
-                        if (alertDateValue + twoMonthsValue < todayValue) { return }
+                        if (alertDateValue + twoMonthsValue < today) { return }
                         if (noteInfo.noteSummary.slice(0, 45) === alert.noteSummary.replace(/\\/g, '').slice(0, 45)) {
                             noteStringText.value = "\n\n\n\t\tNote already exists, duplicate note not entered.\n\t\tClick 'Override Duplicate Check' to enter duplicate note.\n\t\t(Date range for duplicate check: 60 days.)"
                             caseNotesTableTbody.children[alert.rowIndex].setAttribute('style', "color: var(--textColorPositive) !important;")
@@ -4357,7 +4333,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 }, 50);
             };
         }(); // END Auto_Case_Noting
-        // } else if (!noteInfo) {
         if (noteInfo) { return };
         restyleCreated()
         gbl.eles.secondaryActionArea.style = "justify-content: flex-start; gap: 60px;"
@@ -4366,14 +4341,26 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             let backupNoteDetails = sanitize.json(localStorage.getItem("MECH2.backupNote")) ?? {}, backupNoteExists = "noteCategory" in backupNoteDetails ? 1 : 0
             if (!backupNoteExists || backupNoteDetails?.noteSummary?.slice(0, 49).trim() === noteSummary?.value?.slice(0, 49).trim()) { localStorage.removeItem("MECH2.backupNote"); backupNoteExists = 0 }
             if (!editMode) {
-                addTertEle([ ['button', { type: 'button', id: 'duplicate', classList: 'form-button', textContent: 'Duplicate', }], ])
-                backupNoteExists && gbl.eles.tertiaryActionArea
-                    .appendChild( createNewEle( 'div', { id: 'unsavedNoteDiv', style: 'display: flex; align-items: center; gap: 5px;', }) )
-                    .appendChild( createNewEle( 'span', { style: 'margin-left: 10px;', title: backupNoteDetails.noteSummary, textContent: 'Unsaved note exists for case', }) )
-                    .insertAdjacentElement( 'afterend', createNewEle( 'a', { target: "_self", href: "/ChildCare/CaseNotes.htm?parm2=" + backupNoteDetails.identifier, textContent: backupNoteDetails.identifier }) )
-                    .insertAdjacentElement( 'afterend', createNewEle( 'span', { id: 'deleteUnsaved', style: "cursor: pointer; color: red !important; padding-bottom: 2px;", textContent: '✖' }) )
-                document.getElementById('deleteUnsaved')?.addEventListener('click', () => { localStorage.removeItem("MECH2.backupNote"); document.getElementById('unsavedNoteDiv').remove() }, { once: true })
-                document.getElementById('duplicate')?.addEventListener('click', copyNoteToLS)
+                gbl.eles.tertiaryActionArea.addEventListener('click', doTertiaryAction)
+                function doTertiaryAction({ target: clickEventTarget } = {}) {
+                    if (clickEventTarget.nodeName !== "BUTTON") { return };
+                    switch (clickEventTarget.id) {
+                        case "duplicate": { copyNoteToLS(); break; }
+                        case "noteExport": { noteExporter(); break }
+                    };
+                };
+
+                let duplicate = addTertiaryEle('button', { type: 'button', id: 'duplicate', classList: 'form-button', textContent: 'Duplicate', })
+                if (backupNoteExists) {
+                    let deleteUnsaved = createNewEle( 'span', { id: 'deleteUnsaved', style: "cursor: pointer; color: red !important; padding-bottom: 2px;", textContent: '✖' }),
+                        unsavedNoteDiv = createNewEle( 'div', { id: 'unsavedNoteDiv', style: 'display: flex; align-items: center; gap: 5px;', })
+                    gbl.eles.tertiaryActionArea
+                        .appendChild(unsavedNoteDiv)
+                        .appendChild( createNewEle( 'span', { style: 'margin-left: 10px;', title: backupNoteDetails.noteSummary, textContent: 'Unsaved note exists for case', }) )
+                        .insertAdjacentElement( 'afterend', createNewEle( 'a', { target: "_self", href: "/ChildCare/CaseNotes.htm?parm2=" + backupNoteDetails.identifier, textContent: backupNoteDetails.identifier }) )
+                        .insertAdjacentElement( 'afterend', deleteUnsaved)
+                    deleteUnsaved?.addEventListener('click', () => { localStorage.removeItem("MECH2.backupNote"); unsavedNoteDiv?.remove() }, { once: true })
+                };
                 function copyNoteToLS() {
                     let selectedLength = document.getElementsByClassName('selected')?.length
                     if (noteCategory?.value && selectedLength) {
@@ -4381,7 +4368,74 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         snackBar('Copied note!', 'notitle')
                         eleFocus("#newDB")
                     } else if (!selectedLength) { snackBar('No note selected') }
-                }
+                };
+
+                let noteExport = addTertiaryEle('button', { type: 'button', classList: 'form-button', textContent: 'Export Notes', id: 'noteExport' })
+                function noteExporter() {
+                    !function noteExportUI() {
+                        let noteExportDate
+                        let noteExportDialog = document.getElementById('noteExportDialog') ?? createNewEle('dialog', { id: 'noteExportDialog', classList: 'settingsOuter' })
+                        if (document.getElementById('noteExportButtonDiv')) { noteExportDialog.showModal(); return; };
+                        let noteExportButtonDiv = createNewEle('div', { id: 'noteExportButtonDiv', classList: 'settingsButtons' }),
+                            noteExportInner = createNewEle('div', { id: 'noteExportInner', classList: 'settingsInner' }),
+                            noteExportConfirm = createNewEle('button', { type: 'button', classList: 'cButton', id: 'noteExportConfirm', textContent: 'Confirm' }),
+                            noteExportCancel = createNewEle('button', { type: 'button', classList: 'cButton', id: 'noteExportCancel', textContent: 'Cancel' }),
+                            noteExportFourteen = createNewEle('button', { type: 'button', classList: 'cButton', id: 'noteExportFourteen', style: 'width: fit-content; padding: 3px 6px;', textContent: dateFuncs.formatDate(dateFuncs.addMonths(today, -14), "mdyyyy") }),
+                            noteExportTwentySix = createNewEle('button', { type: 'button', classList: 'cButton', id: 'noteExportTwentySix', style: 'width: fit-content; padding: 3px 6px;', textContent: dateFuncs.formatDate(dateFuncs.addMonths(today, -26), "mdyyyy") }),
+                            noteExportDateField = createNewEle('input', { type: 'date', classList: 'form-control', id: 'noteExportDateField', })
+
+                        noteExportInner.addEventListener('click', clickEvent => {
+                            if (clickEvent.target.nodeName !== "BUTTON") { return };
+                            noteExportDate = dateFuncs.formatDate(clickEvent.target.textContent, "inputElement")
+                            noteExportDateField.value = noteExportDate
+                            eleFocus(noteExportConfirm)
+                        });
+                        noteExportButtonDiv.addEventListener('click', clickEvent => {
+                            if (clickEvent.target.nodeName !== "BUTTON") { return };
+                            if (clickEvent.target === noteExportConfirm) {
+                                downloadBlob( exportTable(sanitize.date(noteExportDate)) )
+                            };
+                            noteExportDialog.close()
+                        });
+
+                        document.body.append(
+                            ...arrangeElements(
+                                [ createNewEle('div', { classList: 'container', id: 'noteExporterContainer' }),
+                                 [ noteExportDialog,
+                                  [ noteExportInner,
+                                   [ createNewEle('div', { style: 'display: grid; grid-template-columns: 2fr 3fr; align-items: center; gap: 10px;' }), [ createNewEle('label', { textContent: "14 Months" }), noteExportFourteen ],
+                                    createNewEle('div', { style: 'display: grid; grid-template-columns: 2fr 3fr; align-items: center; gap: 10px;' }), [ createNewEle('label', { textContent: "26 Months" }), noteExportTwentySix ],
+                                    createNewEle('div', { style: 'display: grid; grid-template-columns: 2fr 3fr; align-items: center; gap: 10px;' }), [ createNewEle('label', { textContent: "Enter Date" }), noteExportDateField ],
+                                   ],
+                                   noteExportButtonDiv,
+                                   [ noteExportConfirm, noteExportCancel ]
+                                  ]
+                                 ]
+                                ]
+                            )
+                        );
+                        noteExportDialog.showModal()
+                    }();
+                };
+                function exportTable(dateLimit) {
+                    dateLimit = sanitize.date(dateLimit)
+                    let exceededLimit = 0
+                    return notesTableData.map(({ noteSummary, noteCreateDate, noteCreator, noteStringText } = {}) => {
+                        if (exceededLimit) { return };
+                        let alertDateValue = sanitize.date(noteCreateDate, "number")
+                        if (alertDateValue < dateLimit) { exceededLimit = 1; return };
+                        return [ [ noteSummary, noteCreateDate, noteCreator].join(', '), noteStringText].join('\n--------------------------------------\n').replace(/\\n/g, '\n').replace(/\\/g, "")
+                    }).filter(e => e).join('\n\n====================================================================================================\n\n');
+                };
+                function downloadBlob(blobData) {
+                    const blob = new Blob([blobData], { type: 'text/plain;charset=utf-8;' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute("download", caseName + ".txt");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
             } else if (editMode) {
                 !function autoSaveNoteDetails() {
                     window.addEventListener('beforeunload', saveNoteDetails)
@@ -4389,7 +4443,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     gbl.eles.cancel?.addEventListener('click', () => {
                         window.removeEventListener('beforeunload', saveNoteDetails)
                         localStorage.removeItem('MECH2.backupNote')
-                    })
+                    });
                     // does it make sense to remove on save.click? backupNote is removed when the page is loaded and the note matches.
                     // notesActionsArea.addEventListener('click', clickEvent => {
                     //     switch(clickEvent.target.id) {
@@ -4404,19 +4458,19 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in storedNoteDetails ? 1 : 0
                     if (!noteDetailsExists && !backupNoteExists) { return };
                     //
-                    if (noteDetailsExists) { addTertEle([ ['button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }], ]) }
-                    if (backupNoteExists) { addTertEle([ ['button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }], ]) }
+                    if (noteDetailsExists) { addTertEles( createNewEle('button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }), ) }
+                    if (backupNoteExists) { addTertEles( createNewEle('button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }), ) }
                     gbl.eles.tertiaryActionArea?.addEventListener('click', ({ target: clickEventTarget } = {}) => {
                         if (clickEventTarget.nodeName !== "BUTTON" || noteCategory?.value || !noteDetailsExists) { return };
-                        fillNoteDetails((function() {
+                        fillNoteDetails(( () => {
                             switch(clickEventTarget.id) {
                                 case "autofill": return storedNoteDetails;
                                 case "backupNote": return backupNoteDetails;
-                            }
+                            };
                         })(), clickEventTarget.id)
-                    })
+                    });
                 }();
-            }
+            };
             function saveNoteDetails(copiedOrBackup) {
                 if (noteCategory?.value === '') { return };
                 copiedOrBackup = typeof copiedOrBackup === "string" ? copiedOrBackup : "backupNote"
@@ -4725,7 +4779,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 concatPaymentHTML.paymentsTotal = '<span>Payments Total: ' + providerPaymentsTotalCurrency + '.</span></div>'
             });
             providerPaymentTableArray.sort( (a, b) => Date.parse(b[0].slice(0, 10)) - Date.parse(a[0].slice(0, 10)) )
-            verbose(providerPaymentTableArray)
             let providerPaymentTbodyHTML = providerPaymentTableArray.map(trow => '<tr><td>' + trow.join('</td><td>') + '</td></tr>').join('')
             let providerPaymentTableHeaderHTML = '<thead><tr><td>Care Period</td><td>Provider</td><td>Payment</td><td>Copay</td><td>Recoup</td></tr></thead>'
             concatPaymentHTML.providerPaymentFilter = providerName ? '<div class="marginBottom">Payment filter applied to table below. Provider filter selected: ' + providerName + '.</div>' : ''
@@ -5404,7 +5457,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                 caseNotesData[reprocess.memberProviderId] = Object.assign( reprocess, { matchReason: matchedReason[1] } )
             });
             Object.entries(caseNotesData).forEach( ([, paymentData] = []) => {
-                addTertEle([ ['button', { id: paymentData.memberProviderId, classList: "form-button", textContent: paymentData.memberProviderName }], ])
+                addTertEles(createNewEle('button', { id: paymentData.memberProviderId, classList: "form-button", textContent: paymentData.memberProviderName }))
             });
             gbl.eles.tertiaryActionArea.addEventListener('click', ({ target: clickEventTarget } = {}) => {
                 if (clickEventTarget.nodeName !== "BUTTON") { return };
@@ -5563,11 +5616,10 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         }
         document.querySelector('h4').innerText = "Maximum Rates for " + providerType + " effective " + maximumRatesPeriod.value
     }();
-    !function copyRates() {
-        let toggleDifferentialRates = createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", checked: "checked" })
-        addTertEle([ ['button', { type: 'button', classList: 'form-button', id: 'copyRates', textContent: 'Copy Rates', }], ])
-        gbl.eles.tertiaryActionArea.appendChild(toggleDifferentialRates)
-        document.getElementById('copyRates').addEventListener('click', copyRatesTable)
+    !function copyRatesData() {
+        addTertEles(createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", checked: "checked" }))
+        let copyRates = addTertiaryEle( 'button', { type: 'button', classList: 'form-button', id: 'copyRates', textContent: 'Copy Rates', } )
+        copyRates.addEventListener('click', copyRatesTable)
         let maxRatesSpans = Array.from(document.querySelectorAll('.maxRates'))
         document.getElementById('toggleDifferentialRatesSlider').addEventListener( 'click', ele => unhideElement(maxRatesSpans, ele.target.checked) );
     }();
@@ -5592,14 +5644,14 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                 function mergeTextboxesText() {
                     let textboxText = textbox2.value ? textbox1.value + '\nPAGEBREAK\n\n                      WORKER COMMENTS\n============================================================\n\n' + textbox2.value + '\n\n============================================================' : textbox1.value
                     return textboxText
-                }
+                };
                 /* globals download, PDFLib */
                 function createPdfThenDownload(pdfText, pdfName) {
                     pleaseWait()
                     let dynamicScript = createNewEle('script', { src: "https://unpkg.com/downloadjs@1.4.7" })
                     document.head.append( dynamicScript )
-                    dynamicScript.addEventListener('load', function() { createPdf(pdfText, pdfName).then( thankYouForWaiting() )} )
-                }
+                    dynamicScript.addEventListener('load', () => { createPdf(pdfText, pdfName).then( thankYouForWaiting() )} )
+                };
                 async function createPdf(text, fileName) {
                     import("https://unpkg.com/pdf-lib").then(async ({ PDFDocument, StandardFonts, rgb, PageSizes } = {}) => {
                         text = text.replaceAll(/(\n)(?=.+Page \d)/g, '\nPAGEBREAK\n')
