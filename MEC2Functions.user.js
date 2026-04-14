@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.48
+// @version      0.6.49
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -290,8 +290,8 @@ let clickCount = null;
         gbl.eles.buttonPanelOneNTF
             .appendChild( createNewEle('div', { id: "newTabInputDiv" }))
             .appendChild(gbl.eles.newTabField)
-            .parentElement.insertAdjacentElement( 'afterend', createNewEle('button', { type: "button", id: "FieldNotesNT", classList: "cButton nav", textContent: "Notes" }, [ [ "pageName", "CaseNotes"], ] ))
-            .insertAdjacentElement( 'afterend', createNewEle('button', { type: "button", id: "FieldOverviewNT", classList: "cButton nav", textContent: "Overview" }, [ [ "pageName", "CaseOverview"], ] ))
+            .parentElement.insertAdjacentElement( 'afterend', createNewEle('button', { type: "button", id: "FieldNotesNT", classList: "cButton nav", textContent: "Notes" }, { pageName: "CaseNotes" } ))
+            .insertAdjacentElement( 'afterend', createNewEle('button', { type: "button", id: "FieldOverviewNT", classList: "cButton nav", textContent: "Overview" }, { pageName: "CaseOverview" } ))
         gbl.eles.primaryNav.appendChild( createNewEle('div', { classList: "primary-navigation-row" })).append(gbl.eles.buttonPanelTwo)
         gbl.eles.primaryNav.appendChild( createNewEle('div', { classList: "primary-navigation-row" })).append(gbl.eles.buttonPanelThree)
         navContainer.appendChild(gbl.eles.secondaryActionArea).append(gbl.eles.duplicateButtons, gbl.eles.tertiaryActionArea);
@@ -754,7 +754,7 @@ const allPagesMap = new Map([
                 return;
             };
             if (!/^\d{1,8}$/.test(gbl.eles.newTabField.value)) { return; }
-            let pageTarget = gbl.eles.caseIdElement && !caseIdVal ? "_self" : "_blank"
+            let pageTarget = gbl.eles.caseIdElement && !caseIdVal ? "_self" : "_blank" // same tab if Case ID field is present but blank //
             window.open('/ChildCare/' + (pageNameNTF ?? (event.key === "n" ? "CaseNotes" : "CaseOverview")) + '.htm?parm2=' + gbl.eles.newTabField.value, pageTarget);
             gbl.eles.newTabField.value = ''
             hideCaseHistory()
@@ -778,7 +778,7 @@ const allPagesMap = new Map([
                     || [ 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Home', 'End', 'Tab' ].includes(keydownEvent.key)
                 ) { return; }
                 switch (keydownEvent.key) {
-                    case 'n': pageOpenNTF(keydownEvent); break;
+                    case 'n':
                     case 'o':
                     case 'Enter': pageOpenNTF(keydownEvent); break;
                     case 'Escape': hideCaseHistory(); gbl.eles.newTabField.blur(); break;
@@ -2233,19 +2233,45 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         let closedCaseBankLastThree = (closedCaseBank) ? closedCaseBank.slice(4) : ''
         let todayDate = Date.now(), fortySixDays = 3974400000
         let changedToLinks, iframeContainer, transferiframe
-        Array.from(document.querySelectorAll('#inActiveCaseTable > tbody > tr > td:nth-of-type(4)'), thisTd => {
-            let closedDatePlus46 = sanitize.date(thisTd.textContent, "number") + fortySixDays
-            if (closedDatePlus46 < todayDate) {
-                let thisTr = thisTd.closest('tr')
-                let xferSingleButton = closedCaseBank ? '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>' : ''
-                thisTd.outerHTML = '<td><a href="CaseTransfer.htm?parm2=' + thisTr.firstElementChild.textContent + '", target="_blank">' + thisTd.textContent + '</a>' + xferSingleButton + '</td>'
-                thisTr.classList.add('oldClosed')
+
+        let storedTransferredListObj = sanitize.json(localStorage.getItem('storedTransferList')) ?? {}
+        function storeTransferredList(transferredList) {
+            let todayDateLocale = new Date().toLocaleDateString()
+            if (storedTransferredListObj.hasOwnProperty('storeDate')) {
+                if (storedTransferredListObj.storeDate === todayDateLocale) {
+                    transferredList.push(...storedTransferredListObj.transferredList)
+                } else {
+                    let oldList = storedTransferredListObj?.transferredList?.join(', ')
+                    let copyOldList = addTertiaryEle('button', { textContent: "Copy Previous Transferred List", title: "Copy list of cases transferred on " + storedTransferredListObj.storeDate, classList: "form-button" });
+                    copyOldList.addEventListener('click', () => { copy(oldList, "Copied list") })
+                };
             };
-        });
+            storedTransferredListObj.transferredList = transferredList
+            localStorage.setItem('storedTransferList', JSON.stringify({storeDate: todayDateLocale, transferredList}) )
+            copyStoredList.classList.remove('hidden')
+        };
+        let copyStoredList = addTertiaryEle('button', { textContent: "Copy Transferred List", title: "Copy list of cases transferred on " + storedTransferredListObj.storeDate, classList: "form-button" + (storedTransferredListObj.hasOwnProperty('storeDate') ? "" : " hidden") })
+        copyStoredList.addEventListener('click', () => { copy(storedTransferredListObj?.transferredList?.join(', '), "Copied list") })
+
+        !function markAddLinkToOldClosed() {
+            Array.from(document.querySelectorAll('#inActiveCaseTable > tbody > tr > td:nth-of-type(4)'), thisTd => {
+                let closedDatePlus46 = sanitize.date(thisTd.textContent, "number") + fortySixDays
+                if (closedDatePlus46 < todayDate) {
+                    let thisTr = thisTd.closest('tr')
+                    let xferSingleButton = closedCaseBank ? '<span class="cSpan">→ ' + closedCaseBankLastThree + '</span>' : ''
+                    thisTd.outerHTML = '<td><a href="CaseTransfer.htm?parm2=' + thisTr.firstElementChild.textContent + '", target="_blank">' + thisTd.textContent + '</a>' + xferSingleButton + '</td>'
+                    thisTr.classList.add('oldClosed')
+                };
+            });
+        }();
+        const oldClosedCaseArray = () => Array.from(document.querySelectorAll('.oldClosed'), caseNumber => caseNumber.id)
+        let closedTransferAll = createNewEle('button', { type: 'button', classList: 'cButton', tabIndex: '-1', id: 'closedTransferAll', textContent: 'Transfer closed >45 days to:' }),
+            transferWorker = createNewEle( 'input', { type: 'text', classList: 'form-control', style: 'display: inline-block; margin-left: 10px; width: var(--8numbers)', id: 'transferWorker', placeholder: "Worker #", value: closedCaseBank })
         document.querySelector('label[for=inActiveCaseSearchWorkerId]').parentElement
             .appendChild( createNewEle('div', { style: 'vertical-align: middle;', classList: 'float-right-imp', }))
-            .appendChild( createNewEle('button', { type: 'button', classList: 'cButton', tabIndex: '-1', id: 'closedTransferAll', textContent: 'Transfer closed >45 days to:' }))
-            .insertAdjacentElement( 'afterend', createNewEle( 'input', { type: 'text', classList: 'form-control', style: 'display: inline-block; margin-left: 10px; width: var(--8numbers)', id: 'transferWorker', placeholder: "Worker #", value: closedCaseBank }) )
+            .appendChild( closedTransferAll )
+            .insertAdjacentElement( 'afterend', transferWorker )
+        document.querySelector('label[for=inActiveCaseSearchWorkerId]').parentElement.append(...arrangeElements([]))
         function addTableButtons() {
             removeTableButtons()
             if (!(/[a-z0-9]{7}/i).test(closedCaseBank)) { return };
@@ -2253,9 +2279,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             Array.from(document.querySelectorAll('tr.oldClosed > td:nth-child(4)'), ele => ele.insertAdjacentElement('beforeend', closedCaseSpan))
         };
         function removeTableButtons() { Array.from( document.querySelectorAll('span.cSpan'), cSpanEle => cSpanEle.remove() ) };
-        let transferWorker = document.getElementById('transferWorker')
-        transferWorker?.addEventListener('blur', blurEvent => checkClosedCaseBank( blurEvent.target.value.toUpperCase() ));
-        function checkClosedCaseBank(eventValue) {
+        transferWorker?.addEventListener('blur', blurEvent => testClosedCaseBank( blurEvent.target.value.toUpperCase() ));
+        function testClosedCaseBank(eventValue) {
             if ((/[a-z0-9]{7}/i).test(eventValue)) {
                 if (eventValue === closedCaseBank) { return };
                 countyInfo.updateInfo('closedCaseBank', eventValue)
@@ -2276,13 +2301,14 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 let closestSpanASibling = clickEvent.target.previousElementSibling
                 if (checkForClosedCaseBank() && closestSpanASibling?.nodeName === 'A') {
                     transferSingleClosed(clickEvent.target.closest('tr').id)
-                }
-            }
+                };
+            };
         });
         async function transferSingleClosed(tRowId) {
             pleaseWait("Please wait...")
             await createIframe()
             await caseTransferEvent(tRowId)
+                .then( storeTransferredList([tRowId]) )
                 .catch(error => { console.trace(error) })
                 .finally(() => {
                 iframeContainer.remove()
@@ -2293,6 +2319,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             pleaseWait("Please wait...", 1)
             let progressReport = document.getElementById('progressReport')
             let progressBar = document.getElementById('progressBar')
+            let successfulTransfers = []
             await createIframe()
             return new Promise(async (resolve, reject) => {
                 let tRowIdArraylength = tRowIdArray.length
@@ -2301,9 +2328,11 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         progressReport.textContent = "Please wait... " + (Number(index)+1) + " of " + tRowIdArraylength
                         progressBar.value = index/tRowIdArraylength
                         await caseTransferEvent(caseNumberTransfer)
+                            .then( successfulTransfers.push(caseNumberTransfer) )
                             .catch(error => { console.trace(error) })
                     };
                 };
+                storeTransferredList(successfulTransfers)
                 iframeContainer.remove()
                 thankYouForWaiting()
                 resolve()
@@ -2333,12 +2362,12 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         tRowButton.style.pointerEvents = "none"
                         switch (messageEvent.data[1]) {/* eslint-disable no-fallthrough */
                             case "Invalid Agency":
-                            case "Invalid Worker": { checkClosedCaseBank(0) }
+                            case "Invalid Worker": { testClosedCaseBank(0) }
                             case "Locked Case":
                             case "ID is blank":
                             case "Same Worker ID":
                             case "Check individually":
-                                break
+                                break;
                         };/* eslint-enable no-fallthrough */
                         tRow.classList.remove('oldClosed')
                         reject(messageEvent.data[1])
@@ -2352,8 +2381,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 };
             });
         };
-        document.getElementById('closedTransferAll').addEventListener('click', async () => {
-            const oldClosedArray = Array.from(document.querySelectorAll('.oldClosed'), caseNumber => caseNumber.id)
+        closedTransferAll.addEventListener('click', async () => {
+            const oldClosedArray = oldClosedCaseArray()
+            // const oldClosedArray = Array.from(document.querySelectorAll('.oldClosed'), caseNumber => caseNumber.id)
             if (checkForClosedCaseBank() && oldClosedArray?.length) { await transferMultiClosed(oldClosedArray) }
         });
         function checkForClosedCaseBank() {
