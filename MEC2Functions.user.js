@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.49
+// @version      0.6.50
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -25,7 +25,7 @@ const sanitize = {
     query(query, all = 0) {
         if (!query) { return undefined }
         if (query instanceof HTMLElement || query instanceof NodeList || query instanceof HTMLCollection ) { return query }
-        if (!typeof query === "string") { console.log("sanitize.query: argument 1 invalid (" + query + ") - must be a valid query string, an HTMLElement or HTMLCollection, or a NodeList"); return undefined; }
+        if (typeof query !== "string") { console.log("sanitize.query: argument 1 invalid (" + query + ") - must be a valid query string, an HTMLElement or HTMLCollection, or a NodeList"); return undefined; }
         return getSanitizedQuery(query)
         function getSanitizedQuery(queryInput) {
             let queryFromTextInput = ( queryInput.indexOf(',') > -1 || all ) ? document.querySelectorAll( queryInput )
@@ -172,6 +172,9 @@ const dateFuncs = {
         return roundedDate;
     },
     formDate(dateVal, format) {},
+    getDayOfWeek(inputDate) {
+        return new Date(inputDate).getDay()
+    },
     getDateOfWeekdayWithWeek(year, month, week, day) {
         if (week < 0) { month++ }
         const dateToGet = new Date(year, month, (week * 7) + 1)
@@ -740,17 +743,17 @@ const allPagesMap = new Map([
         providerCategory.classList.replace('browsing', 'open-page')
         if ("getProviderOverview.htm".includes(thisPageNameHtm)) { document.getElementById('ProviderOverview.htm').classList.add('open-page') };
     };
-    // SECTION_START New_Tab_Case_Number_Field
+    //======================== Case_History | New_Tab_Case_Number_Field Section_Start ===================================//
     !function newTabFieldSetup() {
-        function hideCaseHistory() { toggleVisible(gbl.eles.caseHistory, false); Array.from(gbl.eles.caseHistory.children, ele => { ele.classList.remove('caseHistoryFocusKB', 'caseHistoryFocus') }) };
+        function removeHistoryFocusClasses() { Array.from(gbl.eles.caseHistory?.querySelectorAll('.caseHistoryFocus, .caseHistoryFocusKB'), ele => { ele.classList.remove('caseHistoryFocus', 'caseHistoryFocusKB') }); };
+        function hideCaseHistory() { toggleVisible(gbl.eles.caseHistory, false); removeHistoryFocusClasses() };
         function pageOpenNTF(event, pageNameNTF) {
             event.preventDefault();
             let enterFromKB = event.key === 'Enter' ? gbl.eles.caseHistory?.querySelector('.caseHistoryFocusKB') : undefined
             if (enterFromKB) {
-                toggleVisible(gbl.eles.caseHistory, false)
                 gbl.eles.newTabField.value = Number(enterFromKB.id.split('history')[1])
                 gbl.eles.newTabField.select()
-                enterFromKB.classList.remove('caseHistoryFocusKB', 'caseHistoryFocus')
+                hideCaseHistory()
                 return;
             };
             if (!/^\d{1,8}$/.test(gbl.eles.newTabField.value)) { return; }
@@ -759,6 +762,18 @@ const allPagesMap = new Map([
             gbl.eles.newTabField.value = ''
             hideCaseHistory()
             gbl.eles.newTabField.blur()
+        };
+        function caseHistoryChangeFocus(event) {
+            let currentFocusedTarget = gbl.eles.caseHistory?.querySelector('.caseHistoryFocus') ?? undefined
+            removeHistoryFocusClasses()
+            let focusTarget = (() => {
+                switch (event.key) {
+                    case "ArrowDown": return !currentFocusedTarget ? gbl.eles.caseHistory?.children[0] : currentFocusedTarget === Array.from(gbl.eles.caseHistory?.children)?.at(-1) ? currentFocusedTarget : currentFocusedTarget.nextElementSibling;
+                    case "ArrowUp": return !currentFocusedTarget ? Array.from(gbl.eles.caseHistory?.children)?.at(-1) : currentFocusedTarget === gbl.eles.caseHistory?.children[0] ? currentFocusedTarget : currentFocusedTarget.previousElementSibling;
+                    default: return event.target.closest('div.caseHistoryEntry');
+                };
+            })();
+            focusTarget?.classList.add(...(!!event.key ? ['caseHistoryFocus', 'caseHistoryFocusKB'] : ['caseHistoryFocus']))
         };
         !function newTabFieldEvents() {
             gbl.eles.buttonPanelOneNTF.addEventListener('click', clickEvent => {
@@ -776,7 +791,7 @@ const allPagesMap = new Map([
                     ( /[0-9]/.test(keydownEvent.key) && /^\d{0,7}$/.test(keydownEvent.target.value) )
                     || ( keydownEvent.ctrlKey && ['v', 'a', 'x', 'c', 'z'].includes(keydownEvent.key) )
                     || [ 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Home', 'End', 'Tab' ].includes(keydownEvent.key)
-                ) { return; }
+                ) { return };
                 switch (keydownEvent.key) {
                     case 'n':
                     case 'o':
@@ -785,27 +800,9 @@ const allPagesMap = new Map([
                     case 'ArrowUp':
                     case 'ArrowDown': caseHistoryChangeFocus(keydownEvent); break;
                     default: break;
-                }
+                };
                 keydownEvent.preventDefault()
             });
-            gbl.eles.caseHistory?.addEventListener('mouseover', mouseoverEvent => {
-                let mouseoverTarget = mouseoverEvent.target.nodeName === "SPAN" ? mouseoverEvent.target.parentElement : mouseoverEvent.target;
-                if (mouseoverTarget?.classList?.contains('caseHistoryFocus')) { return };
-                caseHistoryChangeFocus(mouseoverEvent)
-            });
-            function caseHistoryChangeFocus(event) {
-                let currentFocusedTarget = gbl.eles.caseHistory?.querySelectorAll('.caseHistoryFocus')[0] ?? undefined
-                Array.from(gbl.eles.caseHistory?.children, ele => { ele.classList.remove('caseHistoryFocus', 'caseHistoryFocusKB') });
-                let focusTarget = (() => {
-                    switch (event.key) {
-                        case "ArrowDown": return !currentFocusedTarget ? gbl.eles.caseHistory?.children[0] : currentFocusedTarget === Array.from(gbl.eles.caseHistory?.children)?.at(-1) ? currentFocusedTarget : currentFocusedTarget.nextElementSibling;
-                        case "ArrowUp": return !currentFocusedTarget ? Array.from(gbl.eles.caseHistory?.children)?.at(-1) : currentFocusedTarget === gbl.eles.caseHistory?.children[0] ? currentFocusedTarget : currentFocusedTarget.previousElementSibling;
-                        default: return event.target.nodeName === "SPAN" ? event.target.parentElement : event.target;
-                    };
-                })();
-                let caseHistoryClassList = !!event.key ? ['caseHistoryFocus', 'caseHistoryFocusKB'] : ['caseHistoryFocus']
-                focusTarget?.classList.add(...caseHistoryClassList)
-            };
         }();
         !function caseHistoryDatalist() {
             if (iFramed || !(gbl.eles.newTabField instanceof HTMLElement) || !countyInfo.userSettings?.caseHistory) { return };
@@ -847,6 +844,10 @@ const allPagesMap = new Map([
                     gbl.eles.newTabField.value = Number(clickEvent.target.closest('div.caseHistoryEntry').id.split('history')[1])
                     gbl.eles.newTabField.select()
                 });
+                gbl.eles.caseHistory?.addEventListener('mouseover', mouseoverEvent => {
+                    if (mouseoverEvent.target.closest('div.caseHistoryEntry')?.classList?.contains('caseHistoryFocus')) { return };
+                    caseHistoryChangeFocus(mouseoverEvent)
+                });
                 function filterHistory(inputValue, inputType) {
                     if (!inputValue) {
                         unhideElement(historyList, true)
@@ -854,15 +855,15 @@ const allPagesMap = new Map([
                             hideCaseHistory()
                             gbl.eles.newTabField.blur();
                             return;
-                        }
+                        };
                         toggleVisible(gbl.eles.caseHistory, true)
                         return
-                    }
+                    };
                     let inputMatch = historyList.filter( ele => ele.id.includes(inputValue) )
                     if (inputMatch.length) {
                         toggleVisible(gbl.eles.caseHistory, true)
                         historyList.forEach(ele => inputMatch.includes(ele) ? unhideElement(ele, true) : unhideElement(ele, false) )
-                    } else { hideCaseHistory() }
+                    } else { hideCaseHistory() };
                 };
                 function hideHistoryClick(clickEvent) {
                     if ( clickEvent.target.closest('#newTabInputDiv') ) { return };
@@ -873,9 +874,9 @@ const allPagesMap = new Map([
                     document.removeEventListener('click', hideHistoryClick)
                 };
             } catch (err) { console.trace(err) };
-        }(); //======================== Case_History Section_End ===================================//
-    }();
-    editMode && ([ gbl.eles.buttonPanelTwo, gbl.eles.buttonPanelThree ].forEach(ele => ele.classList.add('hidden') )); // SECTION_END New_Tab_Case_Number_Field
+        }();
+    }(); //======================== Case_History | New_Tab_Case_Number_Field Section_End ===================================//
+    editMode && ([ gbl.eles.buttonPanelTwo, gbl.eles.buttonPanelThree ].forEach(ele => ele.classList.add('hidden') ));
 }(); // ///////////////////////////////////////////////////////////////// PRIMARY_NAVIGATION_BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 !function nextPrevPeriodButtons() {
     if (iFramed || editMode || !gbl.eles.selectPeriod || !sanitize.query(gbl.eles.selectPeriod) || gbl.eles.selectPeriod.disabled || gbl.eles.selectPeriod.readOnly || gbl.eles.selectPeriod.type === "hidden" || reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
@@ -1350,12 +1351,12 @@ function waitForTableCells(tableStr = 'table') { // table = 'table' or '#tableId
         let waitForTable = document.querySelector('div.dataTables_scrollBody > ' + tableStr)
         if (!waitForTable) { reject("waitForTableCells: Table not found on page.") };
         if ( waitForTable?.querySelector('tbody > tr > td:nth-child(2)') ) {
-            resolve({ waitForTable, recordsFound: waitForTable?.querySelector('tbody')?.children.length });
+            resolve({ waitForTable, recordsFound: waitForTable?.querySelector('tbody')?.children?.length });
         } else {
             const observer = new MutationObserver(mutations => {
                 if (waitForTable?.children[1]?.firstElementChild?.children) {
                     observer.disconnect();
-                    resolve({ waitForTable, recordsFound: waitForTable?.querySelector('tbody')?.children.length });
+                    resolve({ waitForTable, recordsFound: waitForTable?.querySelector('tbody')?.children?.length });
                 };
             });
             observer.observe(document.body, { childList: true, subtree: true, });
@@ -1628,12 +1629,18 @@ function createNewEle(nodeName, attribObj={}, dataObj={}) {
     Object.entries(dataObj)?.forEach(([dataName, dataValue] = []) => { newEle.dataset[dataName] = dataValue })
     return newEle;
 };
-function createSlider({ textContent, title, id: sliderId, checked, fontSize, classes: extraClasses, styles: extraStyles } = {}) {
+function createSlider({ textContent, title, id, checked, fontSize, classes: extraClasses, styles: extraStyles } = {}) {
     let toggleSlider = createNewEle('div', { classList: ["toggle-slider", extraClasses].join(' '), style: extraStyles })
-    toggleSlider.appendChild( createNewEle('label', { title, textContent }) )
-    .insertAdjacentElement( 'afterend', createNewEle('label', { classList: "switch", style: (fontSize && "font-size: " + fontSize + ";") }) )
-    .appendChild( createNewEle('input', { type: "checkbox", id: sliderId, checked }) )
-    .insertAdjacentElement( 'afterend', createNewEle('span', { classList: "slider round" }) )
+    toggleSlider.append(
+        ...arrangeElements(
+            [createNewEle('label', { title, textContent }),
+             createNewEle('label', { classList: "switch", style: (fontSize && "font-size: " + fontSize + ";") }),
+             [createNewEle('input', { type: "checkbox", id, checked }),
+              createNewEle('span', { classList: "slider round" })
+             ]
+            ]
+        )
+    );
     return toggleSlider;
 };
 function createTooltip(textContent, locationClass, addedStyle) {
@@ -1773,7 +1780,7 @@ function unhideElement(element, trueFalse) { // true to remove hidden, false to 
     element.forEach( ele => { ele = sanitize.query(ele); trueFalse ? ele.classList.remove('hidden') : ele.classList.add('hidden') } );
 };
 //
-// ///////////////////////////////////////////////////////////////////////////// FUNCTION_LIBRARY SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ FUNCTION_LIBRARY SECTION END /////////////////////////////////////////////////////////////////////////////////////////////
 // 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
 !function Login_ChangePassword() {
     if (!["Login.htm", "ChangePassword.htm", "ChildCare/"].includes(thisPageNameHtm)) { return }; // Looks dumb, but catches if there's no Page.htm, which can only happen when logging in.
@@ -1884,15 +1891,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
 // 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
 // ////////////////////////////////////////////////////////////////////////// PAGE_SPECIFIC_CHANGES SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // !function pageSpecificChanges() { try {
-!function _CaseList_Pages() {
-    !function __RedeterminationCaseList() {
-        if (!("RedeterminationCaseList.htm").includes(thisPageNameHtm)) { return };
-        addDateControls("month", "#searchStartDate")
-        addDateControls("month", "#searchEndDate")
-        if (document.getElementById('searchStartDate')?.value === dateFuncs.formatDate(new Date(), "mmddyyyy")) {
-            yellowTextBox({ textContent: "Note: First date is set to today. List will not show currently closing cases.", classList: "blackText"})
-        }
-    }();
+!async function _CaseList_Pages() {
     if (thisPageNameHtm.indexOf("CaseList") === -1) { return };
     const subprogramMap = new Map([
         ["Transition Year", "TY"],
@@ -1901,10 +1900,21 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         ["Basic Sliding Fee", "BSF"],
         ["Child Care Assistance", "???"]
     ]);
+    const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListTrArray = Object.values(caseListObject), caseListNumberArray = Object.keys(caseListObject)
+    addTertiaryEle('button', { textContent: "Copy Case Numbers", classList: "form-button" }).addEventListener('click', () => { copy( caseListNumberArray.join(", ") ) })
+    !function __RedeterminationCaseList() {
+        if (!("RedeterminationCaseList.htm").includes(thisPageNameHtm)) { return };
+        addDateControls("month", "#searchStartDate")
+        addDateControls("month", "#searchEndDate")
+        if (document.getElementById('searchStartDate')?.value === dateFuncs.formatDate(new Date(), "mmddyyyy")) {
+            yellowTextBox({ textContent: "Note: First date is set to today. List will not show currently closing cases.", classList: "blackText"})
+        };
+    }();
     !async function __ActiveCaseList() {
         if (!("ActiveCaseList.htm").includes(thisPageNameHtm) || !tableHasData('#activeCaseTable') ) { return };
-        const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListTrArray = Array.from(Object.values(caseListObject))
-        const caseListNumberArray = Array.from(Object.keys(caseListObject)), testArray = ["1841151"], caseListNumberArraySliceX = (x) => caseListNumberArray.slice(0, x), caseListNumberArraySliceXY = (x, y) => caseListNumberArray.slice(x, y)
+        // const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListTrArray = Array.from(Object.values(caseListObject))
+        // const caseListNumberArray = Array.from(Object.keys(caseListObject))
+        const testArray = ["1841151"], caseListNumberArraySliceX = (x) => caseListNumberArray.slice(0, x), caseListNumberArraySliceXY = (x, y) => caseListNumberArray.slice(x, y)
         document.querySelector('.dataTables_scrollHeadInner table thead tr').children[4].textContent = "Redet Date"
         const activeCaseSearchWorkerId = document.getElementById('activeCaseSearchWorkerId').value, aclTbody = document.querySelector('tbody'), caseResultsData = document.getElementById('caseResultsData')
         mec2functionFeatures.push(
@@ -2226,7 +2236,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         if (!("InactiveCaseList.htm").includes(thisPageNameHtm) || !tableHasData('#inActiveCaseTable')) { return };
         document.querySelector('.dataTables_scrollHeadInner thead tr td:nth-child(6)').innerText = "MAXIS"
         !function shortenProgram() { Array.from( document.querySelectorAll('tbody tr td:nth-child(3)'), td => { td.textContent = subprogramMap.get(td.textContent) }) }();
-        const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListNumberArray = Array.from(Object.keys(caseListObject))
+        // const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListNumberArray = Array.from(Object.keys(caseListObject))
         let closedCaseLS = countyInfo.info?.closedCaseBank ?? ''
         closedCaseLS.toLowerCase() === "${closedcasebank}" ? '' : closedCaseLS
         let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
@@ -2271,7 +2281,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             .appendChild( createNewEle('div', { style: 'vertical-align: middle;', classList: 'float-right-imp', }))
             .appendChild( closedTransferAll )
             .insertAdjacentElement( 'afterend', transferWorker )
-        document.querySelector('label[for=inActiveCaseSearchWorkerId]').parentElement.append(...arrangeElements([]))
+        // document.querySelector('label[for=inActiveCaseSearchWorkerId]').parentElement.append( ...arrangeElements([]) )
         function addTableButtons() {
             removeTableButtons()
             if (!(/[a-z0-9]{7}/i).test(closedCaseBank)) { return };
@@ -2959,7 +2969,12 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         pmiNumber?.addEventListener('blur', blurEvent => { if ( pmiNumber.value ) { eleFocus( firstEmptyElement() ) } })
         function appDateChanged(changeEvent) {
             if (changeEvent.target.value.length < 10) { return false }
-            let appDate = sanitize.date(changeEvent.target.value, "number"), benPeriodDate = { start: sanitize.date(selectPeriodDates.start, "number"), end: sanitize.date(selectPeriodDates.end, "number") }
+            let appDate = sanitize.date(changeEvent.target.value, "number"), benPeriodDate = { start: sanitize.date(selectPeriodDates.start, "number"), end: sanitize.date(selectPeriodDates.end, "number") }, sunOrSat = dateFuncs.getDayOfWeek(appDate)
+            if (([0,6]).contains(sunOrSat)) {
+                yellowTextBox({ textContent: 'Warning: Application date should not be on a weekend day.', id: 'weekendWarning' })
+            } else {
+                document.getElementById('weekendWarning')?.remove()
+            };
             const matchingPeriod = findContainingPeriod(gbl.eles.selectPeriod, appDate)
             if (!matchingPeriod) { return };
             gbl.eles.selectPeriod.value = matchingPeriod.value
@@ -4474,7 +4489,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         window.removeEventListener('beforeunload', saveNoteDetails)
                         localStorage.removeItem('MECH2.backupNote')
                     });
-                    // does it make sense to remove on save.click? backupNote is removed when the page is loaded and the note matches.
+                    // does it make sense to remove on save.click? backupNote is removed when the page is loaded and the note matches. Would have to check the case # matches the identifier property.
                     // notesActionsArea.addEventListener('click', clickEvent => {
                     //     switch(clickEvent.target.id) {
                     //         case "cancel": window.removeEventListener('beforeunload', saveNoteDetails)
@@ -4483,19 +4498,19 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     //     }
                     // })
                 }();
-                !function storedNotes() {
-                    if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) }
+                !function checkForStoredNote() {
+                    if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) };
                     let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in storedNoteDetails ? 1 : 0
                     if (!noteDetailsExists && !backupNoteExists) { return };
                     //
-                    if (noteDetailsExists) { addTertEles( createNewEle('button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }), ) }
-                    if (backupNoteExists) { addTertEles( createNewEle('button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }), ) }
+                    if (noteDetailsExists) { addTertEles( createNewEle('button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }), ) };
+                    if (backupNoteExists) { addTertEles( createNewEle('button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }), ) };
                     gbl.eles.tertiaryActionArea?.addEventListener('click', ({ target: clickEventTarget } = {}) => {
-                        if (clickEventTarget.nodeName !== "BUTTON" || noteCategory?.value || !noteDetailsExists) { return };
+                        if (clickEventTarget.nodeName !== "BUTTON" || noteCategory?.value || (!noteDetailsExists && !backupNoteExists) ) { return };
                         fillNoteDetails(( () => {
                             switch(clickEventTarget.id) {
-                                case "autofill": return storedNoteDetails;
-                                case "backupNote": return backupNoteDetails;
+                                case 'autofill': return storedNoteDetails;
+                                case 'backupNote': return backupNoteDetails;
                             };
                         })(), clickEventTarget.id)
                     });
@@ -4507,14 +4522,16 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 localStorage.setItem('MECH2.' + copiedOrBackup, JSON.stringify( { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, } ))
             };
             function fillNoteDetails(noteDetails, clickId) {
-                if (clickId !== "backupNote") {
+                verbose(noteDetails)
+                !function modifySummaryIfDuplicateNote() {
+                    if (clickId === "backupNote") { return };
                     let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
                     if (noteCategorySplit0 === "Application" && noteDetails.noteSummary.slice(0, 3).indexOf("HL") > -1) { Object.assign(noteDetails, { noteSummary: "HL Application update", noteCategory: noteCategorySplit0 + " - Other" }) }
                     else if (noteDetails.noteSummary.slice(0, 5) !== "Post-" && noteDetails.noteCategory.slice(-7) !== "- Other") {
                         if (["Application Incomplete", "Application - Other", "Redetermination Incomplete", "Redetermination - Other" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " Incomplete" }) }
                         else if (["Application Approved", "Redetermination Complete" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: "Post-" + noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " - Other" }) }
-                    }
-                }
+                    };
+                }();
                 noteSummary.value = noteDetails.noteSummary.slice(0, 50)
                 noteCategory.value = noteDetails.noteCategory
                 noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber
@@ -6333,6 +6350,11 @@ function eleFocus(ele) {
 };
 // ////////////////////////////////////////////////////////////////////////// ELEMENT_FOCUS SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+// function preventAccidentalClosure(beforeunloadEvent) {
+//     beforeunloadEvent.preventDefault();
+//     beforeunloadEvent.returnValue = ""
+// };
+// if (editMode) { window.addEventListener('beforeunload', preventAccidentalClosure); };
 //           keydown/paste event related;
 !function keyboardHotkeys() {
     if (iFramed) { return };
@@ -6363,7 +6385,10 @@ function eleFocus(ele) {
                 keydownEvent.preventDefault()
                 switch (keydownEvent.key) {
                     case 's': gbl.eles.save?.disabled === false && gbl.eles.save.click(); break;
-                    case 'w': if (editMode || gbl.eles.wrapUp?.disabled === false) { gbl.eles.wrapUp.click(); }; break;
+                    // case 'w': if (editMode || gbl.eles.wrapUp?.disabled === false) { // does not capture event before it fires //
+                    //     window.addEventListener('beforeunload', preventAccidentalClosure);
+                    //     window.removeEventListener('beforeunload', preventAccidentalClosure);
+                    // }; break;
                 };
             }
         };
@@ -6407,7 +6432,8 @@ function eleFocus(ele) {
         window.addEventListener('paste', async () => { // paste event never triggers on CaseList pages when in the input field //
             navigator.clipboard.readText()
                 .then(pastedText => {
-                pastedText = pastedText.trim()
+                pastedText = parseInt(pastedText.trim(), 10)
+                // pastedText = pastedText.trim().split(/^0/).reverse()[0]
                 if ("INPUT".includes(document.activeElement.nodeName) && document.activeElement !== caseProviderOrWorkerInput) { return };
                 if ( (/^[0-9]{1,8}$/).test(pastedText) ) {
                     if (thisPageNameHtm.indexOf("CaseList") > -1 || !caseProviderOrWorkerInput) { window.open('/ChildCare/CaseNotes.htm?parm2=' + pastedText, '_blank'); return };
