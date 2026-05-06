@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.50
+// @version      0.6.51
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -366,6 +366,7 @@ const workerRole = countyInfo.info?.workerRole ?? "mec2functionsFinancialWorker"
             { title: "Auto-selects Yes on the Funding Availability page.", textContent: "Funds Available: Yes (auto-select)", id: "fundsAvailable" },
             { title: "Auto-hide the date picker calendar popup on keypress, unless a date field is clicked. Resets to saved setting when a page is loaded.", textContent: "Auto-hide Datepicker Calendar on Keypress", id: "autoHideDatePicker" },
             { title: "User accessibility features will be active (e.g., table headers access using tab)", textContent: "User Accessibility functionality", id: "userAccessibility" },
+            { title: "Disable built-in templates for Case Notes", textContent: "Disable State Templates for Notes", id: "disableTemplates" },
             { title: "Add a custom title to your signature name. Turn off and back on to change the title.", textContent: "Custom Signature Title", id: "promptUserNameTitle" },
             { title: "Pretty stars appear when the cursor is moved. MECH2 is not responsible for lost work time due to Starfall.", textContent: "Starfall ✨ ✨ ✨ 🖱", id: "starFall" },
             // { title: "", textContent: "", id: "" },
@@ -1162,6 +1163,10 @@ function tableHasRecords(tableRef) {
 };
 //
 //           add/change element styles           //
+function addStyling(ele, styleObj) {
+    if (!ele) { return };
+    Object.entries(styleObj).forEach(([property, value] = []) => { ele.style[property] = value });
+};
 function doTableStyleToggle(invisElem, togClass) {
     function doToggle(element, togClass) { invisElem.classList.toggle(togClass); return '.' + [...invisElem.classList].join(', .') }
     let doToggleClass = doToggle(invisElem, togClass)
@@ -1681,7 +1686,7 @@ function doWrap({ ele, type='div', classList='' } = {}) {
 function doToggle(elOrArray) {
     Array.from(elOrArray, el => {
         el = sanitize.query(el)
-        if (el.style.display == 'none') { el.style.display = '' }
+        if (el.style.display === 'none') { el.style.display = '' }
         else { el.style.display = 'none' };
     });
 };
@@ -4292,7 +4297,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new'), notesActionsArea = document.getElementById('notesActionsArea').children[0]
     let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody')
     let noteTable = document.querySelector('.dataTables_scrollBody'), noteTableStyle = editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"
-    noteCategory?.removeAttribute('onchange')
+    countyInfo.userSettings?.disableTemplates && noteCategory?.removeAttribute('onchange') // built-in state templates //
     noteTable && (document.querySelector('.dataTables_scrollBody').setAttribute('style', noteTableStyle))
     editMode && unhideElement(document.querySelector('div.form-group:has(#noteArchiveType)'), false)
     function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
@@ -4547,18 +4552,20 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 let autoFormatSlider = createSlider({ textContent: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", checked: "checked", classes: "float-right-imp h4-line", })
                 h4objects.note.h4.insertAdjacentElement('afterend', autoFormatSlider)
                 let autoFormat = document.getElementById('autoFormat')
-                gbl.eles.save.addEventListener('click', () => { // fixing spacing around titles;
+                gbl.eles.save.addEventListener('click', () => { // spacing around titles //
                     noteSummary.value = noteSummary.value.slice(0, 50)
                     if (!autoFormat.checked) { return }
-                    noteStringText.value = noteStringText.value.replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories;
+                    noteStringText.value = noteStringText.value
+                        .replace(/\bSMI\b/i, "VMN") // replaces SMI with VMN (VerifyMN) //
+                        .replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories //
                 })
                 noteStringText.addEventListener('paste', pasteEvent => {
                     if (!autoFormat.checked) { return }
                     let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
                     let formattedPastedText = convertLineBreakToSpace(pastedText)
-                    .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") //Spaces around parentheses;
-                    .replace(/\u0009/g, "    ") //excel "tab"
-                    .replace(/^\n+/g, "\n")//Multiple new lines to single new line;
+                    .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") // Spacing around parentheses //
+                    .replace(/\u0009/g, "    ") // excel "tab" //
+                    .replace(/^\n+/g, "\n")// Multiple new lines to single new line //
                     if (pastedText !== formattedPastedText) {
                         pasteEvent.preventDefault()
                         insertTextAndMoveCursor(formattedPastedText)
@@ -6503,28 +6510,28 @@ function eleFocus(ele) {
                     saveEvent.preventDefault()
                     let maxRowsExceeded = yellowTextBox({ id: "maxRowsExceeded", textContent: "Warning: Number of lines of text (' + totalRows + ') exceeds maximum textbox lines (' + maxRows + ') and you will be logged out if you save." })
                     flashRedOutline(maxRowsExceeded)
-                    textbox.addEventListener('keydown', () => { maxRowsExceeded?.remove(); }, { once: true })
-                }
-            }
-        })
-    })
+                    textbox.addEventListener('keydown', () => { maxRowsExceeded?.remove(); }, { once: true });
+                };
+            };
+        });
+    });
     function splitStringAtWordBoundary(textbox, maxColumns=60, maxRows=30) {
         let tbVal = textbox.value, tbLen = textbox.value.length
-        if (tbVal.indexOf('\n') === -1 && ( tbLen <= maxColumns || ( tbLen === (maxColumns+1) && tbVal[ tbLen-1 ] === " " ) )) { return 1 }
+        if (tbVal.indexOf('\n') === -1 && ( tbLen <= maxColumns || ( tbLen === (maxColumns+1) && tbVal[ tbLen-1 ] === " " ) )) { return 1 };
         const splitStringArray = tbVal.split('\n').map( item => doStringSplitAtBoundary(item) )
         let tbRows = splitStringArray.length
         textbox.value = splitStringArray.join('\n')
-        return tbRows
+        return tbRows;
         function doStringSplitAtBoundary(stringItem) {
             const tempStringArray = []
             while (stringItem.length > maxColumns) {
                 const lastSpaceIndex = stringItem.lastIndexOf(' ', maxColumns);
                 tempStringArray.push(stringItem.substring(0, lastSpaceIndex+1))
                 stringItem = stringItem.substring(lastSpaceIndex+1)
-            }
+            };
             stringItem.length && tempStringArray.push(stringItem) // last line;
-            return tempStringArray.join('\n')
-        }
+            return tempStringArray.join('\n');
+        };
     };
 }();
 //
@@ -6545,25 +6552,27 @@ setTimeout(() => { if (focusEle !== "blank" && !document.querySelector('.modal.i
         colors: ["var(--star1)", "var(--star2)", "var(--star3)", "var(--star4)", "var(--star5)", "var(--star6)"],
         sizes: ["2.2rem", "1.8rem", "1.2rem"],
         animations: ["fall-1", "fall-2", "fall-3"]
-    }
+    };
+    const starSizesSvg = [
+        'url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2025%2025%22%20width=%2225%22%20height=%2225%22%3E%3Cpath%20d=%22M13.34%201.762c-.16-.313-.484-.512-.836-.512s-.676.199-.836.512L8.793%207.395l-6.246.992a.939.939%200%200%200-.519%201.59l4.468%204.473-.984%206.246a.94.94%200%200%200%201.352.984l5.64-2.866%205.637%202.868a.938.938%200%200%200%201.352-.984l-.988-6.246%204.468-4.473c.25-.25.336-.618.227-.953s-.394-.583-.746-.637l-6.242-.993z%22/%3E%3C/svg%3E");',
+        'url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2019%2019%22%20width=%2219%22%20height=%2219%22%3E%3Cpath%20d=%22M10.139%201.339a.715.715%200%200%200-1.272%200L6.682%205.62l-4.747.754a.713.713%200%200%200-.395%201.209l3.395%203.4-.748%204.747a.715.715%200%200%200%201.027.748L9.501%2014.3l4.284%202.179a.713.713%200%200%200%201.027-.748l-.751-4.747%203.395-3.4a.712.712%200%200%200-.395-1.209l-4.744-.754z%22/%3E%3C/svg%3E");',
+        'url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2013%2013%22%20width=%2213%22%20height=%2213%22%3E%3Cpath%20d=%22M6.937.916a.489.489%200%200%200-.87%200L4.572%203.845l-3.248.516a.488.488%200%200%200-.27.827l2.323%202.326-.512%203.248a.489.489%200%200%200%20.703.512l2.933-1.49%202.931%201.491a.488.488%200%200%200%20.703-.512l-.514-3.248%202.323-2.326a.487.487%200%200%200-.27-.827l-3.246-.516z%22/%3E%3C/svg%3E");'
+    ];
     let count = 0;
     const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
         selectRandom = items => items[rand(0, items.length - 1)];
     const calcDistance = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
     const calcElapsedTime = (start, end) => end - start;
-    const appendElement = element => document.body.append(element), removeElement = (element, delay) => setTimeout(() => document.body.removeChild(element), delay);
+    const removeElement = (element, delay) => setTimeout(() => document.body.removeChild(element), delay);
     const createStar = position => {
-        const star = document.createElement("span"), color = selectRandom(config.colors);
-        star.className = "star fa-solid fa-sparkle";
-        star.setAttribute('style', 'color: '+ color +'; left: '+ position.x +'px; top: '+ position.y +'px; font-size: '+ selectRandom(config.sizes) +'; text-shadow: 0px 0px 1.5rem '+ color +' / 0.5; animation-name: '+ config.animations[count++ % 3] +'; star-animation-duration: '+ config.starAnimationDuration +'ms;')
-        appendElement(star);
+        const randColor = selectRandom(config.colors);
+        const star = createNewEle('span', { classList: "star fa-solid fa-sparkle", style: 'color: '+ randColor +'; left: '+ position.x +'px; top: '+ position.y +'px; font-size: '+ selectRandom(config.sizes) +'; filter: drop-shadow(0px 0px 1.5rem '+ randColor +' / 0.5); animation-name: '+ config.animations[count++ % 3] +'; star-animation-duration: '+ config.starAnimationDuration +'ms;' })
+        document.body.append(star)
         removeElement(star, config.starAnimationDuration);
-    }
+    };
     const updateLastStar = position => { last.starTimestamp = Date.now(); last.starPosition = position; };
     const updateLastMousePosition = position => { last.mousePosition = position };
-    const adjustLastMousePosition = position => {
-        if (last.mousePosition.x === 0 && last.mousePosition.y === 0) { last.mousePosition = position }
-    };
+    const adjustLastMousePosition = position => { if (last.mousePosition.x === 0 && last.mousePosition.y === 0) { last.mousePosition = position } };
     const handleOnMove = e => {
         const mousePosition = { x: e.clientX, y: e.clientY }
         adjustLastMousePosition(mousePosition);
@@ -6572,9 +6581,9 @@ setTimeout(() => { if (focusEle !== "blank" && !document.querySelector('.modal.i
         if (hasMovedFarEnough || hasBeenLongEnough) {
             createStar(mousePosition);
             updateLastStar(mousePosition);
-        }
+        };
         updateLastMousePosition(mousePosition);
-    }
+    };
     window.onmousemove = mousemoveEvent => handleOnMove(mousemoveEvent);
     document.body.onmouseleave = () => updateLastMousePosition(originPosition);
 }(); // personal amusement //
