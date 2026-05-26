@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.51
+// @version      0.6.52
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -1627,8 +1627,8 @@ function addCssStyleSheet() {
     document.adoptedStyleSheets.push(newStyleSheet)
     return newStyleSheet;
 };
-function addTertEles(...elementArr) { elementArr.forEach(node => node instanceof HTMLElement ? gbl.eles.tertiaryActionArea.appendChild(node) : gbl.eles.tertiaryActionArea.appendChild( createNewEle(node[0], node[1])) )};
-function addTertiaryEle(node, attribObj={}) { return node instanceof HTMLElement ? gbl.eles.tertiaryActionArea.appendChild(node) : gbl.eles.tertiaryActionArea.appendChild( createNewEle(node, attribObj)) };
+function addTertMulti(...elementArr) { elementArr.forEach(node => node instanceof HTMLElement ? gbl.eles.tertiaryActionArea.appendChild(node) : gbl.eles.tertiaryActionArea.appendChild( createNewEle(node[0], node[1])) )};
+function addTertEle(node, attribObj={}) { return node instanceof HTMLElement ? gbl.eles.tertiaryActionArea.appendChild(node) : gbl.eles.tertiaryActionArea.appendChild( createNewEle(node, attribObj)) };
 function createNewEle(nodeName, attribObj={}, dataObj={}) {
     let newEle = Object.assign(document.createElement(nodeName), attribObj);
     Object.entries(dataObj)?.forEach(([dataName, dataValue] = []) => { newEle.dataset[dataName] = dataValue })
@@ -1906,7 +1906,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         ["Child Care Assistance", "???"]
     ]);
     const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListTrArray = Object.values(caseListObject), caseListNumberArray = Object.keys(caseListObject)
-    addTertiaryEle('button', { textContent: "Copy Case Numbers", classList: "form-button" }).addEventListener('click', () => { copy( caseListNumberArray.join(", ") ) })
+    addTertEle('button', { textContent: "Copy Case Numbers", classList: "form-button" }).addEventListener('click', () => { copy( caseListNumberArray.join(", ") ) })
     !function __RedeterminationCaseList() {
         if (!("RedeterminationCaseList.htm").includes(thisPageNameHtm)) { return };
         addDateControls("month", "#searchStartDate")
@@ -2257,7 +2257,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     transferredList.push(...storedTransferredListObj.transferredList)
                 } else {
                     let oldList = storedTransferredListObj?.transferredList?.join(', ')
-                    let copyOldList = addTertiaryEle('button', { textContent: "Copy Previous Transferred List", title: "Copy list of cases transferred on " + storedTransferredListObj.storeDate, classList: "form-button" });
+                    let copyOldList = addTertEle('button', { textContent: "Copy Previous Transferred List", title: "Copy list of cases transferred on " + storedTransferredListObj.storeDate, classList: "form-button" });
                     copyOldList.addEventListener('click', () => { copy(oldList, "Copied list") })
                 };
             };
@@ -2265,7 +2265,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             localStorage.setItem('storedTransferList', JSON.stringify({storeDate: todayDateLocale, transferredList}) )
             copyStoredList.classList.remove('hidden')
         };
-        let copyStoredList = addTertiaryEle('button', { textContent: "Copy Transferred List", title: "Copy list of cases transferred on " + storedTransferredListObj.storeDate, classList: "form-button" + (storedTransferredListObj.hasOwnProperty('storeDate') ? "" : " hidden") })
+        let copyStoredList = addTertEle('button', { textContent: "Copy Transferred List", title: "Copy list of cases transferred on " + storedTransferredListObj.storeDate, classList: "form-button" + (storedTransferredListObj.hasOwnProperty('storeDate') ? "" : " hidden") })
         copyStoredList.addEventListener('click', () => { copy(storedTransferredListObj?.transferredList?.join(', '), "Copied list") })
 
         !function markAddLinkToOldClosed() {
@@ -2470,8 +2470,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             noProgramSwitch: { textIncludes: /The program switch is not/, noteCategory: "Eligibility", omniPageButtons: ["CaseOverview", "CaseEditSummary", "CaseSupportActivity"], },
         },
         information: {
-            mailed: { textIncludes: /Redetermination form has been mailed/, noteCategory: "Redetermination - Other", noteSummary: 'doFunction', omniPageButtons: ["autonoteButton"], },
-            noRedet: { textIncludes: /Redetermination has not been received/, noteCategory: "Redetermination - Other", noteSummary: "Closing %0: Redet not complete/received", summaryFetchData: ["CaseOverview.htm:0.0.programBeginDateHistory"], omniPageButtons: ["autonoteButton"], },
+            mailed: { textIncludes: /Redetermination form has been mailed/, noteCategory: "Redetermination Other", noteSummary: 'doFunction', omniPageButtons: ["autonoteButton"], },
+            noRedet: { textIncludes: /Redetermination has not been received/, noteCategory: "Redetermination Other", noteSummary: "Closing %0: Redet not complete/received", summaryFetchData: ["CaseOverview.htm:0.0.programBeginDateHistory"], omniPageButtons: ["autonoteButton"], },
             autoDenied: { textIncludes: /This case has been auto-denied/, noteCategory: "Application - Other", noteSummary: "This case has been auto-denied", omniPageButtons: ["autonoteButton"], },
             terminatedSA: { textIncludes: /The system auto approved a terminated Service/, noteCategory: "Provider Change", omniPageButtons: ["autonoteButton"], },
             homelessApp: { textIncludes: /^Homeless/, noteCategory: "Application - Other", omniPageButtons: ["autonoteButton"], },
@@ -2973,12 +2973,11 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         let pmiNumber = document.getElementById('pmiNumber')
         pmiNumber?.addEventListener('blur', blurEvent => { if ( pmiNumber.value ) { eleFocus( firstEmptyElement() ) } })
         function appDateChanged(changeEvent) {
-            if (changeEvent.target.value.length < 10) { return false }
+            if (changeEvent.target.value.length < 10) { document.getElementById('weekendWarning')?.closest('.error_alertbox_new')?.remove() ; return false }
             let appDate = sanitize.date(changeEvent.target.value, "number"), benPeriodDate = { start: sanitize.date(selectPeriodDates.start, "number"), end: sanitize.date(selectPeriodDates.end, "number") }, sunOrSat = dateFuncs.getDayOfWeek(appDate)
-            if (([0,6]).contains(sunOrSat)) {
+            if ( ([0,6]).includes(sunOrSat) && !document.getElementById('weekendWarning') ) {
                 yellowTextBox({ textContent: 'Warning: Application date should not be on a weekend day.', id: 'weekendWarning' })
-            } else {
-                document.getElementById('weekendWarning')?.remove()
+                return;
             };
             const matchingPeriod = findContainingPeriod(gbl.eles.selectPeriod, appDate)
             if (!matchingPeriod) { return };
@@ -3008,7 +3007,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
 !function CaseAddress() {
     if (!("CaseAddress.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
     if (!editMode) {
-        let copyMailing = addTertiaryEle('button', { type: 'button', classList: 'form-button', tabIndex: '-1', id: 'copyMailing', textContent: 'Copy Mail Address', })
+        let copyMailing = addTertEle('button', { type: 'button', classList: 'form-button', tabIndex: '-1', id: 'copyMailing', textContent: 'Copy Mail Address', })
         evalData({ evalString: '0' }).then(addressData => { // ({ 0: addressData } = {})
             if (addressData[0].email) {
                 const emailSubject = encodeURIComponent((nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal).toWellFormed())
@@ -3115,8 +3114,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     childProviderPage()
                     checkForDates()
                     eleFocus(editDB)
-                })
-                let copyStartButton = addTertiaryEle('button', { type: 'button', id: 'copyStart', classList: 'form-button hidden', textContent: 'Copy Start', }), copyEndingsButton = addTertiaryEle('button', { type: 'button', id: 'copyEndings', classList: 'form-button hidden', textContent: 'Copy Endings', })
+                });
+                // doReplacement addTertMulti, tert.click //
+                let copyStartButton = addTertEle('button', { type: 'button', id: 'copyStart', classList: 'form-button hidden', textContent: 'Copy Start', }), copyEndingsButton = addTertEle('button', { type: 'button', id: 'copyEndings', classList: 'form-button hidden', textContent: 'Copy Endings', })
                 copyStartButton.addEventListener('click', () => copyStartToSS() )
                 copyEndingsButton.addEventListener('click', (() => copyEndingsToSS()))
                 checkForDates()
@@ -3147,7 +3147,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             if (editMode) {
                 let oProviderEndings = sanitize.json(sessionStorage.getItem("MECH2.providerEndings"))
                 if (oProviderEndings) {
-                    let pasteEndings = addTertiaryEle('button', { type: 'button', id: 'pasteEndings', classList: 'form-button', textContent: 'Autofill Endings', })
+                    let pasteEndings = addTertEle('button', { type: 'button', id: 'pasteEndings', classList: 'form-button', textContent: 'Autofill Endings', })
                     pasteEndings.addEventListener('click', pasteEndingData)
                     function pasteEndingData() {
                         if (ccpEle.providerId?.value?.length) {
@@ -3159,7 +3159,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 let oProviderStart = sanitize.json(sessionStorage.getItem("MECH2.providerStart"))
                 if (oProviderStart) {
                     const childDropDown = document.getElementById('memberReferenceNumberNewMember')
-                    let pasteStart = addTertiaryEle('button', {type: 'button', id: 'pasteStart', classList: 'form-button', textContent: 'Autofill Start', })
+                    let pasteStart = addTertEle('button', {type: 'button', id: 'pasteStart', classList: 'form-button', textContent: 'Autofill Start', })
                     pasteStart.addEventListener('click', pasteStartData)
                     function pasteStartData() {
                         if (!ccpEle.providerId?.value?.length) {
@@ -3519,7 +3519,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
 }(); // SECTION_END Case_CSIA;
 !function CaseDisability() {
     if (!("CaseDisability.htm").includes(thisPageNameHtm)) { return };
-    let generateCaseNote = addTertiaryEle('button', { classList: "form-button hidden", id: "generateCaseNote", textContent: "Auto Case Note" })
+    let generateCaseNote = addTertEle('button', { classList: "form-button hidden", id: "generateCaseNote", textContent: "Auto Case Note" })
     let memberDisabilityType = document.getElementById('memberDisabilityType'), disabilityMemberTableTbody = document.querySelector('#disabilityMemberTable > tbody')
     disabilityMemberTableTbody.addEventListener('click', checkDisabilityType)
     gbl.eles.tertiaryActionArea.addEventListener('click', doTertiaryAction)
@@ -3819,29 +3819,35 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     let ceiAddressGroups = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.getElementById(ele)?.closest('.form-group'))
     // self-employment //
     const getCeiGrossIncomeFiftyPct = () => (ceiGrossIncome.value * .5).toFixed(2)
-    h4objects.annualselfemploymentcalculation.h4.parentElement
-        .appendChild( createNewEle('div', { classList: "col-lg-12 hidden", style: "text-align: center; cursor: pointer;", id:"seiHoursCalcDiv" }))
-        .append( createNewEle('label', { textContent: "Hours Per Week: " }), createNewEle('output', { id:"seiHoursText" }), createNewEle('output', { style: "padding-left: 0 !important;", id: "seiHoursCalculation" }))
-    let seiHoursCalcDiv = document.getElementById('seiHoursCalcDiv'), seiHoursCalculation = document.getElementById('seiHoursCalculation'), seiHoursText = document.getElementById('seiHoursText')
-    function addHoursPerWeekToSelfEmployment() {
-        seiHoursText.textContent = '"Total Income" of ' + ceiTotalIncome.value + ' / 52 weeks / $7.25 = '
-        seiHoursCalculation.value = Math.round(100*( sanitize.number(ceiTotalIncome.value) )/52/7.25)/100 + " hours"
+    let selfEmployCalc = {
+        seiHoursCalcDiv: createNewEle('div', { classList: "col-lg-12 hidden", style: "text-align: center; cursor: pointer;", id:"seiHoursCalcDiv", title: "Click to copy" }),
+        seiHoursText: createNewEle('output', { id:"seiHoursText" }),
+        seiHoursCalculation: createNewEle('output', { style: "padding-left: 0 !important;", id: "seiHoursCalculation" }),
+        autoFiftyPercent: createNewEle('div', { id: "autoFiftyPercent" }),
+        fiftyPercentGross: createNewEle('output', { id: "fiftyPercentGross" }),
+        useFiftyPercent: createNewEle('button', { type: "button", id: "useFiftyPercent", classList: "cButton", tabIndex: "27", textContent: "Use 50%" })
     };
-    if (seiHoursCalculation.value) { addHoursPerWeekToSelfEmployment() }
+    h4objects.annualselfemploymentcalculation.h4.parentElement // .append( ...arrangeElements([]) )
+        .appendChild(selfEmployCalc.seiHoursCalcDiv)
+        .append( createNewEle('label', { textContent: "Hours Per Week: " }), selfEmployCalc.seiHoursText, selfEmployCalc.seiHoursCalculation)
+    function addHoursPerWeekToSelfEmployment() {
+        selfEmployCalc.seiHoursText.textContent = '"Total Income" of ' + ceiTotalIncome.value + ' / 52 weeks / $7.25 = '
+        selfEmployCalc.seiHoursCalculation.value = Math.trunc(Math.floor(100*( sanitize.number(ceiTotalIncome.value) )/52/7.25)/10)/10 + " hours/week"
+    };
+    if (selfEmployCalc.seiHoursCalculation.value) { addHoursPerWeekToSelfEmployment() }
     if (editMode) {
-        ceiGrossIncome.parentElement.insertAdjacentElement( 'afterend', createNewEle('div', { id: "autoFiftyPercent" })).append( createNewEle('label', { classList: 'textR', textContent: "50%: " }), createNewEle('output', { id: "fiftyPercentGross" }), createNewEle('button', { type: "button", id: "useFiftyPercent", classList: "cButton", tabIndex: "27", textContent: "Use 50%" }))
-        let fiftyPercentGross = document.getElementById('fiftyPercentGross')
-        fiftyPercentGross.value = getCeiGrossIncomeFiftyPct()
-        ceiGrossIncome.addEventListener('blur', () => { fiftyPercentGross.value = getCeiGrossIncomeFiftyPct(); addHoursPerWeekToSelfEmployment() })
+        ceiGrossIncome.parentElement.insertAdjacentElement( 'afterend', selfEmployCalc.autoFiftyPercent).append( createNewEle('label', { classList: 'textR', textContent: "50%: " }), selfEmployCalc.fiftyPercentGross, selfEmployCalc.useFiftyPercent)
+        selfEmployCalc.fiftyPercentGross.value = getCeiGrossIncomeFiftyPct()
+        ceiGrossIncome.addEventListener('blur', () => { selfEmployCalc.fiftyPercentGross.value = getCeiGrossIncomeFiftyPct(); addHoursPerWeekToSelfEmployment() })
         ceiGrossAllowExps.addEventListener('input', addHoursPerWeekToSelfEmployment)
-        document.getElementById('useFiftyPercent').addEventListener('click', () => {
+        selfEmployCalc.useFiftyPercent.addEventListener('click', () => {
             ceiGrossAllowExps.value = getCeiGrossIncomeFiftyPct()
             doChange(ceiGrossAllowExps)
             addHoursPerWeekToSelfEmployment()
             eleFocus(gbl.eles.save)
         });
     };
-    seiHoursCalcDiv.addEventListener('click', clickEvent => copy(seiHoursCalcDiv.textContent, seiHoursCalcDiv.textContent, "Copied!", "center"))
+    selfEmployCalc.seiHoursCalcDiv.addEventListener('click', clickEvent => copy(selfEmployCalc.seiHoursCalcDiv.textContent, selfEmployCalc.seiHoursCalcDiv.textContent, "Copied!", "center"))
     // all employment //
     h4objects.actualincome.h4.click();
     tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome, #ceiPaymentChange')
@@ -3850,12 +3856,12 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         if (ceiIncomeTypeValue === "Self-employment") {
             unhideElement(h4objects.annualselfemploymentcalculation.siblings, true)
             unhideElement(h4objects.incomeprojection.siblings, false)
-            unhideElement(seiHoursCalcDiv, true)
+            unhideElement(selfEmployCalc.seiHoursCalcDiv, true)
             addHoursPerWeekToSelfEmployment()
         } else if (ceiIncomeTypeValue !== "Self-employment" || (!editMode && !ceiTotalIncome?.value)) {
             unhideElement(h4objects.annualselfemploymentcalculation.siblings, false)
             unhideElement(h4objects.incomeprojection.siblings, true)
-            unhideElement(seiHoursCalcDiv, false)
+            unhideElement(selfEmployCalc.seiHoursCalcDiv, false)
         };
     };
     checkEmploymentType()
@@ -4400,10 +4406,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     };
                 };
 
-                let duplicate = addTertiaryEle('button', { type: 'button', id: 'duplicate', classList: 'form-button', textContent: 'Duplicate', })
+                let duplicate = addTertEle('button', { type: 'button', id: 'duplicate', classList: 'form-button', textContent: 'Duplicate', })
                 if (backupNoteExists) {
                     let deleteUnsaved = createNewEle( 'span', { id: 'deleteUnsaved', style: "cursor: pointer; color: red !important; padding-bottom: 2px;", textContent: '✖' }),
                         unsavedNoteDiv = createNewEle( 'div', { id: 'unsavedNoteDiv', style: 'display: flex; align-items: center; gap: 5px;', })
+                    // doReplacements?: addTertMulti()
                     gbl.eles.tertiaryActionArea
                         .appendChild(unsavedNoteDiv)
                         .appendChild( createNewEle( 'span', { style: 'margin-left: 10px;', title: backupNoteDetails.noteSummary, textContent: 'Unsaved note exists for case', }) )
@@ -4420,7 +4427,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     } else if (!selectedLength) { snackBar('No note selected') }
                 };
 
-                let noteExport = addTertiaryEle('button', { type: 'button', classList: 'form-button', textContent: 'Export Notes', id: 'noteExport' })
+                let noteExport = addTertEle('button', { type: 'button', classList: 'form-button', textContent: 'Export Notes', id: 'noteExport' })
                 function noteExporter() {
                     !function noteExportUI() {
                         let noteExportDate
@@ -4508,8 +4515,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in storedNoteDetails ? 1 : 0
                     if (!noteDetailsExists && !backupNoteExists) { return };
                     //
-                    if (noteDetailsExists) { addTertEles( createNewEle('button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }), ) };
-                    if (backupNoteExists) { addTertEles( createNewEle('button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }), ) };
+                    if (noteDetailsExists) { addTertEle('button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }) };
+                    if (backupNoteExists) { addTertEle( 'button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }) };
                     gbl.eles.tertiaryActionArea?.addEventListener('click', ({ target: clickEventTarget } = {}) => {
                         if (clickEventTarget.nodeName !== "BUTTON" || noteCategory?.value || (!noteDetailsExists && !backupNoteExists) ) { return };
                         fillNoteDetails(( () => {
@@ -4533,7 +4540,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
                     if (noteCategorySplit0 === "Application" && noteDetails.noteSummary.slice(0, 3).indexOf("HL") > -1) { Object.assign(noteDetails, { noteSummary: "HL Application update", noteCategory: noteCategorySplit0 + " - Other" }) }
                     else if (noteDetails.noteSummary.slice(0, 5) !== "Post-" && noteDetails.noteCategory.slice(-7) !== "- Other") {
-                        if (["Application Incomplete", "Application - Other", "Redetermination Incomplete", "Redetermination - Other" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " Incomplete" }) }
+                        if (["Application Incomplete", "Application - Other", "Redetermination Incomplete", "Redetermination Other" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " Incomplete" }) }
                         else if (["Application Approved", "Redetermination Complete" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: "Post-" + noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " - Other" }) }
                     };
                 }();
@@ -5294,9 +5301,9 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         if (editMode) { return };
         let twoOrFourWeeks = createSlider({ textContent: "", title: "", id: "twoOrFourWeeks", classes: "slider-always-color" })
         let is2WkBilling = createNewEle('span', { id: 'is2WkBilling', textContent: '2-Week' }), billingEmailTemplate = createNewEle('button', { classList: 'form-button', id: 'billingEmailTemplate', textContent: 'Template', title: "Left click: Generate email using template. Right click: Copy email subject line." }), is4WkBilling = createNewEle('span', { id: 'is4WkBilling', style: 'opacity: .6;', textContent: '4-Week', })
-        let weekBillingToggle = addTertiaryEle('div', { id: 'weekBillingToggle', classList: 'db-container', })
+        let weekBillingToggle = addTertEle('div', { id: 'weekBillingToggle', classList: 'db-container', })
         weekBillingToggle.append(is2WkBilling, twoOrFourWeeks, is4WkBilling)
-        let copyButtons = addTertiaryEle('div', { id: 'copyButtons', classList: 'db-container', })
+        let copyButtons = addTertEle('div', { id: 'copyButtons', classList: 'db-container', })
         copyButtons.append(billingEmailTemplate)
 
         twoOrFourWeeks.addEventListener('click', clickEvent => {
@@ -5511,7 +5518,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                 caseNotesData[reprocess.memberProviderId] = Object.assign( reprocess, { matchReason: matchedReason[1] } )
             });
             Object.entries(caseNotesData).forEach( ([, paymentData] = []) => {
-                addTertEles(createNewEle('button', { id: paymentData.memberProviderId, classList: "form-button", textContent: paymentData.memberProviderName }))
+                addTertEle('button', { id: paymentData.memberProviderId, classList: "form-button", textContent: paymentData.memberProviderName })
             });
             gbl.eles.tertiaryActionArea.addEventListener('click', ({ target: clickEventTarget } = {}) => {
                 if (clickEventTarget.nodeName !== "BUTTON") { return };
@@ -5571,7 +5578,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
 }(); // SECTION_END Financial_Billing_Approval;
 !function __FinancialBilling_FinancialBillingApproval() {
     if (!["FinancialBillingApproval.htm", "FinancialBilling.htm"].includes(thisPageNameHtm)) { return };
-    // let screenshotButton = addTertiaryEle('button', { type: 'button', id: 'screenshotButton', classList: 'form-button', textContent: 'Screenshot' })
+    // let screenshotButton = addTertEle('button', { type: 'button', id: 'screenshotButton', classList: 'form-button', textContent: 'Screenshot' })
     // screenshotButton.addEventListener('click', () => {})
     let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody'), billingChildTable = document.getElementById('billingChildTable')
     if (!billingProviderTableTbody.children[0].children[1]) { return };
@@ -5654,25 +5661,25 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     !function addTextToTable() {
         if (providerType === '') { return };
         if (providerType !== "Legal Non-licensed") {
-            Array.from(document.querySelectorAll('thead > tr > th:nth-child(n+2):nth-child(-n+4)'), ele => ele.appendChild( createNewEle('span', { classList: 'maxRates', textContent: ' (15%, 20%)', }) ) )
+            Array.from(document.querySelectorAll('thead > tr > th:nth-child(n+2):nth-child(-n+4)'), ele => ele.appendChild( createNewEle('span', { classList: 'maxRates', textContent: ' (+15%, +20%)', }) ) )
             Array.from( document.querySelectorAll('tbody > tr > td'), ele2 => {
                 if (!ele2.textContent || ele2.textContent === "0.00" || isNaN(Number(ele2.textContent))) { return }
                 ele2.insertAdjacentHTML('beforeend', '<span class="maxRates"> (' + (ele2.textContent * 1.15).toFixed(2) + ", " + (ele2.textContent * 1.2).toFixed(2) + ')</span>')
             })
-            maxRatesTable.insertAdjacentElement( 'afterend', createNewEle('span', { id: 'diffDisclaimer', classList: 'maxRates', style: 'display: block; width: 100%; font-style: italic; text-align: center;', textContent: 'Note: Table includes max rates for providers with approved accreditations (15%) and Parent Aware 3★ (15%) and 4★ (20%) ratings.', }) )
+            maxRatesTable.insertAdjacentElement( 'afterend', createNewEle('span', { id: 'diffDisclaimer', classList: 'maxRates', style: 'display: block; width: 100%; font-style: italic; text-align: center;', textContent: 'Note: Table includes max rates for providers with approved accreditations (+15%) and Parent Aware 3★ (+15%) and 4★ (+20%) ratings.', }) )
         } else if (providerType === "Legal Non-licensed") {
-            document.querySelector('thead > tr > th:nth-child(2)').appendChild( createNewEle('span', { classList: "maxRates", textContent: "(15%)" }) )
+            document.querySelector('thead > tr > th:nth-child(2)').appendChild( createNewEle('span', { classList: "maxRates", textContent: " (+15%)" }) )
             Array.from( document.querySelectorAll('tbody > tr > td'), ele3 => {
                 if ( !ele3.textContent || ele3.textContent === "0.00" || isNaN(Number(ele3.textContent)) ) { return }
                 ele3.appendChild( createNewEle('span', { classList: "maxRates", textContent: ' (' + (ele3.textContent * 1.15).toFixed(2) + ')' }) )
             });
-            maxRatesTable.insertAdjacentElement( 'afterend', createNewEle('span', { id: 'diffDisclaimer', classList: 'maxRates', style: "display: block; width: 100%; font-style: italic; text-align: center;", textContent: 'Note: Table includes max rates for providers with approved accreditations (15%).' }))
+            maxRatesTable.insertAdjacentElement( 'afterend', createNewEle('span', { id: 'diffDisclaimer', classList: 'maxRates', style: "display: block; width: 100%; font-style: italic; text-align: center;", textContent: 'Note: Table includes max rates for providers with approved accreditations (+15%).' }))
         }
         document.querySelector('h4').innerText = "Maximum Rates for " + providerType + " effective " + maximumRatesPeriod.value
     }();
     !function copyRatesData() {
-        addTertEles(createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", checked: "checked" }))
-        let copyRates = addTertiaryEle( 'button', { type: 'button', classList: 'form-button', id: 'copyRates', textContent: 'Copy Rates', } )
+        addTertMulti( createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", checked: "checked" }) )
+        let copyRates = addTertEle( 'button', { type: 'button', classList: 'form-button', id: 'copyRates', textContent: 'Copy Rates', } )
         copyRates.addEventListener('click', copyRatesTable)
         let maxRatesSpans = Array.from(document.querySelectorAll('.maxRates'))
         document.getElementById('toggleDifferentialRatesSlider').addEventListener( 'click', ele => unhideElement(maxRatesSpans, ele.target.checked) );
@@ -5727,9 +5734,9 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             } else if ( textbox2?.disabled === false ) { focusEle = textbox2 }
         }(); // SECTION_END Notices__Export_to_PDF;
         !function emailButton() {
-            if ("CaseNotices.htm" !== thisPageNameHtm) { return };
+            if ("CaseNotices.htm" !== thisPageNameHtm || editMode) { return };
             evalData().then( ({ 0: noticesData } = []) => {
-                let emailButton = addTertiaryEle('button', { id: 'emailClient', type: 'button', classList: 'form-button', textContent: 'Email Client' })
+                let emailButton = addTertEle('button', { id: 'emailClient', type: 'button', classList: 'form-button', textContent: 'Email Client' })
                 emailButton.addEventListener('click', () => {
                     evalData({caseProviderNumber: caseIdVal, pageName: 'CaseAddress.htm', evalString: '0.0.email', caseOrProvider: 'case'}).then(emailAddress => {
                         if ( !emailAddress || /[,? ]/.test(emailAddress) ) {
@@ -5966,6 +5973,11 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     }(); // SECTION_END Provider_Notices;
     !function __ProviderOverview() {
         if (!["ProviderOverview.htm", "getProviderOverview.htm"].includes(thisPageNameHtm)) { return }
+        let licenseNumber = document.querySelector('label[for=providerLicenseNumber]').closest('.form-group').querySelector('.col-lg-8')
+        if (licenseNumber.textContent) {
+            let licenseNumbertext = licenseNumber.textContent; licenseNumber.textContent = ""
+            licenseNumber.appendChild( createNewEle('a', { href: "https://licensinglookup.dhs.state.mn.us/Details.aspx?l=" + licenseNumbertext, target: "_blank", textContent: licenseNumbertext }) )
+        };
         let contactEmailURL = document.getElementById('contactEmailURL'), contactEmailURLaddress = contactEmailURL?.children[0]?.value
         if (!contactEmailURLaddress) { return };
         contactEmailURL.outerHTML = '<a id="contactEmailURL" href="mailto:' + contactEmailURLaddress + '?subject=CCAP">' + contactEmailURLaddress + '</a>'
@@ -6290,7 +6302,7 @@ const firstEmptyElement = (values = ['']) => Array.from( document.querySelectorA
                         } else { focusEle = '#doneDB' }
                     } else {
                         let previousPage = sessionStorage.getItem('MECH2.previousPage')
-                        focusEle = previousPage.indexOf("https://mec2.childcare.dhs.state.mn.us/ChildCare/CaseChildProvider.htm") > -1 ? '#goSAApproval' : '#goEligibility'
+                        focusEle = previousPage?.indexOf("https://mec2.childcare.dhs.state.mn.us/ChildCare/CaseChildProvider.htm") > -1 ? '#goSAApproval' : '#goEligibility'
                         window.addEventListener( 'unload', () => sessionStorage.removeItem('MECH2.previousPage') )
                     }
                 }
@@ -6363,26 +6375,39 @@ function eleFocus(ele) {
 // };
 // if (editMode) { window.addEventListener('beforeunload', preventAccidentalClosure); };
 //           keydown/paste event related;
+verbose(Array.from(document.querySelectorAll('.modal input'), ele => ele.id))
 !function keyboardHotkeys() {
     if (iFramed) { return };
     window.addEventListener('keydown', keydownEvent => {
         if (keydownEvent.key === "Alt") { keydownEvent.preventDefault(); return; }; // alt pressed without additional key;
         if (keydownEvent.key === "Tab" && keydownEvent.target.classList?.contains('hasDatepicker') && keydownEvent.target.value.length > 0 && keydownEvent.target.value.length < 10) { keydownEvent.preventDefault() }; // no tabbing out of date fields prematurely //
         if (keydownEvent.altKey) {
-            if (![ "d", "s", "n", "c", "e", "r", "w", "a", "p", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { return };
+            if (![ "a", "c", "d", "e", "n", "o", "p", "r", "s", "w", "y", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { return };
             keydownEvent.preventDefault()
-            switch (keydownEvent.key) {
-                case 'd': document.querySelector(':is(#done, #delete):not(:disabled)')?.click(); break;
-                case 's': document.querySelector(':is(#save, #select):not(:disabled)')?.click(); break;
-                case 'n': document.querySelector(':is(#new, #next):not(:disabled)')?.click(); break;
-                case 'p': document.querySelector(':is(#previous):not(:disabled)')?.click(); break;
-                case 'c': document.querySelector(':is(#confirm:not(.modal #confirm), #Cancel, #cancel, #cancelnotice, #revert, #exit):not(:disabled)')?.click(); break;
-                case 'e': document.querySelector('#edit:not(:disabled)')?.click(); break;
-                case 'r': document.querySelector(':is(#resend, #return, #removecancel):not(:disabled)')?.click(); break;
-                case 'w': document.querySelector('#wrapUp:not(:disabled)')?.click(); break;
-                case 'a': document.querySelector(':is(#add, #approve, #approveBilling):not(:disabled)')?.click(); break;
-                case 'ArrowLeft': document.querySelector('#previous:not(:disabled)')?.click(); break;
-                case 'ArrowRight': document.querySelector('#next:not(:disabled)')?.click(); break;
+            let visibleModal = Array.from(document.querySelectorAll('.modal')).filter(ele => ele.checkVisibility())[0]
+            if (!visibleModal) {
+                switch (keydownEvent.key) {
+                    case 'a': document.querySelector(':is(#add, #approve, #approveBilling):not(:disabled)')?.click(); break;
+                    case 'c': document.querySelector(':is(#confirm, #Cancel, #cancel, #cancelnotice, #cancelOperation, #revert, #exit):not(:disabled)')?.click(); break;
+                    // case 'c': document.querySelector(':is(#confirm:not(.modal #confirm), #Cancel, #cancel, #cancelnotice, #cancelOperation, #revert, #exit):not(:disabled)')?.click(); break;
+                    case 'd': document.querySelector(':is(#done, #delete):not(:disabled)')?.click(); break;
+                    case 'e': document.querySelector('#edit:not(:disabled)')?.click(); break;
+                    case 'n': document.querySelector(':is(#new, #next):not(:disabled)')?.click(); break;
+                    case 'p': document.querySelector(':is(#previous):not(:disabled)')?.click(); break;
+                    case 'r': document.querySelector(':is(#resend, #return, #removecancel):not(:disabled)')?.click(); break;
+                    case 's': document.querySelector(':is(#save, #select):not(:disabled)')?.click(); break;
+                    case 'w': document.querySelector('#wrapUp:not(:disabled)')?.click(); break;
+                    case 'y': document.querySelector(':is(#yes, #confirm):not(:disabled)')?.click(); break;
+                    case 'ArrowLeft': document.querySelector('#previous:not(:disabled)')?.click(); break;
+                    case 'ArrowRight': document.querySelector('#next:not(:disabled)')?.click(); break;
+                };
+            } else {
+                switch (keydownEvent.key) {
+                    case 'c':
+                    case 'n': visibleModal.querySelector(':is(#cancelActualDateEntry, #cancelOperation):not(:disabled)')?.click(); break; // value: Cancel, No // visibleModal.querySelectorAll('.in input.form-button')[0].click(); //
+                    case 'o':
+                    case 'y': visibleModal.querySelector(':is(#yes, #confirm, #okActualDateEntry):not(:disabled)')?.click(); break; // value: Ok, Yes // visibleModal.querySelectorAll('.in input.form-button')[1].click(); //
+                };
             };
         } else if (keydownEvent.ctrlKey) {
             if (keydownEvent.target.classList.contains('hasDatepicker') || ['ssnReq'].includes(keydownEvent.target.id) || !["v", "s", "w" ].includes(keydownEvent.key)) { return };
@@ -6403,31 +6428,17 @@ function eleFocus(ele) {
     async function pasteInput(event) {
         event.preventDefault()
         let clipboardContents = await getClipboardText()
-        if ((/[\{\}\[\]]/).test(clipboardContents) || clipboardContents.trim().length > 50) { return }; // prevents code
-        insertTextAndMoveCursor(clipboardContents.trim().replace(/(?<=\d),(?=\d)|\$/g, ''), event.target) // remove ,$ from paste
+        if ( /[\{\}\[\]]/.test(clipboardContents) || clipboardContents.trim().length > 50 ) { return }; // attempts to prevents code by removing brackets and braces //
+        insertTextAndMoveCursor(clipboardContents.trim().replace(/(?<=\d),(?=\d)|\$/g, ''), event.target) // remove '$,' from paste. Checks for #,# //
         doChange(event.target)
         doInput(event.target)
     };
     !function hotkeysForModals() {
         let popupModal = [...document.getElementsByClassName('modal')]
         if (popupModal?.length) {
-            const popupModalConfig = { attributes: true }
             popupModal.forEach(ele => {
-                let popupModalObserver = new TrackedMutationObserver(() => {
-                    const controllerModal = new AbortController()
-                    if ( document.querySelector('.modal.in') ) {
-                        window.addEventListener('keydown', keydownEvent => {
-                            if (['o', 'c'].includes(keydownEvent.key)) { keydownEvent.preventDefault() } else { return };
-                            switch (keydownEvent.key) {
-                                case 'o': document.querySelector('.in input.form-button:nth-child(1)').click(); break;
-                                case 'c': document.querySelector('.in input.form-button:nth-child(2)').click(); break;
-                            };
-                        }, { signal: controllerModal.signal });
-                        setTimeout(() => { eleFocus(document.querySelector('.modal.in input') ) }, 250)
-                        return false
-                    } else { controllerModal.abort() };
-                });
-                popupModalObserver.observe(ele, popupModalConfig);
+                let popupModalObserver = new TrackedMutationObserver(() => { if ( ele.checkVisibility() ) { eleFocus(ele.querySelector('input')) } });
+                popupModalObserver.observe(ele, { attributes: true });
             });
         };
     }();
@@ -6435,7 +6446,7 @@ function eleFocus(ele) {
 !function openIdOnPasteFromAnywhere() { // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field. Also switches worker ID on case list pages. //
     try {
         let caseProviderOrWorkerInput = gbl.eles.caseIdElement ?? gbl.eles.providerIdElement ?? (thisPageNameHtm.indexOf("CaseList") > -1 && document.querySelector('form input.form-control:not(.borderless)'))
-        if (editMode || iFramed || caseProviderOrWorkerInput?.disabled) { return };
+        if (editMode || iFramed || caseProviderOrWorkerInput?.disabled || "TEXTAREA".includes(document.activeElement.nodeName)) { return };
         window.addEventListener('paste', async () => { // paste event never triggers on CaseList pages when in the input field //
             navigator.clipboard.readText()
                 .then(pastedText => {
