@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.52
+// @version      0.6.53
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -14,7 +14,6 @@
 console.time('mec2functions load time');
 let verboseMode = 1;
 verbose("PBF to not div:", document.querySelectorAll('.panel-box-format > :is(select, input, output, a, span, p):not([type=hidden]):not([style*="display: none"])')) // for custom zoom CSS // found on client search, provider search //
-const loggedOut = document.querySelector('a[href="Login.htm"]'); loggedOut && verbose('a[href="Login.htm"] present');
 const thisPageNameHtm = window.location.pathname.indexOf("//") === 0 ? window.location.pathname.slice(12) : (window.location.pathname.slice(11) || "Login.htm"), thisPageName = thisPageNameHtm.slice(0, -4);
 const rederrortextContent = Array.from([...document.querySelectorAll('strong.rederrortext:not(div.error_alertbox_new > strong.rederrortext, #memberHelpDeskPanel strong)'), ...document.querySelectorAll('.error_alertbox_new:has(> strong)')], ele => ele.innerText.trim()).filter(ele => ele);
 if ( ["Logout.htm", "ExceptionError.htm"].includes(thisPageNameHtm) || rederrortextContent?.find(ele => ele.indexOf('You have been logged out.') > -1) ) { clearStorageItems(); return; }
@@ -92,29 +91,14 @@ const dateFuncs = {
     bwpInMs: 1209600000,
     dateAsUtcTimestamp(inputDate) { // returns Date.UTC(utcY, utcM, utcD) // (return data format: 1764892800000)
         switch(true) {
-            case (/^-?\d+$/).test(inputDate): {// input format: 1764892800000
-                return this.checkIfTimeZoneUTC(inputDate)
-            }
-            case inputDate instanceof Date: {
-                return this.checkIfTimeZoneUTC(inputDate)
-            }
-            case ((/[a-z]{3} [a-z]{3} \d{2} \d{4}.*/i).test(inputDate) ): { // input format: Date Sun Nov 02 2025 01:00:00 GMT-0500 (Central Daylight Time)
-                return this.checkIfTimeZoneUTC(inputDate)
-            }
-            case (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/).test(inputDate): { // input format: "m/d/yy"
-                let [ utcM, utcD, utcY ] = inputDate.split("/")
-                return Date.UTC( "20" + utcY.slice(-2), utcM-1, utcD )
-            }
-            case (/^\d{4}-\d{2}-\d{2}T.+/).test(inputDate): { // input format: "YYYY-MM-DDTHH:mm:ss.sssZ" (toISOString)
-                let [ utcY, utcM, utcD ] = inputDate.slice(0, 10).split("-")
-                return Date.UTC( utcY, utcM-1, utcD )
-            }
-            case (/^\w{3}\b/).test(inputDate): { // input format: DAY,? DD MON YYYY (toString, toDateString, toUTCString)
-                return this.checkIfTimeZoneUTC(inputDate)
-            }
-            default:
-                return undefined
-        }
+            case (/^-?\d+$/).test(inputDate): return this.checkIfTimeZoneUTC(inputDate) // input format: 1764892800000
+            case inputDate instanceof Date: return this.checkIfTimeZoneUTC(inputDate)
+            case ((/[a-z]{3} [a-z]{3} \d{2} \d{4}.*/i).test(inputDate) ): return this.checkIfTimeZoneUTC(inputDate) // input format: Date Sun Nov 02 2025 01:00:00 GMT-0500 (Central Daylight Time)
+            case (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/).test(inputDate): { let [ utcM, utcD, utcY ] = inputDate.split("/"); return Date.UTC( "20" + utcY.slice(-2), utcM-1, utcD ) } // input format: "m/d/yy"
+            case (/^\d{4}-\d{2}-\d{2}T.+/).test(inputDate): { let [ utcY, utcM, utcD ] = inputDate.slice(0, 10).split("-"); return Date.UTC( utcY, utcM-1, utcD ) } // input format: "YYYY-MM-DDTHH:mm:ss.sssZ" (toISOString)
+            case (/^\w{3}\b/).test(inputDate): return this.checkIfTimeZoneUTC(inputDate) // input format: DAY,? DD MON YYYY (toString, toDateString, toUTCString)
+            default: return undefined
+        };
     },
     checkIfTimeZoneUTC(inputDate) {
         let testDate = new Date(inputDate)
@@ -681,13 +665,14 @@ const allPagesMap = new Map([
             return '<button type="button" class="' + classList + '" id="' + mapPageName + '">' + (allPagesMap.get(mapPageName)?.label ?? 'error') + '</button>'
         }).join('')
     };
-    !function warnIfClosingWithUnwrapped() {
-        return;
-        if (editMode || gbl.eles.wrapUp?.disabled === false) {
+    !function warnIfClosingInEditMode() {
+        // return;
+        if (editMode) {
+        // if (editMode || gbl.eles.wrapUp?.disabled === false) {
             window.addEventListener('beforeunload', beforeunloadFunction);
             window.addEventListener('submit', submitEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
-            gbl.eles.buttonPanelThree.addEventListener('click', clickEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
-            gbl.eles.wrapUp?.addEventListener('click', clickEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
+            // gbl.eles.buttonPanelThree.addEventListener('click', clickEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
+            // gbl.eles.wrapUp?.addEventListener('click', clickEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
         };
     }();
     function openNav(mapPageName, target) {
@@ -1526,8 +1511,19 @@ function formatHTMLtoCopy({ htmlCode, extraStyle='', addTableStyle=true, removeS
 async function getClipboardText() { return await navigator.clipboard.readText() };
 //
 //           return value, no page changes           //
+// function arrangeElements(elementArray) {
+// 	const validArray = item => Array.isArray(item) && item.length > 1
+// 	return elementArray.map((item, i, arr) => validArray(item) ? subLevels(item, arr[i-1]) : item ).filter(e=>e)
+// 	function subLevels(eleArr, parent) {
+// 		eleArr.forEach((item, i) => {
+// 			let newParent = Array.isArray(item) ? parent.lastElementChild : parent
+// 			validArray(item) ? subLevels(item, newParent) : newParent.appendChild(item)
+// 		});
+// 	};
+// };
 function arrangeElements(elementArray) {
-	const validArray = item => Array.isArray(item) && item.length > 1
+	const validArray = arrToCheck => Array.isArray(arrToCheck) && arrToCheck.length > 0
+    if (!validArray(elementArray)) { return };
 	return elementArray.map((item, i, arr) => validArray(item) ? subLevels(item, arr[i-1]) : item ).filter(e=>e)
 	function subLevels(eleArr, parent) {
 		eleArr.forEach((item, i) => {
@@ -1544,7 +1540,7 @@ function arraysEqual(a, b) {
     };
     return true;
 };
-function beforeunloadFunction(beforeunloadEvent) { return; beforeunloadEvent.returnValue = "windowUnload"; return "windowUnload"}; // prompts for confirmation for leaving page //
+function beforeunloadFunction(beforeunloadEvent) { beforeunloadEvent.returnValue = "windowUnload"; return "windowUnload"}; // prompts for confirmation for leaving page //
 function convertFromAHK(ahkString) { // don't decode at this step - string may contain newlines which breaks JSON //
     ahkString = ahkString.split('AHKJSON')[1].replace(/(%(?![A-Z0-9]))/g, "%25") // Failsafe if AHK fails to encode % as %25 //
     return sanitize.json(ahkString);
@@ -1906,7 +1902,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         ["Child Care Assistance", "???"]
     ]);
     const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListTrArray = Object.values(caseListObject), caseListNumberArray = Object.keys(caseListObject)
-    addTertEle('button', { textContent: "Copy Case Numbers", classList: "form-button" }).addEventListener('click', () => { copy( caseListNumberArray.join(", ") ) })
+    addTertEle('button', { textContent: "Copy Case Numbers", classList: "form-button" }).addEventListener('click', () => { copy( caseListNumberArray.join(", ") + ", " ); snackBar('Copied case list', 'notitle'); })
     !function __RedeterminationCaseList() {
         if (!("RedeterminationCaseList.htm").includes(thisPageNameHtm)) { return };
         addDateControls("month", "#searchStartDate")
@@ -1917,8 +1913,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     }();
     !async function __ActiveCaseList() {
         if (!("ActiveCaseList.htm").includes(thisPageNameHtm) || !tableHasData('#activeCaseTable') ) { return };
-        // const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListTrArray = Array.from(Object.values(caseListObject))
-        // const caseListNumberArray = Array.from(Object.keys(caseListObject))
         const testArray = ["1841151"], caseListNumberArraySliceX = (x) => caseListNumberArray.slice(0, x), caseListNumberArraySliceXY = (x, y) => caseListNumberArray.slice(x, y)
         document.querySelector('.dataTables_scrollHeadInner table thead tr').children[4].textContent = "Redet Date"
         const activeCaseSearchWorkerId = document.getElementById('activeCaseSearchWorkerId').value, aclTbody = document.querySelector('tbody'), caseResultsData = document.getElementById('caseResultsData')
@@ -2241,7 +2235,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         if (!("InactiveCaseList.htm").includes(thisPageNameHtm) || !tableHasData('#inActiveCaseTable')) { return };
         document.querySelector('.dataTables_scrollHeadInner thead tr td:nth-child(6)').innerText = "MAXIS"
         !function shortenProgram() { Array.from( document.querySelectorAll('tbody tr td:nth-child(3)'), td => { td.textContent = subprogramMap.get(td.textContent) }) }();
-        // const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListNumberArray = Array.from(Object.keys(caseListObject))
         let closedCaseLS = countyInfo.info?.closedCaseBank ?? ''
         closedCaseLS.toLowerCase() === "${closedcasebank}" ? '' : closedCaseLS
         let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
@@ -2398,7 +2391,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         };
         closedTransferAll.addEventListener('click', async () => {
             const oldClosedArray = oldClosedCaseArray()
-            // const oldClosedArray = Array.from(document.querySelectorAll('.oldClosed'), caseNumber => caseNumber.id)
             if (checkForClosedCaseBank() && oldClosedArray?.length) { await transferMultiClosed(oldClosedArray) }
         });
         function checkForClosedCaseBank() {
@@ -2914,21 +2906,30 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     let workerCreatedAlert = sanitize.json(localStorage.getItem('MECH2.workerCreatedObject'))
     if (!workerCreatedAlert) { return }
     localStorage.removeItem('MECH2.workerCreatedObject')
-    document.querySelector('label[for=message]').parentElement.insertAdjacentHTML('afterend', '<div class="form-group" id="workerAlertButtons" style="margin-top: 10px;"></div>')
-    let workerAlertButtons = document.getElementById('workerAlertButtons')
+    let message = document.getElementById('message')
+    let workerAlertButtons = createNewEle("div", { classList: "form-group", id: "workerAlertButtons", style: "margin-top: 10px;" })
+    document.querySelector('label[for=message]').parentElement.insertAdjacentElement('afterend', workerAlertButtons)
     let matchesDelayStrings = ( ["Unapproved results", "The program switch", "Approve new result", "No Child Care prog"].includes(workerCreatedAlert.noteMessage?.slice(0, 18)) ) ? delayMfipButtons() : snoozeButtons()
     function snoozeButtons() {
-        workerAlertButtons.insertAdjacentHTML('beforeend','<button type="button" class="cButton delay" id="snooze1">Snooze One Day</button><button type="button" class="cButton delay" id="snooze7">Snooze One Week</button><button type="button" class="cButton delay" id="snooze14">Snooze Two Weeks</button>')
-        workerAlertButtons.addEventListener('click', doSnooze )
+        workerAlertButtons.append(
+            createNewEle("button", { type: "button", classList: "cButton delay", id: "snooze1", textContent: "Snooze One Day" }),
+            createNewEle("button", { type: "button", classList: "cButton delay", id: "snooze7", textContent: "Snooze One Week" }),
+            createNewEle("button", { type: "button", classList: "cButton delay", id: "snooze14", textContent: "Snooze Two Weeks" })
+        );
         focusEle = '#snooze1'
         function doSnooze(clickEvent) {
             clickEvent.preventDefault()
             let snoozeDays = sanitize.number(clickEvent.target.id.slice(6))
-            if (!snoozeDays) { return }
+            if (!snoozeDays) { return };
             let todayDate = new Date(), snoozeDate = dateFuncs.formatDate(todayDate.setDate(todayDate.getDate() + snoozeDays), 'mmddyyyy')
             enterAlertInfo("Snoozed: " + workerCreatedAlert.messageCategory + ": " + workerCreatedAlert.noteMessage, snoozeDate)
-        }
-    }
+        };
+        workerAlertButtons.addEventListener('click', doSnooze )
+        workerAlertButtons.addEventListener('mouseenter', hovering);
+        workerAlertButtons.addEventListener('mouseleave', stoppedHovering);
+        function hovering() { message.setAttribute('placeholder', workerCreatedAlert.noteMessage) };
+        function stoppedHovering() { message.removeAttribute('placeholder') };
+    };
     function delayMfipButtons() {
         let todayDate = new Date()
         let nextMonth = dateFuncs.formatDate(dateFuncs.addMonths(todayDate, 1, 1), 'mmddyyyy')
@@ -2939,13 +2940,13 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         function doMfipDelay(clickEvent) {
             let delayDate = clickEvent.target.innerText.slice(24)
             enterAlertInfo("Approve new results (BSF/TY/extended eligibility) if MFIP not reopened.", delayDate)
-        }
-    }
-    function enterAlertInfo(message, effectiveDate) {
-        document.getElementById('message').value = message
+        };
+    };
+    function enterAlertInfo(messageText, effectiveDate) {
+        message.value = messageText
         document.getElementById('effectiveDate').value = effectiveDate
         gbl.eles.save.click();
-    }
+    };
     docReady(resetTabIndex())
 }(); // SECTION_END Alert_Worker_Created_Alert;
 !function _Application_Pages() {
@@ -3407,7 +3408,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             ccpEle[ele].addEventListener( 'change', updateValuesAndFocus )
         });
         function updateValuesAndFocus(event) {
-            verbose(event)
             if (event.key && event.key !== "Tab") { return }
             if (!ccpEle.carePeriodBeginDate.value && event.target.value?.length === 10) {
                 event.preventDefault()
@@ -3968,9 +3968,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         });
     });
 }(); // SECTION_END Case_Copay_Distribution;
-// ["CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm) &&
-// !function test() {verbose("testing")}();
-!function __CaseServiceAuthorizationApproval() { // overrideReason: "Copay Distribution Adjustment"
+!function __CaseServiceAuthorizationApproval() {
     if (!["CaseServiceAuthorizationApproval.htm"].includes(thisPageNameHtm)) { return };
     listPageLinksAndList([ { listPageParm2Col: 0, listPageLinkTo: "ProviderOverview" }, ])
     evalData().then( ({ 0: versions, 1: dataByProvider } = {}) => {
@@ -4501,14 +4499,6 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         window.removeEventListener('beforeunload', saveNoteDetails)
                         localStorage.removeItem('MECH2.backupNote')
                     });
-                    // does it make sense to remove on save.click? backupNote is removed when the page is loaded and the note matches. Would have to check the case # matches the identifier property.
-                    // notesActionsArea.addEventListener('click', clickEvent => {
-                    //     switch(clickEvent.target.id) {
-                    //         case "cancel": window.removeEventListener('beforeunload', saveNoteDetails)
-                    //         case "save": localStorage.removeItem('MECH2.backupNote') // eslint-disable-line no-fallthrough
-                    //             break;
-                    //     }
-                    // })
                 }();
                 !function checkForStoredNote() {
                     if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) };
@@ -4534,14 +4524,14 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 localStorage.setItem('MECH2.' + copiedOrBackup, JSON.stringify( { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, } ))
             };
             function fillNoteDetails(noteDetails, clickId) {
-                verbose(noteDetails)
                 !function modifySummaryIfDuplicateNote() {
                     if (clickId === "backupNote") { return };
                     let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
-                    if (noteCategorySplit0 === "Application" && noteDetails.noteSummary.slice(0, 3).indexOf("HL") > -1) { Object.assign(noteDetails, { noteSummary: "HL Application update", noteCategory: noteCategorySplit0 + " - Other" }) }
+                    const otherCatMap = new Map([ ["Application", "Application - Other"], ["Redetermination", "Redetermination Other"] ])
+                    if (noteCategorySplit0 === "Application" && noteDetails.noteSummary.slice(0, 3).indexOf("HL") > -1) { Object.assign(noteDetails, { noteSummary: "HL Application update", noteCategory: otherCatMap.get(noteCategorySplit0) }) }
                     else if (noteDetails.noteSummary.slice(0, 5) !== "Post-" && noteDetails.noteCategory.slice(-7) !== "- Other") {
                         if (["Application Incomplete", "Application - Other", "Redetermination Incomplete", "Redetermination Other" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " Incomplete" }) }
-                        else if (["Application Approved", "Redetermination Complete" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: "Post-" + noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " - Other" }) }
+                        else if (["Application Approved", "Redetermination Complete" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: "Post-" + noteCategorySplit0 + " update", noteCategory: otherCatMap.get(noteCategorySplit0) }) }
                     };
                 }();
                 noteSummary.value = noteDetails.noteSummary.slice(0, 50)
@@ -4559,31 +4549,40 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 let autoFormatSlider = createSlider({ textContent: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", checked: "checked", classes: "float-right-imp h4-line", })
                 h4objects.note.h4.insertAdjacentElement('afterend', autoFormatSlider)
                 let autoFormat = document.getElementById('autoFormat')
-                gbl.eles.save.addEventListener('click', () => { // spacing around titles //
-                    noteSummary.value = noteSummary.value.slice(0, 50)
-                    if (!autoFormat.checked) { return }
-                    noteStringText.value = noteStringText.value
+                !function formatNoteOnSaveOrPaste() {
+                    gbl.eles.save.addEventListener('click', () => {
+                        noteSummary.value = noteSummary.value.slice(0, 50)
+                        if (!autoFormat.checked) { return };
+                        noteStringText.value = noteStrTextAutoReplace(noteStringText.value)
+                    });
+                    noteStringText.addEventListener('paste', pasteEvent => {
+                        if (!autoFormat.checked) { return };
+                        let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
+                        let formattedPastedText = noteStrTextAutoReplace(convertLineBreakToSpace(pastedText))
+                        if (pastedText !== formattedPastedText) {
+                            pasteEvent.preventDefault()
+                            insertTextAndMoveCursor(formattedPastedText)
+                        };
+                    });
+                }();
+                function noteStrTextAutoReplace(noteStr) {
+                    return noteStr
                         .replace(/\bSMI\b/i, "VMN") // replaces SMI with VMN (VerifyMN) //
-                        .replace(/\:\,/g, ': ,').replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories //
-                })
-                noteStringText.addEventListener('paste', pasteEvent => {
-                    if (!autoFormat.checked) { return }
-                    let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
-                    let formattedPastedText = convertLineBreakToSpace(pastedText)
-                    .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/([a-z]+)([0-9]+)/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") // Spacing around parentheses //
-                    .replace(/\u0009/g, "    ") // excel "tab" //
-                    .replace(/^\n+/g, "\n")// Multiple new lines to single new line //
-                    if (pastedText !== formattedPastedText) {
-                        pasteEvent.preventDefault()
-                        insertTextAndMoveCursor(formattedPastedText)
-                    }
-                })
-                noteStringText.addEventListener('keydown', keydownEvent => {
-                    if (keydownEvent.key !== "Tab" || keydownEvent.shiftKey) { return };
-                    keydownEvent.preventDefault()
-                    let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
-                    insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
-                })
+                        .replace(/:,/g, ': ,') // Not sure what this was meant to fix // ":," to ": ," //
+                        .replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories //
+                        .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") // Spacing around parentheses //
+                        .replace(/([a-z]+)(?![0-9]+@)([0-9]+)/gi, "$1 $2") // Spacing between letters and numbers (unless followed by @ for email) //
+                        .replace(/\u0009/g, "    ") // excel "tab" //
+                        .replace(/^\n+/g, "\n") // Multiple new lines to single new line //
+                };
+                !function spacingWhenTabKeyPressed() {
+                    noteStringText.addEventListener('keydown', keydownEvent => {
+                        if (keydownEvent.key !== "Tab" || keydownEvent.shiftKey) { return };
+                        keydownEvent.preventDefault()
+                        let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
+                        insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
+                    });
+                }();
             }();
             !function hideAndAutoStoreNotes() {
                 if (editMode) { return };
@@ -4631,7 +4630,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     let lastNoteIsOld = Date.parse(nextStorableNote.noteCreateDate) < tenYearsAgo ? 1 : 0;
                     if (autoStoreNotes) {
                         if (!lastNoteIsOld) { sessionStorage.removeItem('MECH2.storeOldNotes.' + caseIdVal) }
-                        else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
+                        else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() };
                     } else {
                         if (lastNoteIsOld) {
                             let autoStoreOld = createNewEle( 'button', { id: 'autoStoreOld', classList: 'form-button', title:"Archives eligible old (10 years+) notes.", type: 'button', textContent: 'Auto-Store Old', })
@@ -4641,8 +4640,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                                 sessionStorage.setItem('MECH2.storeOldNotes.' + caseIdVal, true)
                                 document.querySelector('tbody').rows[nextStorableNoteRow].click()
                                 document.getElementById('storage').click()
-                            })
-                        }
+                            });
+                        };
                     };
                 }();
                 !function autoStoreHiddenNotes() {
@@ -4659,7 +4658,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     let isNoteStorable = Date.parse(nextStorableNote.noteCreateDate) < sixMonthsAgo ? 1 : 0;
                     if (autoStoreNotes) {
                         if (!isNoteStorable) { sessionStorage.removeItem('MECH2.storePMIandCSnotes.' + caseIdVal) }
-                        else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() }
+                        else { window.addEventListener('keydown', autoStoreEscapeToStop); document.querySelector('tbody').rows[nextStorableNoteRow].click(); document.getElementById('storage').click() };
                     } else {
                         if (isNoteStorable) {
                             let autoStoreCsSmi = createNewEle( 'button', { id: 'autoStoreCsSmi', classList: 'form-button', title: "Archives old (6mo+) CS Payment and PMI Merge notes.", type: 'button', textContent: 'Auto-Store Merge/CS', })
@@ -4669,8 +4668,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                                 sessionStorage.setItem('MECH2.storePMIandCSnotes.' + caseIdVal, true)
                                 document.querySelector('tbody').rows[nextStorableNoteRow].click()
                                 document.getElementById('storage').click()
-                            })
-                        }
+                            });
+                        };
                     };
                 }();
             }();
@@ -5601,7 +5600,6 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                 billingReferAndSelectedProvider = ( document.referrer.indexOf("FinancialBilling") > -1 && lastSelected?.provider )
             if (!billingReferAndSelectedProvider) { return };
             let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelected?.provider) { billingProviderTableChildren[i].click() } });
-            verbose(lastSelected)
             lastSelected?.child && billingChildTable?.rows[lastSelected?.child]?.click()
             }).catch(err => { console.trace(err) });
     }();
@@ -5808,13 +5806,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         } })();
         if (!targetDiv) { return };
         let textareaButtonText = {
-            jsHoursUsed() { return "Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:"
-                + "\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions." },
             sharedCustodySa() { return "* IMPORTANT: Your Child Care Assistance case can only pay a daycare when you have custody. You may be financially responsible for the time that you do not have custody, based on the contract you sign with your daycare provider." },
-            extEligEnds() { return "Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,"
-                + " you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\nContact me with any questions." },
-            closingUnpaidCopay() { return "Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n"
-                + "If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility." },
             abpsInHh() {
                 let abpsInput = prompt("What is the absent parent's name?")
                 return abpsInput ? "I have been notified by Child Support that " + abpsInput + "'s address has been changed to match your address. If " + abpsInput + " is residing in your household, please submit the following verifications:"
@@ -5822,15 +5814,21 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                     + "\n2. Most recent 30 days income for " + abpsInput + ";"
                     + "\n3. ID for " + abpsInput + ";"
                     + "\n\nIf this household change is not accurate, please contact me for further instructions. Otherwise " + abpsInput + " will be added to your household in 15 days, which may impact your CCAP eligibility." : "" },
-            lnlSfsTraining() {
-                return "As a reminder, you must complete 'Supervising for Safety' through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n"
-                    + "and search for Course Title:\n 'Supervising for Safety - Legal Nonlicensed'\nContact DCYF through the Provider Hub with questions about trainings or your registration." },
+            jsHoursUsed() { return "Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:"
+                + "\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\n* Mental Health (child-only MFIP + doctor recommendation)\nContact me with any questions." },
+            extEligEnds() { return "Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,"
+                + " you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\n* Mental Health (child-only MFIP + doctor recommendation)\nContact me with any questions." },
+            closingUnpaidCopay() { return "Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n"
+                + "If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility." },
             deniedOpen() { return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application." },
             deniedPregnant() { return "To be eligible for the Child Care Assistance Program, you must have an eligible child in the household. Your application was denied as you do not meet this requirement.\n\nIf you reapply before your child is born, note that you must meet the eligibility requirements before the application's 30-day auto-deny date.\n(Children must be 6 weeks (42 days) old before they can start attending a Child Care Center or Family Child Care.)\n\nIf you are looking for help finding a daycare, visit https://parentaware.org/search or call 888-291-9811.\n\nChild Care Assistance cannot help pay a deposit fee to hold a position at a daycare; we are limited to registration fees and attendance fees." },
             deniedTiOpen() { return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently 'Temporarily Ineligible.'\n\nYour CCAP case has been updated with the information reported on this application.\n\nPlease contact me if you are unsure why your CCAP is temporarily ineligible." },
             noNoticeProviderSwitch() { return "CCAP is required to give your currently authorized daycare provider notice 15 days in advance of an adverse change.\n\nYou reported a provider switch to CCAP that is sooner than the 15-day period, so we must contact your provider to confirm they were given proper notice and won't be billing after the switch date.\n\nOtherwise, the provider can bill absent days during those 15 days, and we may not be able to pay your new provider until after those 15 days." },
             fosterChildCcap() { return "You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\"s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)" },
             docSubmitInst() { return docSubmitInstructions(false) },
+            lnlSfsTraining() {
+                return "As a reminder, you must complete 'Supervising for Safety' through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n"
+                    + "and search for Course Title:\n 'Supervising for Safety - Legal Nonlicensed'\nContact DCYF through the Provider Hub with questions about trainings or your registration." },
         };
         let textareaButtonTextRightClick = {
             docSubmitInst() { docSubmitInstructions(true) },
@@ -5861,25 +5859,23 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             return "docSubmitInst"
         };
         const buttonSettings = [
-            { title: 'Client: Job Search hours are expended. Defines eligible activities.', id: 'jsHoursUsed', textContent: 'JS Hours Used', },
             { title: 'Client: Shared custody & CCAP payments', id: 'sharedCustodySa', textContent: 'Shared Custody SA', },
-            { title: 'Client: Extended Eligibility ending. Defines eligible activities.', id: 'extEligEnds', textContent: 'Ext Elig Ends', },
             { title: "Client: ABPS allegedly in the household, need confirm/deny", id: 'abpsInHh', textContent: 'ABPS in HH', },
-            { title: 'Client: Client must report receiving CCAP to their Foster Care case manager', id: 'fosterChildCcap', textContent: 'CCAP for Foster', },
+            { title: 'Client: Job Search hours are expended. Defines eligible activities.', id: 'jsHoursUsed', textContent: 'JS Hours Used', },
+            { title: 'Client: Extended Eligibility ending. Defines eligible activities.', id: 'extEligEnds', textContent: 'Ext Elig Ends', },
             { title: 'Client: Applied for CCAP with open CCAP case', id: 'deniedOpen', textContent: 'Denied, Case Open', },
             { title: 'Client: Applied for CCAP before their child was born', id: 'deniedPregnant', textContent: 'Denied, Pregnant', },
             { title: 'Client: Provider reported copay as unpaid, submit verification of it being paid', id: 'closingUnpaidCopay', textContent: 'Closing, Unpaid Copay', },
             { title: 'Client: Client didn\'t give 15-day notice to CCAP of provider switch', id: 'noNoticeProviderSwitch', textContent: 'Provider Switch: Notice', },
-            { title: 'LNL provider: Supervising for Safety training requirement', id: 'lnlSfsTraining', textContent: 'LNL SfS Training', },
+            { title: 'Client: Client must report receiving CCAP to their Foster Care case manager', id: 'fosterChildCcap', textContent: 'CCAP for Foster', },
+            !"CaseSpecialLetter.htm".includes(thisPageNameHtm) ? { title: 'LNL provider: Supervising for Safety training requirement', id: 'lnlSfsTraining', textContent: 'LNL SfS Training', } : {},
             // { title: 'Locations for submitting documents. Right click to update.', id: 'docSubmitInst', textContent: 'Document Submittal', },
         ];
         let textareaButtonsDiv = createNewEle('div', { classList: 'float-right-imp', id: 'textareaButtonsDiv', style: 'display: flex; flex-direction: column; gap: 8px;', })
-        targetDiv.appendChild(textareaButtonsDiv).append(...buttonSettings.map(({ title, id, textContent } = {}) => createNewEle( 'button', { type: "button", classList: "cButton", tabIndex: "-1", title, id, textContent }) ))
+        targetDiv.appendChild(textareaButtonsDiv).append(...buttonSettings.map(({ title, id, textContent } = {}) => title && createNewEle( 'button', { type: "button", classList: "cButton", tabIndex: "-1", title, id, textContent }) ).filter(e => e));
         textareaButtonsDiv?.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return };
             insertTextAndMoveCursor( (editableTextbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), editableTextbox )
-            // let keyboardEvent = new KeyboardEvent('keyup')
-            // editableTextbox.dispatchEvent(keyboardEvent);
             doKeyup(editableTextbox)
         });
         textareaButtonsDiv?.addEventListener('contextmenu', contextmenuEvent => {
@@ -5896,9 +5892,8 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         let mailingStreet1 = document.getElementById('mailingStreet1'), addrBillFormDisplay = document.getElementById('addrBillFormDisplay'), mailingCountry = document.getElementById('mailingCountry')
         let providerType = document.getElementById('providerData').children[3].firstElementChild.childNodes[2].textContent.trim()
         let providerName = ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) && pageTitle.indexOf(',') ? nameFuncs.commaNameObject(gbl.data.pageTitle).full : pageTitle
-        gbl.eles.tertiaryActionArea?.insertAdjacentHTML('afterbegin', ''
-                                               + '<button type="button" class="form-button" tabindex="-1" id="copySiteHome">Copy Site/Home Address</button>'
-                                               + '<button type="button" class="form-button" tabindex="-1" id="copyMailing">Copy Mailing Address</button>');
+            addTertMulti(createNewEle("button", { type: "button", classList: "form-button", tabIndex: "-1", id: "copySiteHome", textContent: "Copy Site/Home Address" }),
+            createNewEle("button", { type: "button", classList: "form-button", tabIndex: "-1", id: "copyMailing", textContent: "Copy Mailing Address" }) )
         evalData().then( ({ 0: addressData } = {}) => {
             let childNum = 0
             function copyAddress(addressType) {
@@ -5911,24 +5906,24 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                         stateData: stateDataSwap.swapStateNameAndAcronym(addressDatum["mailing" + addMid + "State"]),
                         zipData: [addressDatum["mailing" + addMid + "ZipCode"], addressDatum["mailing" + addMid + "ZipCodePlus4"]].join('-'),
                         zipData: addressDatum["mailing" + addMid + "ZipCodePlus4"] !== "" ? [ addressDatum.mailingZipCode, addressDatum["mailing" + addMid + "ZipCodePlus4"] ].join('-') : addressDatum["mailing" + addMid + "ZipCode"],
-                    }
-                }
+                    };
+                };
                 let mailingData = mailingDataCheck()
                 let copyText = providerName + "\n" + mailingData.streetData + "\n" + mailingData.cityData + ", " + mailingData.stateData + " " + mailingData.zipData;
                 copy(copyText, copyText)
-            }
+            };
             gbl.eles.tertiaryActionArea?.addEventListener('click', clickEvent => {
-                if (clickEvent.target.nodeName !== "BUTTON") { return }
+                if (clickEvent.target.nodeName !== "BUTTON") { return };
                 copyAddress(clickEvent.target.id)
-            })
+            });
             !function makeSelectsDoAddressCopy() {
                 let whereinfoissentParent = h4objects.whereinfoissent.h4.parentElement
                 whereinfoissentParent.id = "whereinfoissentParent"
-                whereinfoissentParent.insertAdjacentHTML('afterbegin', '<style>#whereinfoissentParent select { cursor: pointer !important; }</style>')
+                whereinfoissentParent.append( createNewEle("style", { textContent: "#whereinfoissentParent select { cursor: pointer !important; }" }) )
                 whereinfoissentParent.addEventListener('click', clickEvent => {
-                    if (clickEvent.target.nodeName !== "SELECT") { return }
+                    if (clickEvent.target.nodeName !== "SELECT") { return };
                     copyAddress(clickEvent.target.value === "Mailing" ? "copyMailing" : "copySiteHome")
-                })
+                });
             }();
             !mailingStreet1?.value && !gbl.eles.edit?.disabled && (checkMailingAddress()) // Collapses mailing address fields if blank;
             checkMailingAddress()
@@ -5940,11 +5935,11 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         }).catch(err => { console.trace(err) });
     }(); // SECTION_END Provider_Address;
     !function __ProviderInformation() {
-        if (!("ProviderInformation.htm").includes(thisPageNameHtm)) { return }
+        if (!("ProviderInformation.htm").includes(thisPageNameHtm)) { return };
         document.querySelector('label[for=contactEmail]').innerHTML = '<a href="mailto:' + document.getElementById('contactEmail').value + '?subject=CCAP">Email:</a>'
     }(); // SECTION_END Provider_Information;
     !function __ProviderLicense() {
-        if (!("ProviderLicense.htm").includes(thisPageNameHtm)) { return }
+        if (!("ProviderLicense.htm").includes(thisPageNameHtm)) { return };
         if (Array.from(document.querySelectorAll('.licenseInfoRow')).at(-1).innerText === "Out of State") { return };
         Array.from([ "licenseNumber", "certificateNumber" ], field => {
             let fieldEle = document.getElementById(field)
@@ -6369,13 +6364,6 @@ function eleFocus(ele) {
 };
 // ////////////////////////////////////////////////////////////////////////// ELEMENT_FOCUS SECTION END \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-// function preventAccidentalClosure(beforeunloadEvent) {
-//     beforeunloadEvent.preventDefault();
-//     beforeunloadEvent.returnValue = ""
-// };
-// if (editMode) { window.addEventListener('beforeunload', preventAccidentalClosure); };
-//           keydown/paste event related;
-verbose(Array.from(document.querySelectorAll('.modal input'), ele => ele.id))
 !function keyboardHotkeys() {
     if (iFramed) { return };
     window.addEventListener('keydown', keydownEvent => {
@@ -6404,9 +6392,9 @@ verbose(Array.from(document.querySelectorAll('.modal input'), ele => ele.id))
             } else {
                 switch (keydownEvent.key) {
                     case 'c':
-                    case 'n': visibleModal.querySelector(':is(#cancelActualDateEntry, #cancelOperation):not(:disabled)')?.click(); break; // value: Cancel, No // visibleModal.querySelectorAll('.in input.form-button')[0].click(); //
+                    case 'n': visibleModal.querySelectorAll('.in input.form-button')[0].click(); break; // value: Cancel, No // visibleModal.querySelector(':is(#cancelActualDateEntry, #cancelOperation):not(:disabled)')?.click(); //
                     case 'o':
-                    case 'y': visibleModal.querySelector(':is(#yes, #confirm, #okActualDateEntry):not(:disabled)')?.click(); break; // value: Ok, Yes // visibleModal.querySelectorAll('.in input.form-button')[1].click(); //
+                    case 'y': visibleModal.querySelectorAll('.in input.form-button')[1].click(); break; // value: Ok, Yes // visibleModal.querySelector(':is(#yes, #confirm, #okActualDateEntry):not(:disabled)')?.click(); //
                 };
             };
         } else if (keydownEvent.ctrlKey) {
@@ -6416,11 +6404,7 @@ verbose(Array.from(document.querySelectorAll('.modal input'), ele => ele.id))
             } else if ([ "s", "w" ].includes(keydownEvent.key)) {
                 keydownEvent.preventDefault()
                 switch (keydownEvent.key) {
-                    case 's': gbl.eles.save?.disabled === false && gbl.eles.save.click(); break;
-                    // case 'w': if (editMode || gbl.eles.wrapUp?.disabled === false) { // does not capture event before it fires //
-                    //     window.addEventListener('beforeunload', preventAccidentalClosure);
-                    //     window.removeEventListener('beforeunload', preventAccidentalClosure);
-                    // }; break;
+                    case 's': document.querySelector('#save:not(:disabled)')?.click(); break;
                 };
             }
         };
