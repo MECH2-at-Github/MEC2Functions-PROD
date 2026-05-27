@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.53
+// @version      0.6.54
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -667,12 +667,10 @@ const allPagesMap = new Map([
     };
     !function warnIfClosingInEditMode() {
         // return;
-        if (editMode) {
-        // if (editMode || gbl.eles.wrapUp?.disabled === false) {
+        if (editMode && !appModeNotEdit) {
             window.addEventListener('beforeunload', beforeunloadFunction);
-            window.addEventListener('submit', submitEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
-            // gbl.eles.buttonPanelThree.addEventListener('click', clickEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
-            // gbl.eles.wrapUp?.addEventListener('click', clickEvent => { window.removeEventListener('beforeunload', beforeunloadFunction); })
+            window.addEventListener('submit', () => { window.removeEventListener('beforeunload', beforeunloadFunction); })
+            gbl.eles.secondaryActionArea('click', () => { window.removeEventListener('beforeunload', beforeunloadFunction); })
         };
     }();
     function openNav(mapPageName, target) {
