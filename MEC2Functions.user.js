@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.56
+// @version      0.6.57
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -4523,39 +4523,23 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 if (!editMode || !tableHasRecords(caseNotesTableTbody)) { return };
                 let autoFormatSlider = createSlider({ textContent: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", checked: "checked", classes: "float-right-imp h4-line", })
                 h4objects.note.h4.insertAdjacentElement('afterend', autoFormatSlider)
-                let autoFormat = document.getElementById('autoFormat')
-                !function formatNoteOnSaveOrPaste() {
-                    gbl.eles.save.addEventListener('click', () => {
-                        noteSummary.value = noteSummary.value.slice(0, 50)
-                        if (!autoFormat.checked) { return };
-                        noteStringText.value = noteStrTextAutoReplace(noteStringText.value)
-                    });
-                    noteStringText.addEventListener('paste', pasteEvent => {
-                        if (!autoFormat.checked) { return };
-                        let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
-                        let formattedPastedText = noteStrTextAutoReplace(convertLineBreakToSpace(pastedText))
-                        if (pastedText !== formattedPastedText) {
-                            pasteEvent.preventDefault()
-                            insertTextAndMoveCursor(formattedPastedText)
-                        };
-                    });
-                }();
-                function noteStrTextAutoReplace(noteStr) {
-                    return noteStr
-                        .replace(/\bSMI\b/i, "VMN") // replaces SMI with VMN (VerifyMN) //
-                        .replace(/:,/g, ': ,') // Not sure what this was meant to fix // ":," to ": ," //
-                        .replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories //
-                        .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") // Spacing around parentheses //
-                        .replace(/(?<!^x)([a-z]+)(?![0-9]+@)([0-9]+)$/gi, "$1 $2") // Spacing between letters and numbers // (unless it starts with "x") // (or followed by @ for email) //
-                        .replace(/\u0009/g, "    ") // excel "tab" //
-                        .replace(/^\n+/g, "\n") // Multiple new lines to single new line //
-                };
                 !function spacingWhenTabKeyPressed() {
                     noteStringText.addEventListener('keydown', keydownEvent => {
                         if (keydownEvent.key !== "Tab" || keydownEvent.shiftKey) { return };
                         keydownEvent.preventDefault()
                         let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
                         insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
+                    });
+                }();
+                !function formatNoteOnPaste() {
+                    noteStringText.addEventListener('paste', pasteEvent => {
+                        if (!document.getElementById('autoFormat').checked) { return };
+                        let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
+                        let formattedPastedText = noteStrTextAutoReplace(convertLineBreakToSpace(pastedText))
+                        if (pastedText !== formattedPastedText) {
+                            pasteEvent.preventDefault()
+                            insertTextAndMoveCursor(formattedPastedText)
+                        };
                     });
                 }();
             }();
@@ -6463,6 +6447,16 @@ function eleFocus(ele) {
     try { $.datepicker.setDefaults({ numberOfMonths: 3, showCurrentAtPos: 1, stepMonths: 3, maxDate: "+5y", }) } catch (error) { console.trace(error) };
 }(); // Sets jQ calendar to show 3 months //
 //
+function noteStrTextAutoReplace(noteStr) {
+    return noteStr
+        .replace(/\bSMI\b/i, "VMN") // replaces SMI with VMN (VerifyMN) //
+        .replace(/:,/g, ': ,') // Not sure what this was meant to fix // ":," to ": ," //
+        .replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories //
+        .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") // Spacing around parentheses //
+        .replace(/(?<!^x)([a-z]+)(?![0-9]+@)([0-9]+)$/gi, "$1 $2") // Spacing between letters and numbers // (unless it starts with "x") // (or followed by @ for email) //
+        .replace(/\u0009/g, "    ") // excel "tab" //
+        .replace(/^\n+/g, "\n") // Multiple new lines to single new line //
+};
 !function wordwrapTextareaElements() {
     const editableTextareas = Array.from(document.querySelectorAll('textarea:not(:read-only)'))
     if (!editableTextareas.length) { return };
@@ -6471,6 +6465,12 @@ function eleFocus(ele) {
     function formatOnSave(saveEvent) {
         let dontClickSave = 0
         saveEvent.preventDefault()
+        if ("CaseNotes.htm".includes(thisPageNameHtm)) {
+            const noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText')
+            noteSummary.value = noteSummary.value.slice(0, 50)
+            if (!document.getElementById('autoFormat').checked) { return };
+            noteStringText.value = noteStrTextAutoReplace(noteStringText.value)
+        };
         editableTextareas.forEach(textbox => {
             textbox.value = textbox.value.replace(/–|—/g, '-').replace(/“|”/g, '"').replace(/‘|’/g, "'").replace(/•/g, '*') // replacing unsupported characters with generics //
             let maxColumns = Math.round(textbox.cols/10)*10, maxRows = 30 // rounding because they set casenotes to be 97 instead of coding the html/css correctly;
