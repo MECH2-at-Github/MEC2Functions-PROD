@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.57
+// @version      0.6.58
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -6468,7 +6468,7 @@ function noteStrTextAutoReplace(noteStr) {
         if ("CaseNotes.htm".includes(thisPageNameHtm)) {
             const noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText')
             noteSummary.value = noteSummary.value.slice(0, 50)
-            if (!document.getElementById('autoFormat').checked) { return };
+            if (document.getElementById('autoFormat')?.checked === false) { return };
             noteStringText.value = noteStrTextAutoReplace(noteStringText.value)
         };
         editableTextareas.forEach(textbox => {
