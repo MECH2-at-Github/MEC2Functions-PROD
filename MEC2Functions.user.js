@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         mec2ƒ𝗌
+// @name         _beta-mec2ƒ𝗌
 // @namespace    http://github.com/MECH2-at-Github
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.63
+// @version      0.6.64
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -1610,13 +1610,12 @@ function getTypeof(testSubject) {
         case Number(testSubject): return "Number"
     };
     return String(testSubject.constructor).match(/(?<=function )[A-Za-z]+(?=\(\))/)?.[0];
-};
+};// Will return Number, Null, String, Array, Object, Date, HTMLBodyElement, HTMLScriptElement, etc.
 async function getWorkerName() {
     if (!caseIdVal || selectPeriodDates.parm3) { return "" };
     let workerData = await evalData({caseProviderNumber: caseIdVal, pageName: "CaseWorker.htm", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'});
     return nameFuncs.commaNameObject(workerData.find(data => data.progId === "CC")?.workerName).full ?? ""
 };
-// Will return Number, Null, String, Array, Object, Date, HTMLBodyElement, HTMLScriptElement, etc.
 function h4list() { // h4elementText: { h4element, indexNumber, siblings }
     class h4object {
         constructor(h4) {
@@ -1772,6 +1771,11 @@ async function listPageLinksAndList(rowAndPageArrays = [{ listPageParm2Col: "", 
         });
     });
     return trNumberObject;
+};
+function renameTheaders(theader, renameMap) {
+    let theaderChildren = theader?.children
+    if (!theaderChildren) { return };
+    Array.from(theaderChildren, th => { let thText = th.textContent.trim(); th.textContent = renameMap.get(thText) ?? thText });
 };
 function resetTabIndex(excludedListString) {
     const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
@@ -3669,7 +3673,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
 }(); // SECTION_END Case_CSIA;
 !function CaseDisability() {
     if (!("CaseDisability.htm").includes(thisPageNameHtm)) { return };
-    let generateCaseNote = addTertEle('button', { classList: "form-button hidden", id: "generateCaseNote", textContent: "Auto Case Note" })
+    if (editMode) { return };
+    let generateCaseNote = addTertEle('button', { type: "button", classList: "form-button hidden", id: "generateCaseNote", textContent: "Auto Case Note" })
     let memberDisabilityType = document.getElementById('memberDisabilityType'), disabilityMemberTableTbody = document.querySelector('#disabilityMemberTable > tbody')
     disabilityMemberTableTbody.addEventListener('click', checkDisabilityType)
     gbl.eles.tertiaryActionArea.addEventListener('click', doTertiaryAction)
@@ -4889,12 +4894,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Case_Parent;
 !function CasePaymentHistory() {
     if (!("CasePaymentHistory.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
-    !function renameTableHeaders() {
-        Array.from(document.querySelectorAll('#paymentHistoryTable thead tr td'), ele => { ele.textContent = '' });
-        let theadChildren = document.querySelector('#paymentHistoryTable_wrapper .dataTables_scrollHeadInner thead tr')?.children
-        if (!theadChildren) { return };
-        let theadRename = [[1, "Transact ID"], [4, "Recoup"], [7, "Payment"], [8, "Type"]].forEach(([child, newText] = []) => { theadChildren[child].textContent = newText });
-    }();
+    renameTheaders(document.querySelector('#paymentHistoryTable_wrapper thead tr'), new Map([ ["Transaction ID", "Transact ID"], ["Recoupment", "Recoup"], ["Payment Status", "Payment"], ["TransType", "Type"] ]))
     listPageLinksAndList([ { listPageParm2Static: caseIdVal, listPageLinkTo: "FinancialBilling", listPageParm3Col: 2, listPageReplace: ["[/-\\s]", "g", ""] }, ])
     let providerTableList = new Set(), childTableList = new Set()
     let getPaymentElements = {
@@ -5307,23 +5307,15 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Contact Information;
 !function _Financial_Billing_Pages() {
 !function __BillsList() {
-    if (!"BillsList.htm".includes(thisPageNameHtm)) { return }; // This is intentionally querySelectorAll - there are 2 theads with this data, both must be changed;
-    !function renameTheaders() {
-        let billsListTableHeadChildren = document.querySelector('.dataTables_scrollHeadInner thead tr')?.children
-        if (!billsListTableHeadChildren) { return };
-        [ [2, "PID"], [6, "eBill"], [7, "Manual"], ].forEach(([childNum, newText] = []) => { billsListTableHeadChildren[childNum].innerText = newText });
-    }();
+    if (!"BillsList.htm".includes(thisPageNameHtm)) { return };
+    renameTheaders(document.querySelector('.dataTables_scrollHeadInner thead tr'), new Map([ ["Provider ID", "PID"], ["Electronic Bill", "eBill"], ["Manual Pmt", "Manual"], ]))
     listPageLinksAndList([ { listPageParm2Col: 0, listPageParm3Col: 4, listPageLinkTo: "FinancialBilling", listPageReplace: ["\\D", "g", ""] }, { listPageParm2Col: 2, listPageLinkTo: "ProviderInformation"} ])
     addDateControls("day", document.getElementById('searchStartDate'))
 }(); // SECTION_END Bills_List;
 !function __ElectronicBills() {
     if (!"ElectronicBills.htm".includes(thisPageNameHtm)) { return };
     doNotDupe.buttons.push('#reset, #search')
-    !function renameTheaders() {
-        let eBillsTableHeadChildren = document.querySelector('.dataTables_scrollHeadInner thead tr')?.children
-        if (!eBillsTableHeadChildren) { return };
-        [ [0, "PID"], [4, "Billing Period"], [7, "Comm."], ].forEach(([childNum, newText] = []) => { eBillsTableHeadChildren[childNum].innerText = newText });
-    }();
+    renameTheaders(document.querySelector('.dataTables_scrollHeadInner thead tr'), new Map([ ["Provider ID", "PID"], ["Period", "Billing Period"], ["Comments", "Comm."], ]))
     listPageLinksAndList([ { listPageParm2Col: 2, listPageParm3Col: 4, listPageLinkTo: "FinancialBilling", listPageReplace: ["\\D", "g", ""] } ])
     gbl.eles.selectPeriod.insertAdjacentElement('afterbegin', gbl.eles.selectPeriod.querySelector('option[value=""]'))
 }(); // SECTION_END Electronic_Bills;
@@ -6260,10 +6252,6 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         Array.from(providerSearchTableTbody.querySelectorAll('a'), ele => { ele.target = '_self' })
     };
 }(); // SECTION_END Provider_Search;
-// !function ReportAProblem() {
-//     if (!("ReportAProblem.htm").includes(thisPageNameHtm)) { return };
-//     doWrap({ ele: document.querySelector('textarea') })
-// }(); // SECTION_END Report_A_Problem;
 !function _Transfers_ServicingAgency_Incoming_Outgoing() {
     if (!["ServicingAgencyIncomingTransfers.htm", "ServicingAgencyOutgoingTransfers.htm"].includes(thisPageNameHtm)) { return };
     listPageLinksAndList([{ listPageParm2Col: 5, listPageLinkTo: "CaseAddress" }])
@@ -6718,23 +6706,21 @@ function caseNotesStrTextReplace(textboxText) {
 };
 !function textareaWordWrapAndEvents() {
     if (["CaseEditSummary.htm"].includes(thisPageNameHtm)) { return };
-    const textareas = Array.from(document.querySelectorAll('textarea')).map(ele => [ ele, ele.cols ]);
-    // const editableTextareas = Array.from(document.querySelectorAll('textarea:not(:read-only)')).map(ele => [ ele, ele.cols ]);
-    if (!textareas.length) { return };
-    textareas.forEach(([textbox] = []) => {
+    if (!document.querySelector('textarea:not(:read-only)')) { return };
+    const editableTextareas = Array.from(document.querySelectorAll('textarea:not(:read-only)'))?.map(ele => [ ele, ele.cols ]); // CaseNotices breaks if missing :not(:read-only) //
+    editableTextareas.forEach(([textbox] = []) => {
         if (textbox.parentElement.nodeName !== "DIV") { doWrap({ ele: textbox }) };
         textbox.parentElement.classList.add('textareaParent')
         textbox.parentElement.addEventListener('click', () => { textbox.focus() })
         if (textbox.parentElement.previousSibling.nodeName === "#text") { textbox.parentElement.previousSibling.remove() };
     });
-    if (!document.querySelector('textarea:not(:read-only)')) { return };
 
     let saveButton = gbl.eles.save ?? gbl.eles.submitButton
     saveButton?.addEventListener('click', formatOnSave)
     function formatOnSave(saveEvent) {
         let dontClickSave = 0, maxColumns
         saveEvent.preventDefault()
-        textareas.forEach(([textbox] = []) => {
+        editableTextareas.forEach(([textbox] = []) => {
             if (!textbox.value) { return };
             let textboxRegExd = textAreaRegExReplacements(textbox.value)
             maxColumns = getMaxColumns(textbox.cols)
@@ -6754,14 +6740,14 @@ function caseNotesStrTextReplace(textboxText) {
                 };
             };
         });
-        if (dontClickSave) { textareas.forEach(([textbox, textboxCols] = []) => { textbox.setAttribute("cols", textboxCols) }); return }; // textarea will default to 20 columns if attribute not present //
+        if (dontClickSave) { editableTextareas.forEach(([textbox, textboxCols] = []) => { textbox.setAttribute("cols", textboxCols) }); return }; // textarea will default to 20 columns if attribute not present //
         saveButton?.removeEventListener('click', formatOnSave)
         doClick(saveButton)
     };
     function getMaxColumns(textboxCols) {
         switch(thisPageNameHtm) {
             case "AlertWorkerCreatedAlert.htm": return 51
-            default: return Math.round(textboxCols/10)*10 // rounding because they set casenotes to be 97 and letters to 58 instead of coding the html/css correctly //
+            default: return (Math.round(textboxCols/10)*10) // rounding because they set casenotes to be 97 and letters to 58 instead of coding the html/css correctly //
         };
     };
     function textAreaRegExReplacements(textboxText) {
