@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         _beta-mec2ƒ𝗌
+// @name         mec2ƒ𝗌
 // @namespace    http://github.com/MECH2-at-Github
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
