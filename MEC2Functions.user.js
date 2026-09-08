@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.62
+// @version      0.6.63
 // ==/UserScript==
 /* globals jQuery, $ */
 
@@ -67,9 +67,9 @@ const nameFuncs = {
         let [ last, first ] = this.toTitleCase( String(commaNameO).replace(/ \w$|\./g, '') ).split(",").map(str => str.trim())
         return { first, last, full: first + " " + last }
     },
-    commaToCommaSpace(value) { return !value ? undefined : String(value).replace(/(\w\,)(\w)/g, "$0 $1") },
-    toTitleCase(str) { return !str ? undefined : str.replace(/^(\w)/, firstLetter => firstLetter.toUpperCase()) },
-    // toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
+    commaToCommaSpace(str) { return !str ? "" : String(str).replace(/(\w\,)(\w)/g, "$0 $1") },
+    // toTitleCase(str) { return !str ? "" : str.toLowerCase().replace(/^(\w)/, firstLetter => firstLetter.toUpperCase()) },
+    toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
     LastFirstToFirstL(name) { if (!name) { return undefined }; let nameObj = this.commaNameObject(name); return nameObj.first + " " + nameObj.last[0] },
 };
 function dateMath(startDate, days) {
