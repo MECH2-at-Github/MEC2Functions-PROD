@@ -1,16 +1,15 @@
 // ==UserScript==
-// @name         mec2functions
+// @name         mec2ƒ𝗌
 // @namespace    http://github.com/MECH2-at-Github
 // @description  Add functionality to MEC2 to improve navigation and workflow
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.58
+// @version      0.6.62
 // ==/UserScript==
 /* globals jQuery, $ */
 
 'use strict';
-//
 console.time('mec2functions load time');
 let verboseMode = 1;
 verbose("PBF to not div:", document.querySelectorAll('.panel-box-format > :is(select, input, output, a, span, p):not([type=hidden]):not([style*="display: none"])')) // for custom zoom CSS // found on client search, provider search //
@@ -34,26 +33,27 @@ const sanitize = {
         };
     },
     string(stringText) { return String(stringText)?.replace(/[^a-z0-9áéíóúñü \.,'_-]/gim, '') },
+    removeNonLettersToLowerCase(str) { return str.replace(/[^A-Za-z ]/g, "").replace(/\s+/g, " ").toLowerCase() },
+    removeNonNumbers(str) { return str.replace(/\D/g, '') },
     number(num) { return Number(String(num).replace(/[^0-9-.]/gi, '')) || 0 },
     html(htmlText) { return new DOMParser().parseFromString(htmlText, "text/html").documentElement.innerText },
     timeStamp(time) { return String(time)?.replace(/[^apm0-9:,\/ ]/gi, '') }, // [^] = not in list //
     date(inputDate, dateTypeNeeded = "date") {
-        const isDateObject = inputDate instanceof Date
+        const inputTypeof = getTypeof(inputDate)
         inputDate = (/\d{13}/).test(inputDate) ? Number(inputDate) : inputDate
-        const inputTypeof = typeof inputDate
         switch (dateTypeNeeded) {
             case "date":
-                return isDateObject ? inputDate : new Date(inputDate)
+                return inputTypeof === "Date" ? inputDate : new Date(inputDate)
                 break
             case "number":
-                if ( inputTypeof === "number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return inputDate }
-                if ( inputTypeof === "string" ) { return Date.parse(inputDate) }
-                if ( isDateObject ) { return inputDate.getTime() }
+                if ( inputTypeof === "Number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return inputDate }
+                if ( inputTypeof === "String" ) { return Date.parse(inputDate) }
+                if ( inputTypeof === "Date" ) { return inputDate.getTime() }
                 break
             case "string":
-                if ( inputTypeof === "number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return new Date(inputDate).toLocaleDateString() }
-                if ( inputTypeof === "string" ) { return inputDate }
-                if ( isDateObject ) { return inputDate.toLocaleDateString() }
+                if ( inputTypeof === "Number" && (Math.log(inputDate) * Math.LOG10E + 1 | 0) === 13 ) { return new Date(inputDate).toLocaleDateString() }
+                if ( inputTypeof === "String" ) { return inputDate }
+                if ( inputTypeof === "Date" ) { return inputDate.toLocaleDateString() }
                 break
             default:
                 return undefined;
@@ -64,19 +64,19 @@ const sanitize = {
 const nameFuncs = {
     commaNameObject(commaNameO) {
         if (!commaNameO) { return };
-        let [ last, first ] = this.toTitleCase( String(commaNameO).replace(/\b\w\b|\./g, '') ).split(",").map(str => str.trim())
+        let [ last, first ] = this.toTitleCase( String(commaNameO).replace(/ \w$|\./g, '') ).split(",").map(str => str.trim())
         return { first, last, full: first + " " + last }
     },
     commaToCommaSpace(value) { return !value ? undefined : String(value).replace(/(\w\,)(\w)/g, "$0 $1") },
-    toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
+    toTitleCase(str) { return !str ? undefined : str.replace(/^(\w)/, firstLetter => firstLetter.toUpperCase()) },
+    // toTitleCase(str) { return !str ? undefined : str.replace(/[^-\s,]+/g, s => s.charAt(0).toUpperCase() + s.substring(1).toLowerCase()) },
     LastFirstToFirstL(name) { if (!name) { return undefined }; let nameObj = this.commaNameObject(name); return nameObj.first + " " + nameObj.last[0] },
 };
 function dateMath(startDate, days) {
     startDate = new Date(startDate)
     new Date(Date.parse(startDate)-(new Date(startDate).getTimezoneOffset()*60000)).toISOString()
 //     let [ utcM, utcD, utcY ] = startDate.split("/")
-//     utcY = utcY.length === 2 ? utcY.padStart(4, "20") : utcY
-//     let utcDate = Date.UTC( (utcY.length === 2 ? "20" + utcY : utcY), utcM-1, utcD ) // 13 digit number
+//     let utcDate = Date.UTC( utcY.padStart(4, "20"), utcM-1, utcD ) // 13 digit number
 //     let inputDate = utcDate + (days * dateFuncs.dayInMs) // 13 digit number
 //     return new Date(new Date(inputDate).toUTCString().slice(5, 16)).toLocaleDateString("GMT")
 };
@@ -88,7 +88,7 @@ const dateFuncs = {
     // Date math functions must assume the input date is UTC. Implications: Strings need to be converted using Date.UTC(). Numbers (10 digits - 13 digits)
     //
     dayInMs: 86400000,
-    bwpInMs: 1209600000,
+    // bwpInMs: 1209600000,
     dateAsUtcTimestamp(inputDate) { // returns Date.UTC(utcY, utcM, utcD) // (return data format: 1764892800000)
         switch(true) {
             case (/^-?\d+$/).test(inputDate): return this.checkIfTimeZoneUTC(inputDate) // input format: 1764892800000
@@ -118,7 +118,7 @@ const dateFuncs = {
     dateDiffInDays(firstDate, secondDate) { // rewrite using this.formatDate()?
         if (!firstDate) { return };
         firstDate = sanitize.date(firstDate, "date")
-        secondDate = secondDate === undefined ? new Date() : sanitize.date(secondDate, "date")
+        secondDate = secondDate === undefined ? new Date().setHours(0, 0, 0, 0) : sanitize.date(secondDate, "date")
         const utc1 = Date.UTC(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
         const utc2 = Date.UTC(secondDate.getFullYear(), secondDate.getMonth(), secondDate.getDate());
         return Math.floor((utc2 - utc1) / this.dayInMs);
@@ -287,8 +287,7 @@ let clickCount = null;
     if (!gbl.eles.pageWrap) { return };
     greenline?.insertAdjacentElement('afterend', gbl.eles.pageWrap);
     gbl.eles.pageWrap?.classList.add('container')
-    let pageWrapStyle = addCssStyleSheet()
-    pageWrapStyle.replaceSync("#page-wrap.container { padding: 0 15px; background: none; max-width: 1170px; height: unset; float: none; & > ul.dropdown { display: flex; & > li: flex: 1;} }" );
+    let pageWrapStyle = addCSSStyleSheet("#page-wrap.container { padding: 0 15px; background: none; max-width: 1170px; height: unset; float: none; & > ul.dropdown { display: flex; & > li: flex: 1;} }")
 }();
 //
 const workerRole = countyInfo.info?.workerRole ?? "mec2functionsFinancialWorker";
@@ -574,12 +573,6 @@ const allPagesMap = new Map([
     [ "ProviderSpecialLetter.htm", { label: "Special Letter", target: "_self", parentId: "Provider Special Letter", rowTwoParent: "Provider_Notices.btn", row: "3", }, ],
     [ "ProviderMemo.htm", { label: "Memo", target: "_self", parentId: "Provider Memo", rowTwoParent: "Provider_Notices.btn", row: "3", }, ],
 
-    [ "ProviderProUserAccess.htm", { label: "User Access", target: "_self", parentId: "PRO User Access", rowTwoParent: "Pro.btn", row: "3", }, ],
-    [ "ProUserDetail.htm", { label: "User Detail", target: "_self", parentId: "Pro User Details", rowTwoParent: "Pro.btn", row: "3", }, ],
-    [ "ProUserSearch.htm", { label: "User Search", target: "_self", parentId: "Pro User Search", rowTwoParent: "Pro.btn", row: "3", }, ],
-    [ "ProUserProviderRelationship.htm", { label: "Provider Relationship", target: "_self", parentId: "Pro User Provider Relationships", rowTwoParent: "Pro.btn", row: "3", }, ],
-    [ "ProUserResetPassword.htm", { label: "Reset Password", target: "_self", parentId: "Pro User Reset Password", rowTwoParent: "Pro.btn", row: "3", }, ],
-
     [ "CaseTransfer.htm", { label: "Case Transfer", target: "_self", parentId: "Case Transfer", rowTwoParent: "Transfer.btn", row: "3", }, ],
     [ "ServicingAgencyIncomingTransfers.htm", { label: "Incoming", target: "_blank", parentId: "Incoming Transfers", rowTwoParent: "Transfer.btn", row: "3", }, ],
     [ "ServicingAgencyOutgoingTransfers.htm", { label: "Outgoing", target: "_blank", parentId: "Outgoing Transfers", rowTwoParent: "Transfer.btn", row: "3", }, ],
@@ -616,7 +609,6 @@ const allPagesMap = new Map([
             [ "Notices.btn", [ "CaseNotices.htm", "CaseSpecialLetter.htm", "CaseMemo.htm" ], ],
             [ "Provider_Info.btn", [ "ProviderOverview.htm", "ProviderNotes.htm", "ProviderInformation.htm", "ProviderAddress.htm", "ProviderParentAware.htm", "ProviderAccreditation.htm", "ProviderTraining.htm", "ProviderRates.htm", "ProviderLicense.htm", "ProviderAlias.htm", "ProviderBackgroundStudy.htm", "ProviderFeesAndAccounts.htm", "ProviderRegistrationAndRenewal.htm", "ProviderTaxInfo.htm", "ProviderPaymentHistory.htm" ], ],
             [ "Provider_Notices.btn", [ "ProviderNotices.htm", "ProviderSpecialLetter.htm", "ProviderMemo.htm" ], ],
-            [ "Pro.btn", [ "ProviderProUserAccess.htm", "ProUserDetail.htm", "ProUserSearch.htm", "ProUserProviderRelationship.htm", "ProUserResetPassword.htm" ], ],
             [ "Billing.btn", [ "FinancialBilling.htm", "FinancialBillingApproval.htm", "BillsList.htm", "ElectronicBills.htm", "CasePaymentHistory.htm", "FinancialAbsentDayHolidayTracking.htm", "FinancialBillingRegistrationFeeTracking.htm", "FinancialManualPayment.htm" ], ],
             [ "CSI.btn", [ "CaseCSIA.htm", "CaseCSIB.htm", "CaseCSIC.htm", "CaseCSID.htm" ], ],
             [ "Transfer.btn", [ "CaseTransfer.htm", "ServicingAgencyIncomingTransfers.htm", "ServicingAgencyOutgoingTransfers.htm", "FinancialClaimTransfer.htm", "ProviderTransfer.htm", "TransferWorkloadCase.htm", "TransferWorkloadClaim.htm", "ProviderWorkloadTransfer.htm" ], ],
@@ -626,7 +618,7 @@ const allPagesMap = new Map([
         setWorkerRole() {
             document.getElementById(workerRole)?.setAttribute('style', 'font-weight: 700;')
             switch (workerRole) {
-                case "mec2functionsFinancialWorker": this.rowMap.set( "rowTwo", [ "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "CSI.btn", "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "Billing.btn", "Transfer.btn", "Claims.btn", ] ); break;
+                case "mec2functionsFinancialWorker": this.rowMap.set( "rowTwo", [ "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "CSI.btn", "Provider_Info.btn", "Provider_Notices.btn", "Billing.btn", "Transfer.btn", "Claims.btn", ] ); break;
                 case "mec2functionsPaymentWorker": this.rowMap.set( "rowTwo", [ "Billing.btn", "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "CSI.btn", "Transfer.btn", "Claims.btn", ] ); break;
                 case "mec2functionsProviderWorker": this.rowMap.set( "rowTwo", [ "Provider_Info.btn", "Provider_Notices.btn", "Pro.btn", "Billing.btn", "Member.btn", "Case.btn", "Activity_and_Income.btn", "Eligibility.btn", "SA.btn", "Notices.btn", "CSI.btn", "Transfer.btn", "Claims.btn", ] ); break;
             };
@@ -667,7 +659,10 @@ const allPagesMap = new Map([
     };
     !function warnIfClosingInEditMode() {
         // return;
-        if (editMode && !appModeNotEdit) {
+        let eligibleForUnloadWarning = editMode && !appModeNotEdit && document.forms[0]?.querySelector('[id$=Data]:not(#caseHeaderData)')?.querySelector('form :is(input.form-control:not(.borderless):is([type=text]:not(:read-only), [type=checkbox]:not(:disabled)), textarea:not(:disabled))')
+        if (eligibleForUnloadWarning) {
+            verbose("eligible for unload warning")
+        // if (document.querySelector('form') && editMode && !appModeNotEdit && !["CaseWorker.htm", "lastUpdateWorker.htm"].includes(thisPageNameHtm)) {
             window.addEventListener('beforeunload', beforeunloadFunction);
             window.addEventListener('submit', () => { window.removeEventListener('beforeunload', beforeunloadFunction); })
             gbl.eles.secondaryActionArea.addEventListener('click', () => { window.removeEventListener('beforeunload', beforeunloadFunction); })
@@ -692,7 +687,7 @@ const allPagesMap = new Map([
             let targetPage = allPagesMap.get(mapPageName)?.parentId?.replace(/ /g, '\ ')
             if (!targetPage) { return }
             if (target === "_self") { document.body.style.opacity = ".8" }
-            window.open( document.getElementById(targetPage).firstElementChild.href, target )
+            window.open( document.getElementById(targetPage)?.firstElementChild?.href, target )
         } else if (editMode) {
             qMarkParameters = caseIdVal ? "?parm2=" + caseIdVal : ''
             window.open('/ChildCare/' + mapPageName + qMarkParameters, "_blank")
@@ -752,8 +747,8 @@ const allPagesMap = new Map([
             removeHistoryFocusClasses()
             let focusTarget = (() => {
                 switch (event.key) {
-                    case "ArrowDown": return !currentFocusedTarget ? gbl.eles.caseHistory?.children[0] : currentFocusedTarget === Array.from(gbl.eles.caseHistory?.children)?.at(-1) ? currentFocusedTarget : currentFocusedTarget.nextElementSibling;
-                    case "ArrowUp": return !currentFocusedTarget ? Array.from(gbl.eles.caseHistory?.children)?.at(-1) : currentFocusedTarget === gbl.eles.caseHistory?.children[0] ? currentFocusedTarget : currentFocusedTarget.previousElementSibling;
+                    case "ArrowDown": return !currentFocusedTarget ? gbl.eles.caseHistory?.firstElementChild : currentFocusedTarget === Array.from(gbl.eles.caseHistory?.children)?.at(-1) ? currentFocusedTarget : currentFocusedTarget.nextElementSibling;
+                    case "ArrowUp": return !currentFocusedTarget ? Array.from(gbl.eles.caseHistory?.children)?.at(-1) : currentFocusedTarget === gbl.eles.caseHistory?.firstElementChild ? currentFocusedTarget : currentFocusedTarget.previousElementSibling;
                     default: return event.target.closest('div.caseHistoryEntry');
                 };
             })();
@@ -863,10 +858,10 @@ const allPagesMap = new Map([
     editMode && ([ gbl.eles.buttonPanelTwo, gbl.eles.buttonPanelThree ].forEach(ele => ele.classList.add('hidden') ));
 }(); // ///////////////////////////////////////////////////////////////// PRIMARY_NAVIGATION_BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 !function nextPrevPeriodButtons() {
-    if (iFramed || editMode || !gbl.eles.selectPeriod || !sanitize.query(gbl.eles.selectPeriod) || gbl.eles.selectPeriod.disabled || gbl.eles.selectPeriod.readOnly || gbl.eles.selectPeriod.type === "hidden" || reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
+    if (iFramed || editMode || !gbl.eles.selectPeriod || !sanitize.query(gbl.eles.selectPeriod) || gbl.eles.selectPeriod?.disabled || gbl.eles.selectPeriod?.readOnly || gbl.eles.selectPeriod?.type === "hidden" || reviewingEligibility || thisPageNameHtm.indexOf("CaseApplicationInitiation.htm") > -1 || gbl.eles.submitButton?.disabled) { return }
     try {
         let selectPeriodReversed = countyInfo.userSettings?.selectPeriodReversal
-        let lastAvailablePeriod = gbl.eles.selectPeriod.firstElementChild.value
+        let lastAvailablePeriod = gbl.eles.selectPeriod?.firstElementChild?.value
         gbl.eles.selectPeriod.insertAdjacentElement( 'beforebegin', createNewEle('span', { id: "prevButtons" })).append(
             createNewEle('button', { id: "prev.go", tabIndex: "-1", type: "button", classList: "npp-button", textContent: "«" }),
             createNewEle('button', { id: "prev.stay", tabIndex: "-1", type: "button", classList: "npp-button", textContent: "‹" })
@@ -909,7 +904,7 @@ docReady( document.body?.addEventListener('submit', () => { document.body.style.
 !function footerLinks() {
     if (iFramed || !gbl.eles.footerLinks) { return };
     try {
-        Array.from(gbl.eles.footerLinks?.childNodes)?.filter(eleFeet => eleFeet.nodeType === 3 && eleFeet.length > 2).forEach(eleFoot => eleFoot.remove());
+        Array.from(gbl.eles.footerLinks?.childNodes)?.filter(eleFeet => eleFeet.nodeName === "#text" && eleFeet.length > 2).forEach(eleFoot => eleFoot.remove());
         Array.from(gbl.eles.footerLinks.children)?.toSpliced(-1, 1).forEach(eleToes => eleToes.insertAdjacentElement( 'afterend', gbl.eles.separator() ));
         addToFooter([
             ["https://owa.dhssir.cty.dhs.state.mn.us/csedforms/MMR/TSS_General_Request.asp", "Help Desk", "_blank"],
@@ -1112,6 +1107,14 @@ function addValueClassdoChange(ele, addValue, addClass, event) {
     addClass && ele.classList.add(addClass)
     event && doChange(ele)
 };
+function buttonContClick(buttonContainer, fnMap) {
+	buttonContainer.addEventListener('click', clickEvent => {
+		if (clickEvent.target.nodeName !== "BUTTON") { return };
+		const fn = fnMap.get(clickEvent.target)
+		if (!fn) { return };
+    	fn();
+    })
+};
 function checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren) {
 	for (let member in memberData) {
 		let thisMember = memberData[member]
@@ -1133,6 +1136,12 @@ function ifNoPersonUntabEndAndDisableChange(member, end, change='') {
         change.readOnly = true
         change.tabIndex = "-1"
     };
+};
+function formStoreEnterAutoNote({ caseIdVal, noteCategory, noteSummary, noteMessage, intendedPerson } = {}) {
+    if ( !(/^[0-9]{1,8}$/).test(Number(caseIdVal)) ) { return };
+    let autoCaseNote = JSON.stringify( ({ [caseIdVal]: { noteCategory, noteSummary, noteMessage, intendedPerson } }) );
+    localStorage.setItem( "MECH2.note", autoCaseNote )
+    window.open('/ChildCare/CaseNotes.htm?parm2=' + caseIdVal, '_blank')
 };
 function preventKeys(keyArray, ms=1500) {
     if (ms > 5000) { return };
@@ -1159,11 +1168,18 @@ function doTableStyleToggle(invisElem, togClass) {
     return 'html > body > div.container table.dataTable.toggledTable > tbody {' + evenOddStyle + ' }'
 }; //sets style for every other row in a table, for visible rows only;
 function pleaseWait(customText, progressBar) {
-    progressBar = progressBar ? '<progress id="progressBar" value=0 style="display: block; margin: 10px;"></progress>' : ''
-    customText = customText ? customText : ''
-    document.body.insertAdjacentHTML('afterbegin', '<dialog id="popovertarget" popover="manual"><div id="progressReport" style="margin: 10px; text-align: center;">' + customText + '</div>' + progressBar + '</dialog>')
-    document.getElementById('popovertarget')?.showPopover()
-    document.head.insertAdjacentHTML('beforeend', '<style id="inProgress">body > div.container { opacity: .7; }</style>')
+    // progressBar = progressBar ? '<progress id="progressBar" value=0 style="display: block; margin: 10px;"></progress>' : ''
+    // customText ??= ''
+    // customText = customText ? customText : ''
+    // document.body.insertAdjacentHTML('afterbegin', '<dialog id="popovertarget" popover="manual"><div id="progressReport" style="margin: 10px; text-align: center;">' + customText + '</div>' + progressBar + '</dialog>')
+    progressBar = progressBar ? createNewEle("progress", { id: "progressBar", style: "display: block; margin: 10px;", value: "0" }) : 0
+    let progressReport = createNewEle("div", { id: "progressReport", style: "margin: 10px; text-align: center;", textContent: customText ?? '' })
+    progressBar && progressReport.append(progressBar)
+    let popovertarget = createNewEle("dialog", { id: "popovertarget", popover: "manual", }); popovertarget.append(progressReport);
+    document.body.insertAdjacentElement('afterbegin', popovertarget)
+    popovertarget?.showPopover()
+    document.head.append( createNewEle("style", { id: "inProgress", textContent: "body > div.container { opacity: .7; }" }) );
+    return { progressBar, progressReport };
 };
 function thankYouForWaiting() {
     document.getElementById('inProgress')?.remove()
@@ -1208,8 +1224,9 @@ async function evalData({caseProviderNumber = caseIdVal, pageName = thisPageName
     };
 };
 async function forAwaitMultiCaseEval(listArray, pageName) {
-    pleaseWait('Please Wait... ', true)
-    let progressReport = document.getElementById('progressReport'), progressBar = document.getElementById('progressBar')
+    // pleaseWait('Please Wait... ', true)
+    // let progressReport = document.getElementById('progressReport'), progressBar = document.getElementById('progressBar')
+    let { progressReport, progressBar } = pleaseWait('Please Wait... ', true)
     const evalObj = {}
     let listArrayLength = listArray.length
     for await (const [index, caseNum] of listArray.entries()) {
@@ -1217,7 +1234,7 @@ async function forAwaitMultiCaseEval(listArray, pageName) {
         progressReport.textContent = "Please wait... " + indexNumber + " of " + listArrayLength
         progressBar.value = (indexNumber/listArrayLength)
         evalObj[caseNum] = await evalData({ caseProviderNumber: caseNum, pageName: pageName }).then().catch(err => { console.trace(err); });
-        if (!evalObj[caseNum]) { thankYouForWaiting(); snackBar('Error: Data fetch failed.', '') ;return }
+        if (!evalObj[caseNum]) { thankYouForWaiting(); snackBar('Error: Data fetch failed.', ''); return }
     };
     thankYouForWaiting()
     return evalObj
@@ -1278,7 +1295,7 @@ async function waitForValue(truthyCallback, interval, timeout) {
     };
 };
 
-function waitForTrueInterval(truthyCallback, interval, iterations) {
+function waitForTruthyInterval(truthyCallback, interval, iterations) {
     let intervalId;
     let currentIteration = 1
     function go() {
@@ -1323,15 +1340,32 @@ function waitForElmHeight(selectorStr) { // selector must be string;
         observer.observe(document.body, { attributes: true, childList: true, subtree: true });
     });
 };
-function triggerFnOnProgrammaticChange(inputElement, triggerFn) {
+function triggerFnOnProgrammaticChange(inputEle, triggerFn) {
+    if (!inputEle) { return };
     const { get, set } = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-    Object.defineProperty(inputElement, 'value', {
+    Object.defineProperty(inputEle, 'value', {
         get() { return get.call(this) },
-        set(newVal) {
-            set.call(this, newVal); // Set the actual value using the native setter //
-            triggerFn()
+        set(newValue) {
+            set.call(this, newValue); // Set the actual value using the native setter //
+            // triggerFn()
+            this.dispatchEvent(new CustomEvent('valueassigned', { detail: newValue }));
         },
     });
+};
+function triggerEventOnValueAssigned(ele) { // triggers on: input (user, program), select (program) //
+    ele = sanitize.query(ele)
+    if (!ele) { return };
+    const { get, set } = Object.getOwnPropertyDescriptor(ele.constructor.prototype, 'value');
+    Object.defineProperty(ele, 'value', {
+        get() { return get.call(this) },
+        set(newValue) {
+            set.call(this, newValue); // Set the actual value using the native setter //
+            this.dispatchEvent(new CustomEvent('valueassigned', { detail: newValue }));
+        },
+        configurable: true,
+        enumerable: true,
+    });
+    return ele;
 };
 function waitForTableCells(tableStr = 'table') { // table = 'table' or '#tableId', must be string;
     return new Promise((resolve, reject) => {
@@ -1399,7 +1433,7 @@ function mec2enhancements() {
     document.body.insertAdjacentHTML('beforeend', mec2functionEnhancementsDiv)
     let mec2functionsEnhancementsDialog = document.getElementById('mec2functionsEnhancementsDialog')
     !function mec2functionEnhancementsHTML() {
-        let helpStyleSheet = addCssStyleSheet()
+        let helpStyleSheet = addCSSStyleSheet()
         let mec2functionEnhancementsHTMLtext = mec2functionFeatures.map(feature => {
             if ("separator" in feature) { return "<li>____________pretend_this_is_a_separator____________</li>" }
             let animationButton = ("selector" in feature) ? '<span style="cursor: pointer;" class="playButton" data-animate-target="' + feature.selector + '">▶</span>' : '<span></span>'
@@ -1509,16 +1543,12 @@ function formatHTMLtoCopy({ htmlCode, extraStyle='', addTableStyle=true, removeS
 async function getClipboardText() { return await navigator.clipboard.readText() };
 //
 //           return value, no page changes           //
-// function arrangeElements(elementArray) {
-// 	const validArray = item => Array.isArray(item) && item.length > 1
-// 	return elementArray.map((item, i, arr) => validArray(item) ? subLevels(item, arr[i-1]) : item ).filter(e=>e)
-// 	function subLevels(eleArr, parent) {
-// 		eleArr.forEach((item, i) => {
-// 			let newParent = Array.isArray(item) ? parent.lastElementChild : parent
-// 			validArray(item) ? subLevels(item, newParent) : newParent.appendChild(item)
-// 		});
-// 	};
-// };
+function addToNewArrInObj(obj, arrayName, value) {
+    if (!value) { return };
+    if (!obj[arrayName]) { obj[arrayName] = []}
+    if (obj[arrayName].includes(value)) { return };
+    obj[arrayName].push(value)
+};
 function arrangeElements(elementArray) {
 	const validArray = arrToCheck => Array.isArray(arrToCheck) && arrToCheck.length > 0
     if (!validArray(elementArray)) { return };
@@ -1543,7 +1573,7 @@ function convertFromAHK(ahkString) { // don't decode at this step - string may c
     ahkString = ahkString.split('AHKJSON')[1].replace(/(%(?![A-Z0-9]))/g, "%25") // Failsafe if AHK fails to encode % as %25 //
     return sanitize.json(ahkString);
 };
-function convertLineBreakToSpace(string) { return string.replace(/([\S]) *\n([a-z])/g, '$1 $2'); }; // Expects text to have capitals at the start of sentences. No capital = combine //
+function convertLineBreakToSpace(string) { return string.replace(/([a-z]+-)\n([a-z])/g, '$1$2').replace(/([\S]) *\n([a-z])/g, '$1 $2'); }; // Expects text to have capitals at the start of sentences. No capital = combine //
 function elementObjFromIds(...idList) {
 	return Object.fromEntries( idList.flat(Infinity).map(item => [item, document.getElementById(item)]) );
 };
@@ -1562,10 +1592,31 @@ async function fetchHTML(url, filterEle, textOrElement) {
         return textOrElement === "element" ? tempHTML.querySelector(filterEle) : tempHTML.querySelector(filterEle)?.outerHTML
     }).catch(error => { console.error('There was a problem with the fetch operation:', error) });
 };
-function findContainingPeriod(selectElement, compareDate) {
-    let selectPeriodDatesArray = countyInfo.userSettings?.selectPeriodReversal ? [...selectElement.children].slice(0, 18) : [...selectElement.children].slice(-18)
-    return selectPeriodDatesArray.find(dates => dateFuncs.dateDiffInDays( (compareDate ?? Date.now()), dates.value.slice(13) ) < 14)
+function findPeriodContainingDateOption(selectElement, compareDate) {
+    let periodDates = findPeriodContainingDate(compareDate)
+    return Array.from(selectElement.children).find(e => e.value.replace(/\D/g, '') === periodDates)
 };
+function findPeriodContainingDate(date) {
+    let baseDate = 1724043600000
+    date = sanitize.date(date, "number")
+    while (baseDate <= date) {
+        baseDate = dateFuncs.addDays(baseDate, 14)
+    };
+    return dateFuncs.parm3date(dateFuncs.formatDate(dateFuncs.addDays(baseDate, -14), 'mmddyyyy') + dateFuncs.formatDate(dateFuncs.addDays(baseDate, -1), 'mmddyyyy'))
+};
+function getTypeof(testSubject) {
+    switch(true) {
+        case !testSubject: return "Null";
+        case Number(testSubject): return "Number"
+    };
+    return String(testSubject.constructor).match(/(?<=function )[A-Za-z]+(?=\(\))/)?.[0];
+};
+async function getWorkerName() {
+    if (!caseIdVal || selectPeriodDates.parm3) { return "" };
+    let workerData = await evalData({caseProviderNumber: caseIdVal, pageName: "CaseWorker.htm", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'});
+    return nameFuncs.commaNameObject(workerData.find(data => data.progId === "CC")?.workerName).full ?? ""
+};
+// Will return Number, Null, String, Array, Object, Date, HTMLBodyElement, HTMLScriptElement, etc.
 function h4list() { // h4elementText: { h4element, indexNumber, siblings }
     class h4object {
         constructor(h4) {
@@ -1599,7 +1650,7 @@ function inCurrentBWP( compareDate = Date.now() ) {
 };
 function inRange(x, min, max) { return Number(x).isNan ? undefined : x >= min && x <= max };
 function getChildNum(childEle) { return ( 'rowIndex' in childEle ? (childEle?.rowIndex -1) : [...childEle?.parentElement.children].indexOf(childEle) ) ?? undefined };
-function getCleanTdText(td) { return Array.from(td.childNodes).reduce((a, b) => a + (b.nodeType === 3 ? b.textContent : ''), '') }; // must be .textContent
+function getCleanTdText(td) { return Array.from(td.childNodes)?.reduce((a, b) => a + (b.nodeName === "#text" ? b.textContent : ''), '') }; // must be .textContent
 function reduceArrToUniques(reduceArray=[]) {
     return reduceArray.reduce((accumulator, currentValue) => {
         let areValuesEqual = Array.isArray(currentValue) ? accumulator.some(accum => arraysEqual(accum, currentValue)) : accumulator.includes(currentValue)
@@ -1611,13 +1662,14 @@ function tableHasData(table) { return !!sanitize.query(table)?.querySelector('tb
 function walkToTableRow(ele) {
     if (!sanitize.query(ele)) { return };
     while ( !["TR", "TBODY"].includes(ele.nodeName) ) { ele = ele.parentElement }
-    if (ele.nodeName === "TBODY") { return undefined }
+    if (["TBODY", "THEAD", "TABLE"].includes(ele.nodeName)) { return undefined }
     return ele;
 };
 //
 //           return value to operate on page           //
-function addCssStyleSheet() {
+function addCSSStyleSheet(rules) {
     const newStyleSheet = new CSSStyleSheet();
+    rules && newStyleSheet.replaceSync(rules)
     document.adoptedStyleSheets.push(newStyleSheet)
     return newStyleSheet;
 };
@@ -1629,18 +1681,18 @@ function createNewEle(nodeName, attribObj={}, dataObj={}) {
     return newEle;
 };
 function createSlider({ textContent, title, id, checked, fontSize, classes: extraClasses, styles: extraStyles } = {}) {
-    let toggleSlider = createNewEle('div', { classList: ["toggle-slider", extraClasses].join(' '), style: extraStyles })
-    toggleSlider.append(
+    let sliderContainer = createNewEle('div', { classList: ["toggle-slider", extraClasses].flat().join(' '), style: extraStyles }), sliderCheckbox = createNewEle('input', { type: "checkbox", id, checked })
+    sliderContainer.append(
         ...arrangeElements(
             [createNewEle('label', { title, textContent }),
              createNewEle('label', { classList: "switch", style: (fontSize && "font-size: " + fontSize + ";") }),
-             [createNewEle('input', { type: "checkbox", id, checked }),
+             [sliderCheckbox,
               createNewEle('span', { classList: "slider round" })
              ]
             ]
         )
     );
-    return toggleSlider;
+    return { container: sliderContainer, checkbox: sliderCheckbox };
 };
 function createTooltip(textContent, locationClass, addedStyle) {
     let toolTipSpan = createNewEle( 'span', { classList: 'tooltips', style: ['margin-left: 5px;', addedStyle].join(''), textContent: 'ⓘ' })
@@ -1657,14 +1709,14 @@ function htmlToEleRegEx(htmlText) {
     navigator.clipboard.writeText(htmlText); return htmlText;
 };
 //
-//           perform basic operations on page, don't return anything. some replacements for jQuery           //
+//           perform basic operations on page, return created element or nothing. some replacements for jQuery           //
 function addToFooter(...feet) {
     feet = Array.isArray(feet[0]) ? feet.flat() : [feet]
-    gbl.eles.footerLinks.append( ...feet.map(([ href, textContent, target="_blank", title="", classList="" ] = []) => [ gbl.eles.separator(), createNewEle('a', { href, target, title, classList, textContent }) ]).flat() )
+    gbl.eles.footerLinks.append( ...feet.map(([ href, textContent, target="_blank", title="", classList="" ] = []) => [ gbl.eles.separator(), createNewEle('a', { href, target, title, classList, textContent }) ]).flat() );
 };
 function clearStorageItems(storage = "both") {
-    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart|storePMIandCSnotes|storeOldNotes|earliestEditPeriod|copayDist/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) }
-    if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) }
+    if (["session", "both"].includes(storage)) { Object.keys(sessionStorage).forEach(ssKey => { if ( (/actualDateSS|processingApplication|providerEndings|providerStart|storePMIandCSnotes|storeOldNotes|earliestEditPeriod|copayDist/).test(ssKey) ) { sessionStorage.removeItem(ssKey) } }) };
+    if (["local", "both"].includes(storage)) { Object.keys(localStorage).forEach(lsKey => { if ( (/caseTransfer|autnoteDetails|copiedNote/).test(lsKey) ) { localStorage.removeItem(lsKey) } }) };
 };
 async function clickTableOnLoad() {
     waitForTableCells().then(({ waitForTable } = {}) => {
@@ -1672,10 +1724,11 @@ async function clickTableOnLoad() {
     });
 };
 function doWrap({ ele, type='div', classList='' } = {}) {
-    ele = ele.nodeType === 3 ? ele : sanitize.query(ele)
+    ele = ele.nodeName === "#text" ? ele : sanitize.query(ele)
     const wrappingElement = createNewEle(type, { classList });
     ele.replaceWith(wrappingElement);
     wrappingElement.append(ele);
+    return wrappingElement;
 };
 function doToggle(elOrArray) {
     Array.from(elOrArray, el => {
@@ -1684,7 +1737,7 @@ function doToggle(elOrArray) {
         else { el.style.display = 'none' };
     });
 };
-function doUnwrap(ele) { ele = sanitize.query(ele); ele.parentElement.outerHTML = ele.parentElement.innerHTML };
+function doUnwrap(ele) { ele = sanitize.query(ele); ele.parentElement.outerHTML = ele.parentElement.innerHTML; return ele; };
 function insertTextAndMoveCursor(textToInsert, activeEle) {
     activeEle = activeEle ? sanitize.query(activeEle) : document.activeElement
     let activeEleSelectStart = activeEle.selectionStart
@@ -1718,7 +1771,7 @@ async function listPageLinksAndList(rowAndPageArrays = [{ listPageParm2Col: "", 
             trNumberObject[listPageParm2Val] = tRow
         });
     });
-    return trNumberObject
+    return trNumberObject;
 };
 function resetTabIndex(excludedListString) {
     const nonResetPages = ["CaseSpecialLetter.htm", "CaseLumpSum.htm"]
@@ -1774,10 +1827,7 @@ function toggleVisible(element, trueFalse) {
     element = Array.isArray(element) ? element : element instanceof NodeList ? [...element] : [element]
     element.forEach( ele => { ele = sanitize.query(ele); ele.style.visibility = trueFalse ? 'visible' : 'hidden' } );
 };
-function unhideElement(element, trueFalse) { // true to remove hidden, false to add hidden;
-    element = Array.isArray(element) ? element : element instanceof NodeList ? [...element] : [element]
-    element.forEach( ele => { ele = sanitize.query(ele); trueFalse ? ele.classList.remove('hidden') : ele.classList.add('hidden') } );
-};
+function unhideElement(element, trueFalse) { (Array.isArray(element) || element instanceof NodeList ? [...element] : [element]).forEach( ele => { ele = sanitize.query(ele); trueFalse ? ele.classList.remove('hidden') : ele.classList.add('hidden') } ); }; // true to remove hidden, false to add hidden;
 //
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ FUNCTION_LIBRARY SECTION END /////////////////////////////////////////////////////////////////////////////////////////////
 // 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -1897,6 +1947,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         ["Transition Year Extension", "TYE"],
         ["MFIP/DWP", "CCMF"],
         ["Basic Sliding Fee", "BSF"],
+        ["Portability Pool", "PP"],
         ["Child Care Assistance", "???"]
     ]);
     const caseListObject = await listPageLinksAndList([{ listPageParm2Col: 0, listPageSetIds: 1, listPageLinkTo: "CaseOverview" }]), caseListTrArray = Object.values(caseListObject), caseListNumberArray = Object.keys(caseListObject)
@@ -1922,7 +1973,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
              + "<br>Subprogram: Checks all cases to ensure the CCAP subprogram is correct."
              + "<br>Edit Summary: Lists any summary edits found for all cases."
              + "<br>Self-Employment: Checks all cases for the self-employment activity."
-             + "<br>Reporter Type: Fetches the reporter type for Active status cases."
+             // + "<br>Reporter Type: Fetches the reporter type for Active status cases."
              + "<br>Residence: Fetches the city of residence for all cases."
              + "<br>Homeless: Checks for if the case is or was homeless, and the dates thereof. For reporting purposes."
              , selector: "#afterResults" },
@@ -1956,23 +2007,24 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         let aclQuerySelect = createNewEle( 'select', { classList: 'form-control', style: 'width: fit-content;', id: 'aclQuerySelect', }),
             getAclData = createNewEle( 'button', { type: 'button', id: 'getAclData', disabled: 'disabled', classList: 'cButton', type: 'button', textContent: 'Get Selected Data', }),
             exportLoadedData = createNewEle( 'button', { type: 'button', id: 'exportLoadedData', classList: 'cButton', type: 'button', style: 'display: none;', textContent: 'Copy Excel Data', })
-        aclQuerySelect.append( ...["", "Redet/Suspend", "Subprogram", "Edit Summary", "Job Search Hours", "Phone Numbers", "Self-Employment", "Reporter Type", "Homeless", "Residence", "Find Case Note"].map(optionText => createNewEle( 'option', { value: optionText, id: optionText, textContent: optionText })) );
+        aclQuerySelect.append( ...["", "Redet/Suspend", "Subprogram", "Edit Summary", "Job Search Hours", "Phone Numbers", "Self-Employment", "Homeless", "Residence", "Find Case Note"].map(optionText => createNewEle( 'option', { value: optionText, id: optionText, textContent: optionText })) );
+        // aclQuerySelect.append( ...["", "Redet/Suspend", "Subprogram", "Edit Summary", "Job Search Hours", "Phone Numbers", "Self-Employment", "Reporter Type", "Homeless", "Residence", "Find Case Note"].map(optionText => createNewEle( 'option', { value: optionText, id: optionText, textContent: optionText })) );
         let afterResults = createNewEle( 'div', { id: 'afterResults', style: 'display: inline-flex; gap: 5px;', }); afterResults.append( aclQuerySelect, getAclData, exportLoadedData )
         caseResultsData.insertAdjacentElement('afterend', afterResults)
         let csvDataOutput = {};
         function addSpan({ tr, child, extraClasses="", baseClasses="ACLaddedSpan float-right-imp tableAmend", attribObj={}, dataObj }) {
             if (!attribObj.textContent) { return };
-            let addedSpan = tr.children[child].appendChild( createNewEle('span', Object.assign(attribObj, { classList: [baseClasses, extraClasses].filter(e=>e).join(' ') }), dataObj ))
+            let addedSpan = tr.children[child].appendChild( createNewEle('span', Object.assign(attribObj, { classList: [baseClasses, extraClasses].flat().filter(e=>e).join(' ') }), dataObj ))
         };
         function addDivSpan({ tr, child, baseClasses="ACLaddedSpan float-right-imp tableAmend", extraClasses="", spansArray }) {
             if (!spansArray) { return };
-            let addedDiv = tr.children[child].appendChild( createNewEle('div', { classList: [baseClasses, extraClasses].filter(e=>e).join(' ') } ))
+            let addedDiv = tr.children[child].appendChild( createNewEle('div', { classList: [baseClasses, extraClasses].flat().filter(e=>e).join(' ') } ))
             // tr.children[child].insertAdjacentElement('beforeend', createNewEle('div', { classList: ([ baseClasses, extraClasses ].filter(e=>e).join(' ')) }) ).append((
             // Array.isArray(spansArray[0])
             // ? ...spansArray.map(spanArr => createNewEle('span', ) // blarg '<span' + (spanArr[1] ?? "") + '>' + spanArr[0] + '</span>') Object.assign({ textContent: spanArr[0] }, spanArr[1] ?? {})
             // : ...spansArray.map(spanText => createNewEle('span', { textContent: spanText }) )
             //)
-            tr.children[child].insertAdjacentHTML('beforeend', '<div class="' + ([ baseClasses, extraClasses ].filter(e=>e).join(' ')) + '">'
+            tr.children[child].insertAdjacentHTML('beforeend', '<div class="' + ([ baseClasses, extraClasses ].flat().filter(e=>e).join(' ')) + '">'
                                                   + ( Array.isArray(spansArray[0])
                                                   ? spansArray.map(spanArr => '<span' + (spanArr[1] ?? "") + '>' + spanArr[0] + '</span>').join("") // array of arrays;
                                                   : spansArray.map(spanText => '<span>' + spanText + '</span>').join("") ) // array of text;
@@ -1999,7 +2051,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 ["Funding Availability page is missing.", { uniLetter: "🅵", errTitle: "Funding Availability page is missing." } ],
                 ["County of residence has changed. The Financially Responsible Agency will be incorrect unless a Transfer page is completed.", { uniLetter: "🆃", errTitle: "Residence county changed - needs transfer." } ],
                 ["Total Hours of Care Authorized on the Child's Provider page exceeds the 120 hour limit in a biweekly period.", { uniLetter: "🅐", errTitle: "Authorized hours > 120." } ],
-            ])
+            ]);
             h4objects.maxiscase.h4.parentElement.style.position = "relative"
             h4objects.maxiscase.siblings[0].insertAdjacentHTML(
                 'beforeend', ''
@@ -2025,7 +2077,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     })
                     const uniqueErrors = reduceArrToUniques(allErrors)
                     addDivSpan({ tr: caseListObject[caseNum], child: 3, baseClasses: "absPos ACLaddedSpan tableAmend", spansArray: uniqueErrors })
-                }
+                };
             });
         };
         async function checkResidence() {
@@ -2035,7 +2087,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     let residenceCity = nameFuncs.toTitleCase(currCase.residenceCity)
                     let mailingCity = currCase.mailingCity?.length ? " / " + nameFuncs.toTitleCase(currCase.mailingCity) : ''
                     addSpan({ tr: caseListObject[caseNum], child: 3, attribObj: { textContent: '(' + residenceCity + mailingCity + ')' } })
-                }
+                };
             });
         };
         async function checkPhoneNumbers() {
@@ -2044,7 +2096,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     let currCase = result[caseNum][0][0]
                     let phones = [ currCase.phone1, currCase.phone2, currCase.phone3 ].filter(e => e)
                     addDivSpan({ tr: caseListObject[caseNum], child: 3, spansArray: phones, extraClasses: 'separate' })
-                }
+                };
             });
         };
         async function checkSupportActivityJS() {
@@ -2057,7 +2109,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     const jobSearchMap = jobSearchFilter.map(item => "M" + item.memberReferenceNumber + ": " + item.originalHoursPerWeek).join("\n")
                     let jobSearchStyle = jobSearchFilter.filter(item => ( item.originalHoursPerWeek === "1" && tr.children[2].textContent.indexOf('Active') > -1).length ) ? "font-weight: bold; color: var(--textColorNegative);" : ""
                     addSpan({ tr, child: 3, attribObj: { textContent: "JS: " + jobSearchMap, style: jobSearchStyle } })
-                }
+                };
             });
         };
         async function checkSelfEmployment() {
@@ -2070,9 +2122,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         if (selfEmployActivity === "Self-employment") {
                             addSpan({ tr: caseListObject[caseNum], child: 3, attribObj: { textContent: "Self-employed" } })
                             break selfEmployLoop
-                        }
-                    }
-                }
+                        };
+                    };
+                };
             });
         };
         async function checkSubprogram() {
@@ -2087,10 +2139,10 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                             let tr = caseListObject[caseNum], trTdText = tr.children[3].textContent
                             if ( ((subprogram === "CCMF" && mfipStatus !== "Active") || (mfipStatus === "Active" && subprogram !== "CCMF")) && inRange(mfipDateDiff, 31, 359)) {
                                 addSpan({ tr, child: 3, attribObj: { textContent: trTdText + " (MFIP: " + mfipStatus + " - " + mfipDate + ")" } })
-                            }
-                        }
-                    }
-                }
+                            };
+                        };
+                    };
+                };
             });
         };
         async function findCaseNote() {
@@ -2103,11 +2155,11 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     let foundNoteDate = filteredResult[caseNum].find(note => note.noteCreator === findNotesByWorker)?.noteCreateDate
                     if (!foundNoteDate) { continue };
                     addSpan({ tr: caseListObject[caseNum], child: 3, attribObj: { textContent: foundNoteDate } })
-                }
+                };
             });
         };
         async function redetDateVsSuspendDate() {
-            let today = Date.now()
+            let today = new Date().setHours(0, 0, 0, 0)
             aclTbody.addEventListener('click', clickEvent => { if ( clickEvent.target.classList.contains("cSpan") ) { redetTbodyEvent(clickEvent.target) } });
             const suspendedcaseListNumberArray = openCaseLists.suspended.map(tr => {
                 let redetDateNumber = sanitize.date(tr.children[4].textContent, "number"), dateDiff = (redetDateNumber - today) / dateFuncs.dayInMs
@@ -2136,23 +2188,35 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         case suspendToRedetDiff < 335: { addSpan({ tr, child: 3, attribObj: { textContent: "Est. suspend < 1 year" } }); continue }
                         case suspendToRedetDiff > 414: { addSpan({ tr, child: 3, attribObj: { textContent: "Closes before Redet" } }); continue }
                         case inRange(suspendToRedetDiff, 335, 414): {
-                            let suspendDatePlus = dateFuncs.formatDate( dateFuncs.addDays( suspendDateNumber, 416), "mmddyyyy" )
-                            addSpan({ tr, child: 3, extraClasses: 'cSpan', attribObj: { textContent: "est. suspend " + suspendToRedetDiff + " days", title: 'Set new Redet date to ' + suspendDatePlus, }, dataObj: { delayDate: suspendDatePlus } })
+                            let delayDate = dateFuncs.formatDate( dateFuncs.addDays( suspendDateNumber, 416), "mmddyyyy" )
+                            addSpan({ tr, child: 3, extraClasses: 'cSpan delay', attribObj: { textContent: "est. suspend " + suspendToRedetDiff + " days", title: 'Set new Redet date to ' + delayDate, }, dataObj: { delayDate } })
                         };
                     };
                 };
             });
-            async function redetTbodyEvent(eventSpan) {
-                gbl.eles.footerLinks.insertAdjacentHTML('beforebegin', '<div id="iframeContainer" style="height: 400px;"><iframe id="redetiframe" name="redetiframe" style="width: 100%; height: 100%;"></iframe></div>')
-                let redetiframe = document.getElementById('redetiframe'), iframeContainer = document.getElementById('iframeContainer')
-                let eventcaseIdVal = eventSpan.closest('tr').id, delayDateObj = JSON.stringify({ id: eventcaseIdVal, delayDate: eventSpan.dataset.delayDate })
-                sessionStorage.setItem('MECH2.suspendPlus45', delayDateObj)
-                delayRedetDate(eventSpan, eventcaseIdVal, redetiframe).then(eventSpan => {
+            async function redetTbodyEvent(redetEventSpan) {
+                let aclIframe = createNewEle("iframe", { id: "aclIframe", name: "aclIframe", style: "width: 100%; height: 100%;" }), iframeContainer = createNewEle("div", { id: "iframeContainer", style: "height: 400px;" });
+                iframeContainer.append(aclIframe);
+                gbl.eles.footerLinks.insertAdjacentElement('beforebegin', iframeContainer)
+                let tr = redetEventSpan.closest('tr'), delayDate = redetEventSpan.dataset.delayDate, eventcaseIdVal = tr.id
+                if (redetEventSpan.className.includes("delay")) {
+                    let delayDateObj = JSON.stringify({ id: eventcaseIdVal, delayDate })
+                    sessionStorage.setItem('MECH2.suspendPlus45', delayDateObj)
+                    delayRedetDate(redetEventSpan, eventcaseIdVal, aclIframe).then(finishedEventSpan => {
+                        finishedIframeActivity(iframeContainer, finishedEventSpan, "element");
+                        let noteDelayButton = addSpan({ tr, child: 3, extraClasses: 'cSpan', attribObj: { textContent: "Note Delay", title: "Auto-Note Delay", }, dataObj: { delayDate } });
+                        noteDelayButton.addEventListener('click', event => { redetDelayCaseNote(eventcaseIdVal, dateFuncs.formatDate(delayDate, "mdyy")); noteDelayButton.textContent = "Case Noted ✔"; })
+                    });
+                };
+                function finishedIframeActivity(iframeContainer, finishedEventSpan, removeElementOrClass="class") {
                     window.onstorage = null
-                    iframeContainer.remove()
-                    eventSpan.classList.remove('cSpan')
+                    iframeContainer?.remove()
+                    switch(removeElementOrClass) {
+                        case "class": finishedEventSpan?.classList?.remove('cSpan'); break;
+                        case "element": finishedEventSpan?.remove(); break;
+                    };
                     thankYouForWaiting()
-                });
+                };
             };
             async function delayRedetDate(eventSpan, tRowId, redetiframe) {
                 return new Promise(resolve => {
@@ -2164,6 +2228,14 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         };
                     };
                     redetiframe.src = "/ChildCare/CaseRedetermination.htm?parm2=" + tRowId
+                });
+            };
+            function redetDelayCaseNote(eventcaseIdVal, delayDate) {
+                formStoreEnterAutoNote({
+                    caseIdVal: eventcaseIdVal,
+                    noteCategory: "Redeterminaton Delayed",
+                    noteSummary: "Redetermination delayed: suspended 1 year",
+                    noteMessage: "Redetermination delayed to " + delayDate + " so that the mailing date is after the case closure date for being suspended for 1 year."
                 });
             };
         };
@@ -2237,7 +2309,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         closedCaseLS.toLowerCase() === "${closedcasebank}" ? '' : closedCaseLS
         let closedCaseBank = (/[a-z0-9]{7}/i).test(closedCaseLS) ? closedCaseLS : ''
         let closedCaseBankLastThree = (closedCaseBank) ? closedCaseBank.slice(4) : ''
-        let todayDate = Date.now(), fortySixDays = 3974400000
+        let todayDate = new Date().setHours(0, 0, 0, 0), fortySixDays = 3974400000
         let changedToLinks, iframeContainer, transferiframe
 
         let storedTransferredListObj = sanitize.json(localStorage.getItem('storedTransferList')) ?? {}
@@ -2273,7 +2345,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         const oldClosedCaseArray = () => Array.from(document.querySelectorAll('.oldClosed'), caseNumber => caseNumber.id)
         let closedTransferAll = createNewEle('button', { type: 'button', classList: 'cButton', tabIndex: '-1', id: 'closedTransferAll', textContent: 'Transfer closed >45 days to:' }),
             transferWorker = createNewEle( 'input', { type: 'text', classList: 'form-control', style: 'display: inline-block; margin-left: 10px; width: var(--8numbers)', id: 'transferWorker', placeholder: "Worker #", value: closedCaseBank })
-        document.querySelector('label[for=inActiveCaseSearchWorkerId]').parentElement
+        document.querySelector('label[for=inActiveCaseSearchWorkerId]')?.parentElement
             .appendChild( createNewEle('div', { style: 'vertical-align: middle;', classList: 'float-right-imp', }))
             .appendChild( closedTransferAll )
             .insertAdjacentElement( 'afterend', transferWorker )
@@ -2322,9 +2394,10 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             });
         };
         async function transferMultiClosed(tRowIdArray) {
-            pleaseWait("Please wait...", 1)
-            let progressReport = document.getElementById('progressReport')
-            let progressBar = document.getElementById('progressBar')
+            // pleaseWait("Please wait...", 1)
+            // let progressReport = document.getElementById('progressReport')
+            // let progressBar = document.getElementById('progressBar')
+            let { progressReport, progressBar } = pleaseWait('Please Wait... ', true)
             let successfulTransfers = []
             await createIframe()
             return new Promise(async (resolve, reject) => {
@@ -2478,7 +2551,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             autoCopayApproval: { textIncludes: /Case was auto-approved with a copay decrease/, noteSummary: [/[A-Z0-9\,\.\- ]+ (\$\d+) [A-Z0-9\,\.\- ]+/i, "Elig with copay decrease of $1+ auto-approved"], noteCategory: "Other", omniPageButtons: ["autonoteButton"], },
         },
         maxis: {
-            gcReviewDate: { textIncludes: /Good Cause (?:Claim|Review) date/i, noteCategory: "Child Support/NCP Info", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+)(\d{1,2}\/\d{1,2}\/\d{2,4}) to (Blank|\d{1,2}\/\d{1,2}\/\d{2,4})(?:[a-z0-9 ]+.)/i, "Good Cause review date: $1 to $2"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteMsgFunc: "doFunctionOnNotes", },
+            gcReviewDate: { textIncludes: /Good Cause (?:Claim|Review) date/i, noteCategory: "Child Support/NCP Info", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+)(Blank|\d{1,2}\/\d{1,2}\/\d{2,4}) to (Blank|\d{1,2}\/\d{1,2}\/\d{2,4})(?:[a-z0-9 ]+.)/i, "Good Cause review date: $1 to $2"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteMsgFunc: "doFunctionOnNotes", },
             genGoodCauseChanged: { textIncludes: /Good Cause/, noteCategory: "Child Support/NCP Info", intendedPerson: true, noteSummary: [/([a-z ]+)(?: for [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], noteMsgFunc: "doFunctionOnNotes", },
             abpsChange: { textIncludes: /for Absent Parent/, noteCategory: "Child Support/NCP Info", noteSummary: [/([a-z ]+)(?: for Absent Parent [a-z0-9 ]+ from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "$1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseCSE"], },
             schoolChanged: { textIncludes: /SCHL Panel|Ver has been changed on the School|Kindergarten|School Type|School Status|Last Grade Completed/, noteCategory: "Other", omniPageButtons: ["delete", "CaseSchool", "CaseEducationActivity"], },
@@ -2488,16 +2561,16 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             csNonCoop: { textIncludes: /from Cooperating to Not Cooperating/, noteCategory: "Child Support/NCP Info", intendedPerson: true, noteSummary: "MAXIS: CP is not cooperating with CS", omniPageButtons: ["autonoteButton", "CaseCSE"], },
             marriage: { textIncludes: /Marriage Date|Marital status|Designated Spouse/, noteCategory: "Household Change", noteSummary: "Marriage alerts from MAXIS worker", noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseMemberII"], },
             memberLeft: { textIncludes: /Member Left date/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[A-Za-z ]*)(?:X[A-Z0-9]{6})(?:[A-Za-z ]*) (\d{1,2}\/\d{1,2}\/\d{2,4})./, "REMO: personName left $1"], omniPageButtons: ["CaseRemoveMember", "CaseMember", "CaseCSE"], },
-            memberJoined: { textIncludes: /Member window for Reference Number/, noteCategory: "Household Change", intendedPerson: true, noteSummary: 'doFunction', omniPageButtons: ["CaseNotes", "CaseMember"], },
-            personRemoved: { textIncludes: /Child\'s Reference Number has been removed|Parent window has been added|Date of Death/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseRemoveMember", "CaseMember", "CaseParent"], },
-            childCseRemoved: { textIncludes: /Child Ref Nbr \d{1,2} has been removed/, noteCategory: "Household Change", omniPageButtons: ["CaseCSE", "CaseRemoveMember", "CaseMember"], },
+            memberJoined: { textIncludes: /Member window for Reference Number/, noteCategory: "Household Change", intendedPerson: true, noteSummary: 'doFunction', omniPageButtons: ["CaseNotes", "CaseMember", "CaseMemberII", "CaseParent"], },
+            personAddedRemoved: { textIncludes: /Child\'s (?:Reference Number|Ref Nbr \d{1,2}) has been|Parent window has been|Date of Death/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember", "CaseParent", "CaseCSE", "CaseRemoveMember"], },
+            // childCseRemoved: { textIncludes: /Child Ref Nbr \d{1,2} has been removed/, noteCategory: "Household Change", omniPageButtons: ["CaseCSE", "CaseRemoveMember", "CaseMember"], },
             schoolPanelAdded: { textIncludes: /SCHL Panel|School Type/, noteCategory: "Other", omniPageButtons: ["CaseNotes", "CaseSchool", "CaseEducationActivity"], },
             disabilityStart: { textIncludes: /Disability start date/, noteCategory: "Other", intendedPerson: true, omniPageButtons: ["delete", "CaseDisability"], },
             residenceAddress: { textIncludes: /Residence Address has been/, noteCategory: "Household Change", noteSummary: "Residence address changed by MAXIS worker", noteMsgFetchData: [ ["CaseAddress.htm:0.0", ["residenceFullAddress"]], ], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
             mailingAddress: { textIncludes: /Mailing Address has been/, noteCategory: "Household Change", noteSummary: "Mailing address changed by MAXIS worker", noteMsgFetchData: [ ["CaseAddress.htm:0.0", ["mailingStreet1", "mailingStreet2", "mailingCity"] ], ], noteMsgFunc: "doFunctionOnNotes", omniPageButtons: ["autonoteButton", "CaseAddress"], },
             windowAddedRemoved: { textIncludes: /window [a-z0-9 ]+ been/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/([a-z ]+ window)(?:[a-z0-9 ]+ been )([a-z ]+)(?: by.+)/i, "$1: $2"], omniPageButtons: ["autonoteButton", "CaseMember"], },
             verMultiChanged: { textIncludes: /SSN has been changed|SSN Verification has been changed|Paternity for Child Ref|Last Grade Completed|Race has|Living Situation has/, noteCategory: "Other", omniPageButtons: ["delete"], },
-            hasBeenChangedCatchAll: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+ on the )([a-z]+)(?: window from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "Maxis: $1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseAddress", ], },
+            hasBeenChangedCatchAll: { textIncludes: /has been changed/, noteCategory: "Household Change", intendedPerson: true, noteSummary: [/(?:[a-z0-9 ]+ on the )([a-z]+)(?: window from )([a-z\/ ]+) to ([a-z\/ ]+)(?: by.+)/i, "Maxis: $1: $2 to $3"], omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseParent", "CaseAddress", ], },
             hasBeenAddedCatchAll: { textIncludes: /has been added/, noteCategory: "Household Change", intendedPerson: true, omniPageButtons: ["autonoteButton", "CaseMember", "CaseMemberII", "CaseParent"], },
         },
         parisinterstate: {
@@ -2546,7 +2619,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     };
     let storeNumberTask = [gbl.eles.submitButton, createButton, document.getElementById('Alerts.htm')].forEach(ele => ele.addEventListener('click', () => { tableRowSelection.store({ rowOrValToSearch: alertGroupId.value, clearEle: 'inputWorkerId', clearVal: document.getElementById('inputWorkerId').value }) }) );
     evalData().then( async ({ 0: tableOneAlerts, 1: tableTwoAlerts } = {}) => {
-    // evalData().then(( { 0: tableOneAlerts, 1: tableTwoAlerts } = {} ) => {
         if (!tableOneAlerts) { return };
         caseOrProviderAlertsTableTbody.addEventListener( 'click', clickEvent => {
             if (deleteAllActive || clickEvent.altKey ) { return };
@@ -2567,23 +2639,52 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             let caseOrProviderAlertsTableTbodyChildren = caseOrProviderAlertsTableTbody.children
             !function workerAlerts() {
                 if (typeof tableTwoAlerts !== "object") { return };
+                // rewrite (fail?) //
+                // const workerAlertMatches = { checkMfip: {}, appPending: {}, redetIncomp: {}, };
+                // let existingResults = sanitize.json(sessionStorage.getItem('MECH2.workerAlerts')) ?? {}
+                // const workerAlertMap = new Map([
+                //     ["Approve new results", 'checkMfip' ],
+                //     ["Application Pending: Check for docs before case auto-denies", 'appPending' ],
+                //     ["Redetermination Incomplete: Check for docs if Redetermination not approved", 'redetIncomp' ],
+                // ]).forEach((val, key) => {
+                //     //
+                // });
+                    // ["Approve new results", resultsFunctions.mfipAlerts ],
+                    // ["Application Pending: Check for docs before case auto-denies", resultsFunctions.pendingApps ],
+                    // ["Redetermination Incomplete: Check for docs if Redetermination not approved", resultsFunctions.incompleteRedets ],
                 // for pending: Add pending date to the alert text. Put pending days in the table textContent //
                 // const [ checkAlertArray, parsedAlertResults ] = parseTableTwoAlerts("Approve new")
-// parseTableTwoAlerts("Pending").then(([ checkAlertArray, parsedAlertResults ] = []) => { Text-based specific instructions? //checkPendingResults() }
-// parseTableTwoAlerts("Approve new").then(([ checkAlertArray, parsedAlertResults ] = []) => { Text-based specific instructions? //checkMfipResults() }
-                async function parseTableTwoAlerts(checkForText) {
+                // parseTableTwoAlerts("Pending").then(([ checkAlertArray, parsedAlertResults ] = []) => { Text-based specific instructions? //checkPendingResults() }
+                // parseTableTwoAlerts("Approve new").then(([ checkAlertArray, parsedAlertResults ] = []) => { Text-based specific instructions? //checkMfipResults() }
+                // function mapToAlertType(typeOfAlert) {
+                //     tableTwoAlerts.map(item => {
+                //         item.caseNumber
+                //         item.isn
+                //         item.message
+                //         item.alertType
+                //     })
+                // };
+                // rewrite //
+                function parseTableTwoAlerts(checkForText) {
                     const parseAlertArray = []
-                    const parseAlertResults = {}
-                    tableTwoAlerts.forEach(item => {
-                        if (item.message.indexOf(checkForText) === 0) {
+                    let parseAlertResults = Object.fromEntries(
+                        tableTwoAlerts.map(item => {
+                            if (item.message.indexOf(checkForText) < 0) { return undefined };
                             let thisRow = caseOrProviderAlertsTableTbody.children[item.rowIndex]
-                            if (parseAlertArray.includes(thisRow.id)) { return };
+                            if (parseAlertArray.includes(thisRow.id)) { return undefined };
                             thisRow.id = thisRow.children[2].textContent
                             parseAlertArray.push(thisRow.id)
-                            parseAlertResults[thisRow.id] = { rowIndex: item.rowIndex }
-                        };
-                    });
-                    return [ parseAlertArray, parseAlertResults ]
+                            return [ thisRow.id, { rowIndex: item.rowIndex } ];
+                        }).filter(e => e)
+                    );
+                    return parseAlertResults;
+                };
+                function parseAllStoredResults(checkAlertArray) {
+                    let existingResults = sanitize.json(sessionStorage.getItem('MECH2.workerAlerts')) ?? undefined
+                    if (!existingResults) { return };
+                    if (existingResults && !checkAlertArray.length) { sessionStorage.removeItem('MECH2.workerAlerts'); return; };
+                    for (let caseNum in existingResults) { existingResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined };
+                    return existingResults
                 };
                 function parseStoredResults(sessStoreName, checkAlertArray) {
                     let existingResults = sanitize.json(sessionStorage.getItem(sessStoreName)) ?? undefined
@@ -2601,7 +2702,13 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         resultsTd.appendChild( createNewEle('span', { classList: 'tableSpan', textContent: thisCaseObj.textContent }))
                     };
                 };
+                const resultsFunctions = {
+                    mfipAlerts() {},
+                    pendingApps() {},
+                    incompleteRedets() {},
+                };
 
+// Original workerAlertMfip //
                 !function workerAlertMfip() { // find alerts that have "Approve new" and store their rowIndex //
                     const checkCashArray = [];
                     const cashAlertResults = {};
@@ -2622,8 +2729,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         placeMfipResults(existingCashResults)
                     }();
                     if (!checkCashArray.length) { return };
-                    alertDetailRow.appendChild( createNewEle('button', { type: 'button', id: 'doMfipCheck', classList: 'cButton', tabIndex: '-1', textContent: 'Check MFIP Alerts', }))
-                    document.getElementById('doMfipCheck').addEventListener( 'click', () => checkMfipResults(checkCashArray) )
+                    let doMfipCheck = createNewEle('button', { type: 'button', id: 'doMfipCheck', classList: 'cButton', tabIndex: '-1', textContent: 'Check MFIP Alerts', })
+                    alertDetailRow.appendChild( doMfipCheck )
+                    doMfipCheck.addEventListener( 'click', () => checkMfipResults(checkCashArray) )
 
                     function checkMfipResults() { // button click to check CaseOverview and get fresh results for all cases in array // calls placeResults // stores results in session storage //
                         forAwaitMultiCaseEval(checkCashArray, "CaseOverview.htm").then(checkMFIPArray => {
@@ -2634,8 +2742,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                                         cashAlertResults[thisCase] = {
                                             ...cashAlertResults[thisCase],
                                             textContent: [ programTable[row].programNameHistory + ': ' + programTable[row].programStatusHistory,
-                                            programTable[row].programStatusHistory === "Inactive" ? ' ' + programTable[row].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : '',
-                                            ' | CCAP: ' + programTable[0].programNameHistory + (programTable[row].programNameHistory === "MFIP" && programTable[0].programNameHistory !== "CCMF" ? ' ' + programTable[0].programBeginDateHistory : '') ].join('')
+                                                          programTable[row].programStatusHistory === "Inactive" ? ' ' + programTable[row].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : '',
+                                                          ' | CCAP: ' + programTable[0].programNameHistory + (programTable[row].programNameHistory === "MFIP" && programTable[0].programNameHistory !== "CCMF" ? ' ' + programTable[0].programBeginDateHistory : '') ].join('')
                                         };
                                         break
                                     };
@@ -2655,7 +2763,70 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         };
                     };
                 }();
+// Original workerAlertMfip //
+
+
+                return;
+                workerAlertMfip("Approve new")
+                async function workerAlertMfip(alrtStr) { // find alerts that have "Approve new" and store their rowIndex //
+                    let workerMfipAlerts = await parseTableTwoAlerts(alrtStr)
+                    // const checkCashArray = [];
+                    // const workerMfipAlerts = {};
+                    // tableTwoAlerts.forEach(item => {
+                    //     if (item.message.indexOf(alrtStr) === 0) {
+                    //         let thisRow = caseOrProviderAlertsTableTbody.children[item.rowIndex]
+                    //         if (checkCashArray.includes(thisRow.id)) { return };
+                    //         thisRow.id = thisRow.children[2].textContent
+                    //         checkCashArray.push(thisRow.id)
+                    //         workerMfipAlerts[thisRow.id] = { rowIndex: item.rowIndex }
+                    //     };
+                    // });
+                    function checkForThenPlaceMfipResults() { // check session storage for existing results // add <span> if result already exists //
+                        let existingCashResults = sanitize.json(sessionStorage.getItem('workerMfipAlerts')) ?? undefined
+                        if (existingCashResults && !Object.keys(workerMfipAlerts).length) { sessionStorage.removeItem('workerMfipAlerts'); return false; }; // Stored results: Yes. Still present results: No. //
+                        if (!existingCashResults) { return true };
+                        for (let caseNum in existingCashResults) { existingCashResults[caseNum].rowIndex = tableOneAlerts.find(data => data.caseNumberOrProviderId.indexOf(caseNum) > -1)?.rowIndex ?? undefined }; // find new rowIndex for stored result //
+                        placeMfipResults(existingCashResults)
+                    };
+                    if (!checkForThenPlaceMfipResults() || !Object.keys(workerMfipAlerts).length) { return };
+                    // if (!checkCashArray.length) { return };
+                    // alertDetailRow.appendChild( createNewEle('button', { type: 'button', id: 'doMfipCheck', classList: 'cButton', tabIndex: '-1', textContent: 'Check MFIP Alerts', }))
+                    // document.getElementById('doMfipCheck').addEventListener( 'click', () => checkNewMfipResults(checkCashArray) )
+
+                    function checkNewMfipResults() { // button click to check CaseOverview and get fresh results for all cases in array // calls placeResults // stores results in session storage //
+                        forAwaitMultiCaseEval(Object.keys(workerMfipAlerts), "CaseOverview.htm").then(checkMFIPArray => {
+                            for (let thisCase in checkMFIPArray) {
+                                let programTable = checkMFIPArray[thisCase][0]
+                                for (let row in programTable) {
+                                    if ( ["MFIP", "DWP"].includes(programTable[row].programNameHistory) ) {
+                                        workerMfipAlerts[thisCase] = {
+                                            ...workerMfipAlerts[thisCase],
+                                            textContent: [ programTable[row].programNameHistory + ': ' + programTable[row].programStatusHistory,
+                                                          programTable[row].programStatusHistory === "Inactive" ? ' ' + programTable[row].programBeginDateHistory.replace(/20(\d\d)/, '$1').replace(/0(\d)/g, '$1') : '',
+                                                          ' | CCAP: ' + programTable[0].programNameHistory + (programTable[row].programNameHistory === "MFIP" && programTable[0].programNameHistory !== "CCMF" ? ' ' + programTable[0].programBeginDateHistory : '') ].join('')
+                                        };
+                                        break
+                                    };
+                                };
+                            };
+                            placeMfipResults(workerMfipAlerts)
+                            sessionStorage.setItem('workerMfipAlerts', JSON.stringify(workerMfipAlerts))
+                        });
+                    };
+                    function placeMfipResults(resultsObj) {
+                        for (let caseNum in resultsObj) {
+                            let thisCaseObj = resultsObj[caseNum]
+                            if (!thisCaseObj.rowIndex) { continue };
+                            let resultsTd = caseOrProviderAlertsTableTbodyChildren[thisCaseObj.rowIndex]?.children[1];
+                            Array.from(resultsTd.children, child => { child.remove() })
+                            resultsTd.appendChild( createNewEle('span', { classList: 'tableSpan', textContent: thisCaseObj.textContent }))
+                        };
+                    };
+                };
             }();
+
+
+
 
 
             !function preWorkerAlertClick() {
@@ -2745,8 +2916,8 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         // SECTION_END Delete_all_alerts
 
         // SECTION_START Alert_Type_Based_Action
-        let caseCategoriesButtonsDiv = createNewEle('div', { id: "caseCategoriesButtonsDiv", classList: "hidden" }), providerCategoriesButtonsDiv = createNewEle('div', { id: "providerCategoriesButtonsDiv", classList: "hidden" }), omniButtonsDiv = createNewEle('div', { id: "omniButtonsDiv" })
-        deleteButton.parentElement.appendChild( createNewEle('div', { id: "baseCategoryButtonsDiv", classList: "form-group-no-margins form-group-button-parent" })).append(caseCategoriesButtonsDiv, providerCategoriesButtonsDiv, omniButtonsDiv)
+        let caseCategoriesButtonsDiv = createNewEle('div', { id: "caseCategoriesButtonsDiv", classList: "hidden" }), providerCategoriesButtonsDiv = createNewEle('div', { id: "providerCategoriesButtonsDiv", classList: "hidden" }), omniButtonsDiv = createNewEle('div', { id: "omniButtonsDiv" }), baseCategoryButtonsDiv = createNewEle('div', { id: "baseCategoryButtonsDiv", classList: "form-group-no-margins form-group-button-parent" })
+        deleteButton.parentElement.appendChild(baseCategoryButtonsDiv).append(caseCategoriesButtonsDiv, providerCategoriesButtonsDiv, omniButtonsDiv)
         !function categoryButtonsCreation() {
             const aCaseCategoryButtons = [ ["Notes", "CaseNotes"], ["Overview", "CaseOverview"], ["Elig.", "CaseEligibilityResultSelection"], ["SA:O", "CaseServiceAuthorizationOverview"], ["Provider", "CaseChildProvider"], ["Page Summary", "CasePageSummary"], ]
             caseCategoriesButtonsDiv.append( ...aCaseCategoryButtons.map(([ textContent, id ] = []) => createNewEle('button', { textContent, id, type: "button", classList: "form-button" } )) )
@@ -2759,14 +2930,14 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 case "Provider": if (providerCategoriesButtonsDiv.classList.contains('hidden')) { caseCategoriesButtonsDiv.classList.add('hidden'); providerCategoriesButtonsDiv.classList.remove('hidden'); } break;
             };
         };
-        document.getElementById('baseCategoryButtonsDiv').addEventListener('click', clickEvent => {
+        baseCategoryButtonsDiv.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return }
             let alertTypeParameters = getAlertType(caseOrProviderType.value).parameters
             if (foundAlert.noteMessage === "Approve new results (BSF/TY/extended eligibility) if MFIP not reopened." && (/\d{1,2}\/\d{1,2}\/\d{2,4}/).test(selectedCaseOrProvider.tableRow.innerText)) {
-                let eligChangeDate = Date.parse(selectedCaseOrProvider.tableRow.innerText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)[0]), baseDate = 1748192400000
-                while (baseDate < eligChangeDate) { baseDate += dateFuncs.bwpInMs }
-                let thirteenDays = 1123200000
-                alertTypeParameters.parm3 = "&parm3=" + dateFuncs.parm3date(dateFuncs.formatDate(baseDate - thirteenDays, 'mmddyyyy') + dateFuncs.formatDate(baseDate, 'mmddyyyy'))
+                // let eligChangeDate = Date.parse(selectedCaseOrProvider.tableRow.innerText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)[0]), baseDate = 1748192400000, thirteenDays = 1123200000
+                // while (baseDate < eligChangeDate) { baseDate += dateFuncs.bwpInMs }
+                alertTypeParameters.parm3 = "&parm3=" + findPeriodContainingDate(selectedCaseOrProvider.tableRow.innerText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)[0])
+                // alertTypeParameters.parm3 = "&parm3=" + dateFuncs.parm3date(dateFuncs.formatDate(baseDate - thirteenDays, 'mmddyyyy') + dateFuncs.formatDate(baseDate, 'mmddyyyy'))
             };
             window.open('/ChildCare/' + clickEvent.target.id + '.htm' + alertTypeParameters.parm2 + alertTypeParameters.parm3, '_blank')
         });
@@ -2852,12 +3023,11 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             foundAlert.page = alertType.page
             foundAlert.parameters = alertType.parameters.parm2 + alertType.parameters.parm3
             foundAlert.numberId = alertType.numberId
-            foundAlert.noteSummary = foundAlert.noteSummary.replace(/(\d{2}\/\d{2}\/\d{4}|\d{13})/g, (date) => dateFuncs.formatDate(date, "mdyy"))
+            foundAlert.noteSummary = foundAlert.noteSummary.replace(/(\d{1,2}\/\d{1,2}\/\d{2,4}|\d{13})/g, date => dateFuncs.formatDate(date, "mdyy"))
             return foundAlert;
 
             function noteMessageReplacement({ alertByCategory, noteMessage, fetchedDataArray, alertTableSelectedRow } = {}) { // disabled "group" items //
                 switch (alertByCategory) {
-                    // case "childsupport.csCSES": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('CSES') )
                     case "childsupport.ncpAddress": {
                         let parentAndNCPAddress = foundAlert.noteSummary + "\n-\nCase Address: " + fetchedDataArray[0]
                         if ((noteMessage).includes(fetchedDataArray[0].slice(0, 12))) {
@@ -2866,16 +3036,18 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                         };
                         return parentAndNCPAddress
                     }
+                    case "maxis.mailingAddress": return fetchedDataArray[0].length ? foundAlert.noteMessage + "\n-\nMailing Address: " + fetchedDataArray[0] + " " + fetchedDataArray[1] + " " + fetchedDataArray[2] : foundAlert.noteMessage + "\n-\nMailing address removed."
+                    case "maxis.residenceAddress": return foundAlert.noteMessage + "\n-\nResidence Address: " + fetchedDataArray[0]
+                    case "workercreated.approveMFIPclosing": return "Approved eligibility results."
+                    // case "childsupport.csCSES": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('CSES') )
                     // case "eligibility.unpaidCopay": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('Failure') )
                     // case "maxis.gcReviewDate": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
                     // case "maxis.genGoodCauseChanged": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => item.includes('Good Cause') )
-                    case "maxis.mailingAddress": return fetchedDataArray[0].length ? foundAlert.noteMessage + "\n-\nMailing Address: " + fetchedDataArray[0] + " " + fetchedDataArray[1] + " " + fetchedDataArray[2] : foundAlert.noteMessage + "\n-\nMailing address removed."
                     // case "maxis.marriage": return tableTwoAlertsGrouped[getChildNum(alertTableSelectedRow)].filter( item => ['Marriag','Marital','Designa'].includes(item.slice(0, 7)) )
-                    case "maxis.residenceAddress": return foundAlert.noteMessage + "\n-\nResidence Address: " + fetchedDataArray[0]
-                    case "workercreated.approveMFIPclosing": return "Approved eligibility results."
                 };
             };
-            function noteSummaryReplacement(noteSummaryArray, msgText, personName) { return msgText.replace(noteSummaryArray[0], noteSummaryArray[1]).replace("personName", personName) }
+            function noteSummaryReplacement([notePattern, noteReplacement]=[], msgText, personName) { return msgText.replace(notePattern, noteReplacement).replace("personName", personName) };
+            // function noteSummaryReplacement(noteSummaryArray, msgText, personName) { return msgText.replace(noteSummaryArray[0], noteSummaryArray[1]).replace("personName", personName) };
             function noteSummaryFunction({ alertByCategory, effectiveDate, selectedRowName } = {}) {
                 switch (alertByCategory) {
                     case "maxis.memberJoined": { return foundAlert.noteMessage.replace(/(?:[A-Za-z0-9 ]+) date of (\d{1,2}\/\d{1,2}\/\d{2,4})./, "Added: $1: " + nameFuncs.commaNameObject(selectedRowName.textContent).first ) }
@@ -2954,17 +3126,18 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         let appReceivedDate = appReceivedField.value
         let appDateCompare = sanitize.date(appReceivedField.value, "number")
         if (appReceivedField.value !== '') {
-            h4objects.dates.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton float-right-imp" style="margin-top: 5px;" tabindex="-1" id="appReceivedDateButton">Copy App Date</button>')
-            document.getElementById('appReceivedDateButton').addEventListener('click', (() => {
+            let appReceivedDateButton = createNewEle("button", { type: "button", classList: "cButton float-right-imp", style: "margin-top: 5px;", tabIndex: "-1", id: "appReceivedDateButton", textContent: "Copy App Date" })
+            h4objects.dates.h4.insertAdjacentElement('afterend', appReceivedDateButton)
+            appReceivedDateButton.addEventListener('click', (() => {
                 actualDate._setActualDateToSS({adCaseNum: "noCaseNumberYet", adDate: appReceivedDate, adField: 'receivedDate'})
                 sessionStorage.setItem('processingApplication', "yes")
                 snackBar("Stored application date", 'notitle')
                 if ( !inRange( appDateCompare, sanitize.date(selectPeriodDates.start, "number"), sanitize.date(selectPeriodDates.end, "number") ) ) {
                     document.getElementById('retroAppDateLbl').style.visibility = "hidden"
                     document.getElementById('retroAppDate').insertAdjacentHTML('afterend','<span>Notice: Application date is outside the current biweekly period.</span>')
-                }
-            }))
-        }
+                };
+            }));
+        };
     }(); // SECTION_END Application_Information;
     !function __CaseApplicationInitiation() {
         if (!("CaseApplicationInitiation.htm").includes(thisPageNameHtm) || !editMode) { return };
@@ -2972,18 +3145,18 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         let pmiNumber = document.getElementById('pmiNumber')
         pmiNumber?.addEventListener('blur', blurEvent => { if ( pmiNumber.value ) { eleFocus( firstEmptyElement() ) } })
         function appDateChanged(changeEvent) {
-            if (changeEvent.target.value.length < 10) { document.getElementById('weekendWarning')?.closest('.error_alertbox_new')?.remove() ; return false }
+            if (changeEvent.target.value.length < 10) { document.getElementById('weekendWarning')?.closest('.error_alertbox_new')?.remove(); return false };
             let appDate = sanitize.date(changeEvent.target.value, "number"), benPeriodDate = { start: sanitize.date(selectPeriodDates.start, "number"), end: sanitize.date(selectPeriodDates.end, "number") }, sunOrSat = dateFuncs.getDayOfWeek(appDate)
             if ( ([0,6]).includes(sunOrSat) && !document.getElementById('weekendWarning') ) {
                 yellowTextBox({ textContent: 'Warning: Application date should not be on a weekend day.', id: 'weekendWarning' })
                 return;
             };
-            const matchingPeriod = findContainingPeriod(gbl.eles.selectPeriod, appDate)
+            const matchingPeriod = findPeriodContainingDateOption(gbl.eles.selectPeriod, appDate)
             if (!matchingPeriod) { return };
             gbl.eles.selectPeriod.value = matchingPeriod.value
             eleFocus(gbl.eles.save)
             preventKeys(["Tab"])
-        }
+        };
         $('#applicationReceivedDate').on("input change", appDateChanged ) // forcedjQuery //
         document.getElementById('next')?.addEventListener('click', () => { sessionStorage.setItem('processingApplication', "yes") })
     }(); // SECTION_END Case_Application_Initiation;
@@ -3009,7 +3182,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         let copyMailing = addTertEle('button', { type: 'button', classList: 'form-button', tabIndex: '-1', id: 'copyMailing', textContent: 'Copy Mail Address', })
         evalData({ evalString: '0' }).then(addressData => { // ({ 0: addressData } = {})
             if (addressData[0].email) {
-                const emailSubject = encodeURIComponent((nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal).toWellFormed())
+                const emailSubject = encodeURIComponent( (nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal).toWellFormed() )
                 document.querySelector('label[for=email]').innerHTML = '<a href="mailto:' + addressData[0].email + '?subject=' + emailSubject + '">Email:</a>'
             }
             copyMailing.addEventListener('click', () => {
@@ -3347,7 +3520,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     aht: { related: careBreakdown.relatedLTfive, relatedVal: "Under 5: ✅.", unrelatedCat: careBreakdown.unrelatedLTfive, ageCat: underFive, },
                     suids: { related: careBreakdown.relatedLTone, relatedVal: "Under 1: ✅.", unrelatedCat: careBreakdown.unrelatedLTone, ageCat: underOne, },
                 };
-                lnlTrainings.dateDiff.sfs = dateFuncs.dateDiffInDays(lnlTrainings.elements.sfs.textContent, Date.now())
+                lnlTrainings.dateDiff.sfs = dateFuncs.dateDiffInDays(lnlTrainings.elements.sfs.textContent)
                 if (inRange(lnlTrainings.dateDiff.sfs, 0, 730)) {
                     lnlTrainings.dateDiff.aht = lnlTrainings.dateDiff.sfs; lnlTrainings.dateDiff.suids = lnlTrainings.dateDiff.sfs;
                     careBreakdown.sfsValue = 1
@@ -3359,7 +3532,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 } else {
                     lnlTrainings.elements.sfs.style = 'color: var(--textColorNegative) !important;';
                     ['aht', 'suids'].forEach(training => {
-                        lnlTrainings.dateDiff[training] ??= ( dateFuncs.dateDiffInDays(lnlTrainings.elements[training].textContent, Date.now()) ?? "" )
+                        lnlTrainings.dateDiff[training] ??= ( dateFuncs.dateDiffInDays(lnlTrainings.elements[training].textContent) ?? "" )
                         if (inRange(lnlTrainings.dateDiff[training], 0, 730)) {
                             lnlTrainings[training].related = lnlTrainings[training].relatedVal;
                             lnlTrainings[training].unrelatedCat = lnlTrainings[training].ageCat + (careBreakdown.sfsValue === 1 ? "✅." : yieldSign)
@@ -3398,7 +3571,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         doNotDupe.pages.push(thisPageNameHtm)
         let eligibilityResults = gbl.eles.tertiaryActionArea?.insertAdjacentElement('afterbegin', createNewEle( 'button', { type: 'button', id: 'eligibilityResults', classList: 'form-button', textContent: 'Eligibility Results', }) )
         // gbl.eles.tertiaryActionArea?.insertAdjacentHTML('afterbegin', '<button type="button" id="eligibilityResults" class="form-button">Eligibility Results</button>')
-        eligibilityResults.addEventListener('click', () => doClick(document.getElementById('Eligibility Results Selection').children[0]) );
+        eligibilityResults.addEventListener('click', () => doClick(document.getElementById('Eligibility Results Selection')?.firstElementChild) );
         eleFocus(eligibilityResults)
     } else { focusEle = '#createDB' };
 }(); // SECTION_END Case_Create_Eligibility_Results;
@@ -3423,6 +3596,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
     let cse = {
         eles: {
             csePriTable: document.getElementById('csePriTable'),
+            childrenTable: document.getElementById('childrenTable'),
             cseDetailsFormsCompleted: document.getElementById('cseDetailsFormsCompleted'),
             cseChildrenGridParentalStatus: document.getElementById('cseChildrenGridParentalStatus'),
         },
@@ -3433,11 +3607,11 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         if (!editMode) { return };
         cse.createdEles.fosterChildButton = createNewEle( 'button', { type: 'button', classList: 'cButton float-right-imp', tabIndex: '-1', style: 'margin-top: 5px;', id: 'fosterChild', textContent: 'Foster Child', })
         h4objects.details.h4.insertAdjacentElement('afterend', cse.createdEles.fosterChildButton)
-        cse.createdEles.fosterChildButton.addEventListener('click', () => {
+        cse.createdEles.fosterChildButton.addEventListener('click', () => { // auto-fill values for Foster Care children //
             new Map([
                 [ 'csePriNewReferenceNumber', '01' ], [ 'cseDetailsFormsCompleted', 'Not Required' ], [ 'cseDetailsCooperationStatus', 'Cooperating' ],
                 [ 'cseGoodCauseClaimStatus', 'Not Claimed' ], [ 'cseChildrenGridParentalStatus', 'Parental Rights Severed' ], [ 'cseChildrenGridCustodyStatus', 'Majority of Time with Caregiver' ],
-            ]).forEach( (value, key) => { document.getElementById(key).value = value } )
+            ]).forEach( (value, key) => { document.getElementById(key).value = value } );
             eleFocus( document.getElementById('cseChildrenGridChildNewReferenceNumber') )
         });
     }();
@@ -3446,7 +3620,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         cse.createdEles.csFormsButton = createNewEle( 'button', { type: 'button', classList: 'cButton float-right-imp hidden', tabIndex: '-1', style: 'margin-top: 5px;', id: 'csForms', textContent: 'Generate CS Forms', })
         h4objects.details.h4.insertAdjacentElement('afterend', cse.createdEles.csFormsButton)
         function checkIfButtonShouldBeVisible() {
-            if (cse.eles.cseDetailsFormsCompleted.value !== "Yes" && !["Parental Rights Severed", "Absent Parent  Deceased"].includes(cse.eles.cseChildrenGridParentalStatus?.value)) { cse.createdEles.csFormsButton.classList.remove('hidden') }
+            if (!["Yes", "Not Required"].includes(cse.eles.cseDetailsFormsCompleted?.value) && !["Parental Rights Severed", "Absent Parent  Deceased"].includes(cse.eles.cseChildrenGridParentalStatus?.value)) { cse.createdEles.csFormsButton.classList.remove('hidden') }
             else { cse.createdEles.csFormsButton.classList.add('hidden') }
         };
         cse.eles.csePriTable.addEventListener('click', checkIfButtonShouldBeVisible)
@@ -3455,12 +3629,13 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             let workerName = countyInfo.info?.workerFormName ?? countyInfo.countyInfoPrompt('Enter the case worker name as you want it to appear on forms.', 'workerFormName')
             let workerPhone = countyInfo.info?.workerPhoneNumber ?? countyInfo.countyInfoPrompt('Enter the case worker phone number.', 'workerPhoneNumber')
             if (!workerName || !workerPhone) { return };
-            let cpInfo = nameFuncs.commaNameObject(getCleanTdText( document.querySelector('.selected td:nth-child(2)') ))
-            let ncpInfoText = document.querySelector('.selected td:nth-child(3)').textContent
-            let ncpInfo = !ncpInfoText ? { first: "", last: "" } : nameFuncs.commaNameObject(document.querySelector('.selected td:nth-child(3)').textContent)
-            let childList = Array.from(document.querySelectorAll('#childrenTable tbody tr'), row => nameFuncs.toTitleCase(row.children[1].innerText) )
+            let [, cpName, ncpName ] = cse.eles.csePriTable.querySelector('tr.selected').children
+            let childList = Array.from( cse.eles.childrenTable.querySelectorAll('tbody tr'), row => nameFuncs.toTitleCase(row.children[1].innerText) )
+            let cpInfo = nameFuncs.commaNameObject(getCleanTdText( cpName ))
+            let ncpInfoText = ncpName.textContent
+            let ncpInfo = !ncpInfoText ? { first: "", last: "" } : nameFuncs.commaNameObject( ncpInfoText )
             const formInfo = { pdfType: "ChildSupportForms", workerName, workerPhone, caseNumber: caseIdVal, cpInfo, ncpInfo, childList };
-            window.open("https://mech2-at-github.github.io/MEC2FormFiller/?parm1=" + encodeURIComponent((JSON.stringify(formInfo)), "_blank").toWellFormed());
+            window.open("https://mech2-at-github.github.io/MEC2FormFiller/?parm1=" + encodeURIComponent( (JSON.stringify(formInfo).toWellFormed() ), "_blank") );
         });
     }();
     evalData().then(({ 0: memberData } = {}) => {
@@ -3470,15 +3645,15 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             cseDetailsFormsCompleted: { label: 'Forms', keywords: ["No", ], },
         };
         checkTablesForBlankOrNo(memberData, memberDataObject, caseMemberTableChildren)
-    }).catch(err => { console.trace(err) })
+    }).catch(err => { console.trace(err) });
 }(); // SECTION_END Case_CSE;
 !function CaseCSIA() {
     if (!("CaseCSIA.htm").includes(thisPageNameHtm)) { return };
     let csiahidden = ['middleInitial', 'birthDate', 'ssn', 'gender'].map(itemId => document.getElementById(itemId).parentElement.parentElement)
     let deceased = document.getElementById('deceased'), deceasedDateFormGroup = document.getElementById('deceasedDate').parentElement.parentElement
     let toggleAbsentParentName = createSlider({ textContent: "Show extra info", title: "Toggle displaying some name fields", id: "toggleAbsentParentNameSlider", classes: "h4-line float-right-imp", })
-    h4objects.absentparent.h4.insertAdjacentElement('afterend', toggleAbsentParentName)
-    document.getElementById('toggleAbsentParentNameSlider').addEventListener( 'click', ele => unhideElement(csiahidden, ele.target.checked) )
+    h4objects.absentparent.h4.insertAdjacentElement('afterend', toggleAbsentParentName.container)
+    toggleAbsentParentName.checkbox.addEventListener( 'click', ele => unhideElement(csiahidden, ele.target.checked) )
     unhideElement(csiahidden, false)
     h4objects.address.h4.click()
     deceasedDateFormGroup.classList.add('hidden')
@@ -3507,25 +3682,22 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     if (!membersWithExemptions) { return };
                     let membersWithExemptionsData = membersWithExemptions.map(data => ({
                         name: nameFuncs.commaNameObject(data.memberName).first,
-                        startDate: dateFuncs.formatDate(data.memberDisabilityPeriodFrom),
+                        startDate: dateFuncs.formatDate(data.memberDisabilityPeriodFrom, "mdyy"),
                         endDate: data.memberDisabilityPeriodTo ? dateFuncs.formatDate(data.memberDisabilityPeriodTo, "mdyy") : 'ongoing',
                         verification: data.memberVerification.replace(/( ){2,}|(\n){2,}/g, '$1$2')
                     }) );
                     let membersWithExemptionsFormatted = membersWithExemptionsData.map(data => "Entered absent day exemption for " + data.name + " for " + data.startDate + " - " + data.endDate + ". Verification: " + data.verification + ".").join('\n');
-                    let disabilityCaseNote = JSON.stringify( ({
-                        [caseIdVal]: {
-                            noteCategory: 'Absent Days',
-                            noteSummary: 'Absent day exemption: ' + membersWithExemptionsData[0].startDate + " - " + membersWithExemptionsData[0].endDate,
-                            noteMessage: membersWithExemptionsFormatted
-                        }
-                    }) );
-                    localStorage.setItem( "MECH2.note", disabilityCaseNote )
                     yellowTextBox({ textContent: "If billing needs to reprocess this period, an email template can be found on the Billing page (button: 'Template').", classList: "blackText" })
                     gbl.eles.buttonPanelTwo.querySelector('#Billing\\.btn').click()
                     let financialBillingButton = gbl.eles.buttonPanelThree.querySelector('#FinancialBilling\\.htm')
                     financialBillingButton.classList.add('browsing')
                     eleFocus(financialBillingButton)
-                    window.open('/ChildCare/CaseNotes.htm?parm2=' + caseIdVal, '_blank')
+                    formStoreEnterAutoNote({
+                        caseIdVal,
+                        noteCategory: "Absent Days",
+                        noteSummary: "Absent day exemption: " + membersWithExemptionsData[0].startDate + " - " + membersWithExemptionsData[0].endDate,
+                        noteMessage: membersWithExemptionsFormatted,
+                    });
                 });
             }
         };
@@ -3602,7 +3774,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     let alreadyRedirecting = 0
     intervalCallbackLimited(() => {
         if ( !alreadyRedirecting && document.querySelector('[id$="TableAndPanelData"]')?.style?.display === "none" ) {
-            window.open(document.getElementById("Eligibility Results Selection").firstElementChild.href, '_self')
+            window.open(document.getElementById("Eligibility Results Selection").firstElementChild?.href, '_self')
             alreadyRedirecting = 1
         };
     }, 200, 5)
@@ -3653,7 +3825,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 !function __CaseEligibilityResult() {
     if ( ["CaseEligibilityResultSelection.htm", "CaseEligibilityResultApprovalPackage.htm"].includes(thisPageNameHtm) ) { return };
     let tableRows = Array.from(document.querySelectorAll('table > tbody > tr'))
-    let setTrIds = tableRows?.forEach(ele => { ele.id = "ref" + (ele.firstElementChild.innerText) })
+    let setTrIds = tableRows?.forEach(ele => { ele.id = "ref" + (ele.firstElementChild?.innerText) })
     function eligHighlight() {
         Array.from(document.querySelectorAll('select, input:is(.eligibility-highlight)'), ele => { ele.classList.remove('eligibility-highlight', 'ineligible') })
         Array.from( document.querySelectorAll('.panel-box-format :is(select, input') ).filter(ele => (/^\bF\b|^\bFail\b/).test(ele.value) ).forEach(ele2 => ele2.classList.add('eligibility-highlight', 'ineligible'));
@@ -3754,7 +3926,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     const eligibilityResults = {}
     function arrayCreatePush(arr, value) { !Array.isArray(arr) ? arr = [value] : arr.unshift(value); return arr }
     eligibilityTableRows.forEach(ele => {
-        let [version, ofVersion] = ele.firstElementChild?.textContent.split(" of "), [,,,,, eligStatus, approvalStatus] = ele.children
+        let [version, ofVersion] = ele.firstElementChild?.textContent?.split(" of "), [,,,,, eligStatus, approvalStatus] = ele.children
         if (version === ofVersion) {
             ele.classList.add("current"); eligibilityResults.current = arrayCreatePush(eligibilityResults.current, ele)
             if (approvalStatus.textContent === "Unapproved") { ele.classList.add("unapproved"); eligibilityResults.unapproved = arrayCreatePush(eligibilityResults.unapproved, ele) }
@@ -3841,8 +4013,8 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     };
     checkEmploymentType()
     let toggleEmployerAddress = createSlider({ textContent: "Display Employer Address", title: "Toggle displaying Employer Address labels and fields", id: "toggleEmployerAddressSlider", classes: "float-right-imp h4-line", })
-    h4objects.details.h4.insertAdjacentElement('afterend', toggleEmployerAddress)
-    document.getElementById('toggleEmployerAddressSlider').addEventListener('click', ele => unhideElement(ceiAddressGroups, ele.target.checked) )
+    h4objects.details.h4.insertAdjacentElement('afterend', toggleEmployerAddress.container)
+    toggleEmployerAddress.checkbox.addEventListener('click', ele => unhideElement(ceiAddressGroups, ele.target.checked) )
     unhideElement(ceiAddressGroups, false)
     if (editMode) {
         ceiIncomeType.addEventListener('change', changeEvent => {
@@ -3958,8 +4130,8 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         async function fetchProviderEmail(billProviderId, billProviderName) {
             const providerEmailLink = await fetchHTML('/ChildCare/ProviderOverview.htm?providerId=' + billProviderId, '#contactEmailURL', 'element')
                 .then(emailEle => {
-                    let encodedEmailSubject = encodeURIComponent((nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal + ' (authorization resumed in the ' + dateFuncs.formatDate(selectPeriodDates.start, 'mdyy') + ' period)').toWellFormed())
-                    return '<a href="mailto:' + emailEle?.children[0]?.value + '?subject=' + encodedEmailSubject + '">' + billProviderName + '</a>'
+                    let encodedEmailSubject = encodeURIComponent( (nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal + ' (authorization resumed in the ' + dateFuncs.formatDate(selectPeriodDates.start, 'mdyy') + ' period)').toWellFormed() )
+                    return '<a href="mailto:' + emailEle?.firstElementChild?.value + '?subject=' + encodedEmailSubject + '">' + billProviderName + '</a>'
                 });
             return providerEmailLink
         };
@@ -4079,12 +4251,10 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         billingForm?.addEventListener('click', () => fetchCopay("billingForm"))
         copySAinfo?.addEventListener('click', () => fetchCopay("clipboard"))
         async function fetchCopay(destination) {
-            if (destination === "billingForm") {
-                if (!countyInfo.info?.billingName) {
-                    document.getElementById('mec2functionsOpenSettings')?.click()
-                    document.getElementById('billingAddress')?.click()
-                    return;
-                }
+            if (destination === "billingForm" && !countyInfo.info?.billingName) {
+                document.getElementById('mec2functionsOpenSettings')?.click()
+                document.getElementById('billingAddress')?.click()
+                return;
             };
             let providerNameInTable = providerInfoTable.querySelector('tbody > tr.selected > td:nth-child(2)').textContent
             if (copayAmountGet?.value) { saFilterEvalData(sanitize.number(copayAmountGet.value), destination, providerNameInTable) }
@@ -4115,7 +4285,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         };
         async function saFilterEvalData(copayAmount, destination, providerNameInTable) {
             evalData().then(({ 0: providers, 1: children } = {}) => {
-                const providerMatch = providers.find( saRow => providerNameInTable === sanitize.html(saRow.providerName) )
+                const providerMatch = providers.find( saRow => providerNameInTable === sanitize.html(saRow.providerName.replace(/\\/g, "")) )
                 return billingFormInfo(children.filter( child => child.providerRowIndex === providerMatch.providerRowIndex ), copayAmount, destination)
             }).catch(err => { console.trace(err) });
         };
@@ -4134,11 +4304,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 startDate: selectPeriodDates.start,
                 providerIdVal: providerInfoTable.querySelector('.selected td:nth-child(1)').textContent,
                 providerName: providerInfoTable.querySelector('.selected td:nth-child(2)').textContent,
-                copayAmount: copayAmount ?? copayAmountManual?.value,
+                copayAmount: String(copayAmount) ?? String(copayAmountManual?.value),
                 children: childList,
             };
             switch(destination) {
-                case "billingForm": { window.open("https://mech2-at-github.github.io/MEC2FormFiller/?parm1=" + encodeURIComponent((JSON.stringify(formInfo)).toWellFormed()), "_blank"); break }
+                case "billingForm": { window.open("https://mech2-at-github.github.io/MEC2FormFiller/?parm1=" + encodeURIComponent( (JSON.stringify(formInfo)).toWellFormed() ), "_blank"); break }
                 case "clipboard": {
                     let joinedChildInfoArray = [
                         formInfo.caseName + " - CCAP case number: " + formInfo.caseNumber + "\nCopayment for biweekly period " + selectPeriodDates.range + ": $" + formInfo.copayAmount,
@@ -4184,7 +4354,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         let memberObject = {}
         for (let member in memberData) {
             let memberAge = memberData[member].memberAge
-            if (!memberData[member].memberBirthDate || parseInt(memberAge) > 5) { continue };
+            if (!memberData[member].memberBirthDate || parseInt(memberAge, 10) > 5) { continue };
             let memberTableAgeCell = caseMemberTableChildren[member].children[2]
             let birthDate = memberData[member].memberBirthDate
             memberTableAgeCell.textContent = determineAge({ determinationDate: firstDateOfPeriod, memberAge, birthDate})
@@ -4240,7 +4410,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         let memberMaritalStatus = document.getElementById('memberMaritalStatus'), memberCitizenshipVerification = document.getElementById('memberCitizenshipVerification'), memberSpouseReferenceNumber = document.getElementById('memberSpouseReferenceNumber'), membRef = document.getElementById('memberReferenceNumberNewMember')
         function fillMemberIIDataForChildren() {
             membRef ??= document.querySelector('table > tbody > tr.selected > td:nth-child(1)')
-            let membRefNum = membRef.nodeName === "SELECT" ? parseInt(membRef.value) : parseInt(membRef.textContent)
+            let membRefNum = membRef.nodeName === "SELECT" ? parseInt(membRef.value, 10) : parseInt(membRef.textContent, 10)
             if ( isNaN(membRefNum) || !inRange(membRefNum, 3, 9) ) { return };
             const memberiiFillDataForChildren = {
                 memberMaritalStatus: { id: "memberMaritalStatus", value: "Never Married", class: 'red-outline', doChange: true, },
@@ -4273,13 +4443,20 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     if (["ProviderNotes.htm"].includes(thisPageNameHtm)) { restyleCreated(); doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage'); return };
     if (!["CaseNotes.htm"].includes(thisPageNameHtm)) { return };
     doNotDupe.buttons.push('#changeType', '#search', '#reset', '#storage')
-    let noteCategory = document.getElementById('noteCategory'), noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText'), noteMemberReferenceNumber = document.getElementById('noteMemberReferenceNumber'), newButton = document.getElementById('new'), notesActionsArea = document.getElementById('notesActionsArea').children[0]
-    let caseNotesTableTbody = document.querySelector('table#caseNotesTable > tbody')
-    let noteTable = document.querySelector('.dataTables_scrollBody'), noteTableStyle = editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"
-    countyInfo.userSettings?.disableTemplates && noteCategory?.removeAttribute('onchange') // built-in state templates //
-    noteTable && (document.querySelector('.dataTables_scrollBody').setAttribute('style', noteTableStyle))
+    const notes = {
+        eles: {
+            noteCategory: document.getElementById('noteCategory'), noteSummary: document.getElementById('noteSummary'), noteStringText: document.getElementById('noteStringText'),
+            noteMemberReferenceNumber: document.getElementById('noteMemberReferenceNumber'), newButton: document.getElementById('new'), notesActionsArea: document.getElementById('notesActionsArea')?.firstElementChild,
+            caseNotesTableTbody: document.querySelector('table#caseNotesTable > tbody'),
+        }
+    };
+    countyInfo.userSettings?.disableTemplates && notes.eles.noteCategory?.removeAttribute('onchange') // built-in state templates //
+    notes.eles.noteTable && (document.querySelector('.dataTables_scrollBody').setAttribute('style', editMode ? "line-height:24px; overflow: auto; max-height: 4lh !important;" : "line-height:24px; overflow: auto; max-height: 7lh !important;"))
     editMode && unhideElement(document.querySelector('div.form-group:has(#noteArchiveType)'), false)
-    function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix
+    const notesCategoryMap = new Map([ ...Array.from(notes.eles.noteCategory?.children, createNoteCategoryMap) ]);
+    function createNoteCategoryMap(ele) { return [ sanitize.removeNonLettersToLowerCase(ele.textContent), ele.value ]};
+    function standarizeAndFindInCategoryMap(str) { return notesCategoryMap.get( sanitize.removeNonLettersToLowerCase(str) ) };
+    function restyleCreated() { // Case_Notes_and_Provider_Notes_layout_fix //
         document.getElementById('noteCreateDate')?.closest('div.panel-box-format').classList.add('hidden')
         let noteCreatorChildren = [...document.querySelector('label[for=noteCreator]')?.parentElement.children], noteSummaryRow = document.getElementById('noteSummary')?.closest('.row')
         noteCreatorChildren.forEach(ele => noteSummaryRow.append(ele))
@@ -4292,29 +4469,27 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         pasteEvent.preventDefault()
         pasteEvent.stopImmediatePropagation()
         if (!editMode) {
-            noteSummary.value = "Click the 'New' button first 🡇"
-            noteStringText.value = "Click the 'New' button first 🡇"
+            notes.eles.noteSummary.value = "Click the 'New' button first 🡇"
+            notes.eles.noteStringText.value = "Click the 'New' button first 🡇"
             document.getElementById('noteCreator').value = "X1D10T"
-            flashRedOutline(newButton)
+            flashRedOutline(notes.eles.newButton)
             return
         } else {
             const noteCategoryObj = {
-                Application: { pends: " Incomplete", elig: " Approved", ineligible: "" },
-                Redetermination: { incomplete: " Incomplete", elig: " Complete", ineligible: "" }
+                Application: { pends: " Incomplete", elig: " Approved", ineligible: " Other" },
+                Redetermination: { incomplete: " Incomplete", elig: " Complete", ineligible: " Other" }
             }
             let ahkObj = convertFromAHK(pastedText)
-            let noteCategoryRegExp = new RegExp(ahkObj.noteDocType + "(?:.*?)" + noteCategoryObj[ahkObj.noteDocType][ahkObj.noteElig], "i")
-            noteCategory.value = [...document.getElementById('noteCategory').children]?.find( ele => ele.innerText.match(noteCategoryRegExp) ).value
-            // noteCategory.value = noteDetails.noteElig === '' ? noteDetails.noteDocType : noteDetails.noteDocType + noteCategoryObj[noteDetails.noteDocType][noteDetails.noteElig]
-            noteSummary.value = decodeURIComponent(ahkObj.noteTitle).slice(0, 50)
-            noteStringText.value = decodeURIComponent(ahkObj.noteText)
+            notes.eles.noteCategory.value = standarizeAndFindInCategoryMap(ahkObj.noteDocType + noteCategoryObj[ahkObj.noteDocType][ahkObj.noteElig])
+            notes.eles.noteSummary.value = decodeURIComponent(ahkObj.noteTitle).slice(0, 50)
+            notes.eles.noteStringText.value = decodeURIComponent(ahkObj.noteText)
             eleFocus(gbl.eles.save)
         };
     };
     let noteInfo = localStorage.getItem("MECH2.note") !== null ? sanitize.json(localStorage.getItem("MECH2.note"))[caseOrproviderIdVal] : undefined
     evalData().then( ({ 0: notesTableData} = []) => {
         if (notesTableData === undefined) { return };
-        let today = Date.now()
+        let today = new Date().setHours(0, 0, 0, 0)
         !function doAutoNote() { // Auto_Case_Noting
             if (!noteInfo) { return };
             if (!editMode) {
@@ -4326,21 +4501,21 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         let alertDateValue = sanitize.date(alert.noteCreateDate, "number")
                         if (alertDateValue + twoMonthsValue < today) { return }
                         if (noteInfo.noteSummary.slice(0, 45) === alert.noteSummary.replace(/\\/g, '').slice(0, 45)) {
-                            noteStringText.value = "\n\n\n\t\tNote already exists, duplicate note not entered.\n\t\tClick 'Override Duplicate Check' to enter duplicate note.\n\t\t(Date range for duplicate check: 60 days.)"
-                            caseNotesTableTbody.children[alert.rowIndex].setAttribute('style', "color: var(--textColorPositive) !important;")
+                            notes.eles.noteStringText.value = "\n\n\n\t\tNote already exists, duplicate note not entered.\n\t\tClick 'Override Duplicate Check' to enter duplicate note.\n\t\t(Date range for duplicate check: 60 days.)"
+                            notes.eles.caseNotesTableTbody?.children[alert.rowIndex]?.setAttribute('style', "color: var(--textColorPositive) !important;")
                             localStorage.removeItem("MECH2.note")
                             continueToMakeNote = 0
-                            h4objects.note.h4.insertAdjacentHTML('afterend', '<button type="button" class="cButton afterH4" id="overrideDupe">Override Duplicate Check</button>')
-                            document.getElementById('overrideDupe').addEventListener('click', () => {
+                            let overrideDupe = h4objects.note.h4?.insertAdjacentElement('afterend', createNewEle("button", { type: "button", classList: "cButton afterH4", id: "overrideDupe", textContent: "Override Duplicate Check" }))
+                            overrideDupe?.addEventListener('click', () => {
                                 let noteInfocaseIdVal = {}
                                 noteInfocaseIdVal[caseOrproviderIdVal] = noteInfo
                                 localStorage.setItem( "MECH2.note", JSON.stringify(noteInfocaseIdVal) )
-                                doClick(newButton)
+                                doClick(notes.eles.newButton)
                             });
                             restyleCreated()
                         };
                     });
-                    continueToMakeNote && doClick(newButton)
+                    continueToMakeNote && doClick(notes.eles.newButton)
                 }();
                 return;
             } else if (editMode) {
@@ -4352,11 +4527,12 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 }
                 setTimeout(() => {
                     if (noteInfo.intendedPerson) {
-                        noteMemberReferenceNumber.value = Array.from(document.querySelectorAll('#noteMemberReferenceNumber > option'))?.find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) )?.value
+                        notes.eles.noteMemberReferenceNumber.value = Array.from( notes.eles.noteMemberReferenceNumber.querySelectorAll('option') )?.find( ele => ele.innerText.includes(noteInfo.intendedPerson.toUpperCase()) )?.value
                     };
-                    noteCategory.value = noteInfo.noteCategory
-                    noteSummary.value = noteInfo.noteSummary.slice(0, 50)
-                    noteStringText.value = noteInfo.noteMessage + "\n=====\n" + signatureName
+                    notes.eles.noteCategory.value = standarizeAndFindInCategoryMap(noteInfo.noteCategory)
+                    // noteCategory.value = noteInfo.noteCategory
+                    notes.eles.noteSummary.value = noteInfo.noteSummary.slice(0, 50)
+                    notes.eles.noteStringText.value = noteInfo.noteMessage + "\n=====\n" + signatureName
                     localStorage.removeItem("MECH2.note")
                     gbl.eles.save.click()
                 }, 50);
@@ -4365,42 +4541,33 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         if (noteInfo) { return };
         restyleCreated()
         gbl.eles.secondaryActionArea.style = "justify-content: flex-start; gap: 60px;"
-        noteCategory.addEventListener('click', clickEvent => { if (clickEvent.target.nodeName === "OPTION") { noteSummary.select() } });
+        notes.eles.noteCategory.addEventListener('click', clickEvent => { if (clickEvent.target.nodeName === "OPTION") { notes.eles.noteSummary.select() } });
         !function duplicateNote() { // SECTION_START Duplicate_Note
-            let backupNoteDetails = sanitize.json(localStorage.getItem("MECH2.backupNote")) ?? {}, backupNoteExists = "noteCategory" in backupNoteDetails ? 1 : 0
-            if (!backupNoteExists || backupNoteDetails?.noteSummary?.slice(0, 49).trim() === noteSummary?.value?.slice(0, 49).trim()) { localStorage.removeItem("MECH2.backupNote"); backupNoteExists = 0 }
+            let backupNoteDetails = sanitize.json(localStorage.getItem("MECH2.backupNote." + caseOrproviderIdVal)) ?? {}, backupNoteExists = ("noteCategory" in backupNoteDetails);
+            if (!backupNoteExists || backupNoteDetails?.noteSummary?.slice(0, 49).trim() === notes.eles.noteSummary?.value?.slice(0, 49).trim()) { localStorage.removeItem("MECH2.backupNote." + caseOrproviderIdVal); backupNoteExists = 0 }; // deletes backupNote if a note exists with the same summary //
             if (!editMode) {
-                gbl.eles.tertiaryActionArea.addEventListener('click', doTertiaryAction)
-                function doTertiaryAction({ target: clickEventTarget } = {}) {
-                    if (clickEventTarget.nodeName !== "BUTTON") { return };
-                    switch (clickEventTarget.id) {
-                        case "duplicate": { copyNoteToLS(); break; }
-                        case "noteExport": { noteExporter(); break }
-                    };
-                };
-
-                let duplicate = addTertEle('button', { type: 'button', id: 'duplicate', classList: 'form-button', textContent: 'Duplicate', })
+                let duplicate = addTertEle('button', { type: 'button', id: 'duplicate', classList: 'form-button', textContent: 'Duplicate', }), noteExport = addTertEle('button', { type: 'button', classList: 'form-button', textContent: 'Export Notes', id: 'noteExport' });
                 if (backupNoteExists) {
                     let deleteUnsaved = createNewEle( 'span', { id: 'deleteUnsaved', style: "cursor: pointer; color: red !important; padding-bottom: 2px;", textContent: '✖' }),
                         unsavedNoteDiv = createNewEle( 'div', { id: 'unsavedNoteDiv', style: 'display: flex; align-items: center; gap: 5px;', })
-                    // doReplacements?: addTertMulti()
-                    gbl.eles.tertiaryActionArea
-                        .appendChild(unsavedNoteDiv)
-                        .appendChild( createNewEle( 'span', { style: 'margin-left: 10px;', title: backupNoteDetails.noteSummary, textContent: 'Unsaved note exists for case', }) )
-                        .insertAdjacentElement( 'afterend', createNewEle( 'a', { target: "_self", href: "/ChildCare/CaseNotes.htm?parm2=" + backupNoteDetails.identifier, textContent: backupNoteDetails.identifier }) )
-                        .insertAdjacentElement( 'afterend', deleteUnsaved)
-                    deleteUnsaved?.addEventListener('click', () => { localStorage.removeItem("MECH2.backupNote"); unsavedNoteDiv?.remove() }, { once: true })
+                    gbl.eles.tertiaryActionArea.append(...arrangeElements(
+                    [unsavedNoteDiv,
+                     [createNewEle( 'span', { style: 'margin-left: 10px;', title: backupNoteDetails.noteSummary, textContent: 'Unsaved note exists for case', }),
+                      createNewEle( 'a', { target: "_self", href: "/ChildCare/CaseNotes.htm?parm2=" + backupNoteDetails.identifier, textContent: backupNoteDetails.identifier }),
+                      deleteUnsaved,
+                     ],
+                    ]))
+                    deleteUnsaved?.addEventListener('click', () => { localStorage.removeItem("MECH2.backupNote." + caseOrproviderIdVal); unsavedNoteDiv?.remove() }, { once: true })
                 };
                 function copyNoteToLS() {
                     let selectedLength = document.getElementsByClassName('selected')?.length
-                    if (noteCategory?.value && selectedLength) {
+                    if (notes.eles.noteCategory?.value && selectedLength) {
                         saveNoteDetails('copiedNote')
                         snackBar('Copied note!', 'notitle')
                         eleFocus("#newDB")
                     } else if (!selectedLength) { snackBar('No note selected') }
                 };
 
-                let noteExport = addTertEle('button', { type: 'button', classList: 'form-button', textContent: 'Export Notes', id: 'noteExport' })
                 function noteExporter() {
                     !function noteExportUI() {
                         let noteExportDate
@@ -4422,8 +4589,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                         });
                         noteExportButtonDiv.addEventListener('click', clickEvent => {
                             if (clickEvent.target.nodeName !== "BUTTON") { return };
-                            if (clickEvent.target === noteExportConfirm) {
-                                downloadBlob( exportTable(sanitize.date(noteExportDate)) )
+                            switch(clickEvent.target) {
+                                case noteExportConfirm: downloadBlob( exportTable(sanitize.date(noteExportDate)) ); break;
                             };
                             noteExportDialog.close()
                         });
@@ -4466,76 +4633,80 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     link.click();
                     document.body.removeChild(link);
                 };
+                buttonContClick(gbl.eles.tertiaryActionArea, new Map([
+                    [duplicate, copyNoteToLS ],
+                    [noteExport, noteExporter ],
+                ]) );
             } else if (editMode) {
                 !function autoSaveNoteDetails() {
                     window.addEventListener('beforeunload', saveNoteDetails)
                     setInterval(saveNoteDetails, 15000)
                     gbl.eles.cancel?.addEventListener('click', () => {
                         window.removeEventListener('beforeunload', saveNoteDetails)
-                        localStorage.removeItem('MECH2.backupNote')
+                        localStorage.removeItem("MECH2.backupNote." + caseOrproviderIdVal)
                     });
                 }();
                 !function checkForStoredNote() {
-                    if (noteStringText.value) { noteStringText.value = convertLineBreakToSpace(noteStringText.value) };
-                    let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = "noteCategory" in storedNoteDetails ? 1 : 0
+                    if (notes.eles.noteStringText?.value) { notes.eles.noteStringText.value = convertLineBreakToSpace(notes.eles.noteStringText.value) };
+                    let storedNoteDetails = sanitize.json(localStorage.getItem("MECH2.copiedNote")) ?? {}, noteDetailsExists = ("noteCategory" in storedNoteDetails);
                     if (!noteDetailsExists && !backupNoteExists) { return };
-                    //
+
                     if (noteDetailsExists) { addTertEle('button', { type: 'button', id: 'autofill', classList: 'form-button', textContent: 'Autofill', }) };
                     if (backupNoteExists) { addTertEle( 'button', { type: 'button', id: 'backupNote', classList: 'form-button', textContent: 'Stored Note', }) };
                     gbl.eles.tertiaryActionArea?.addEventListener('click', ({ target: clickEventTarget } = {}) => {
-                        if (clickEventTarget.nodeName !== "BUTTON" || noteCategory?.value || (!noteDetailsExists && !backupNoteExists) ) { return };
+                        if (clickEventTarget.nodeName !== "BUTTON" || (!noteDetailsExists && !backupNoteExists) ) { return };
                         fillNoteDetails(( () => {
                             switch(clickEventTarget.id) {
                                 case 'autofill': return storedNoteDetails;
                                 case 'backupNote': return backupNoteDetails;
                             };
-                        })(), clickEventTarget.id)
+                        })(), clickEventTarget.id);
                     });
                 }();
             };
             function saveNoteDetails(copiedOrBackup) {
-                if (noteCategory?.value === '') { return };
-                copiedOrBackup = typeof copiedOrBackup === "string" ? copiedOrBackup : "backupNote"
-                localStorage.setItem('MECH2.' + copiedOrBackup, JSON.stringify( { noteSummary: noteSummary.value, noteCategory: noteCategory.value, noteMessage: noteStringText.value, noteMemberReferenceNumber: noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, } ))
+                if (notes.eles.noteCategory?.value === '') { return };
+                copiedOrBackup = typeof copiedOrBackup === "string" ? copiedOrBackup : "backupNote." + caseOrproviderIdVal // copied === string, backup === undefined //
+                localStorage.setItem('MECH2.' + copiedOrBackup, JSON.stringify( { noteSummary: notes.eles.noteSummary.value, noteCategory: notes.eles.noteCategory.value, noteMessage: notes.eles.noteStringText.value, noteMemberReferenceNumber: notes.eles.noteMemberReferenceNumber.value, identifier: caseOrproviderIdVal, } ))
             };
             function fillNoteDetails(noteDetails, clickId) {
                 !function modifySummaryIfDuplicateNote() {
                     if (clickId === "backupNote") { return };
-                    let noteCategorySplit0 = noteDetails.noteCategory.split(' ')[0]
-                    const otherCatMap = new Map([ ["Application", "Application - Other"], ["Redetermination", "Redetermination Other"] ])
-                    if (noteCategorySplit0 === "Application" && noteDetails.noteSummary.slice(0, 3).indexOf("HL") > -1) { Object.assign(noteDetails, { noteSummary: "HL Application update", noteCategory: otherCatMap.get(noteCategorySplit0) }) }
-                    else if (noteDetails.noteSummary.slice(0, 5) !== "Post-" && noteDetails.noteCategory.slice(-7) !== "- Other") {
-                        if (["Application Incomplete", "Application - Other", "Redetermination Incomplete", "Redetermination Other" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: noteCategorySplit0 + " update", noteCategory: noteCategorySplit0 + " Incomplete" }) }
-                        else if (["Application Approved", "Redetermination Complete" ].includes(noteDetails.noteCategory)) { Object.assign(noteDetails, { noteSummary: "Post-" + noteCategorySplit0 + " update", noteCategory: otherCatMap.get(noteCategorySplit0) }) }
+                    let noteCat = { split0: noteDetails.noteCategory.split(' ')[0], lowerCaseLetters: sanitize.removeNonLettersToLowerCase(noteDetails.noteCategory) };
+                    let noteDet = { isHL: noteDetails.noteSummary.slice(0, 3).indexOf("HL") > -1, isPost: noteDetails.noteSummary.slice(0, 5) === "Post-", isOther: noteDetails.noteCategory.slice(-5) === "Other" };
+                    if (noteCat.split0 === "Application" && noteDet.isHL) { Object.assign(noteDetails, { noteSummary: "HL Application update", noteCategory: standarizeAndFindInCategoryMap(noteCat.split0 + " Other") }) }
+                    else if (!noteDet.isPost && !noteDet.isOther) {
+                        if (["application incomplete", "application other", "redetermination incomplete", "redetermination other" ].includes( noteCat.lowerCaseLetters )) { Object.assign(noteDetails, { noteSummary: noteCat.split0 + " update", noteCategory: standarizeAndFindInCategoryMap(noteCat.split0 + " Incomplete") }) }
+                        else if (["application approved", "redetermination complete" ].includes( noteCat.lowerCaseLetters )) { Object.assign(noteDetails, { noteSummary: "Post-" + noteCat.split0 + " update", noteCategory: standarizeAndFindInCategoryMap(noteCat.split0 + " Other") }) }
                     };
                 }();
-                noteSummary.value = noteDetails.noteSummary.slice(0, 50)
-                noteCategory.value = noteDetails.noteCategory
-                noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber
-                noteStringText.value = convertLineBreakToSpace(noteDetails.noteMessage)
-                eleFocus(noteStringText)
-                noteStringText.setSelectionRange(0, 0)
+                if (!notes.eles.noteSummary.value) { notes.eles.noteSummary.value = noteDetails.noteSummary.slice(0, 50) };
+                if (!notes.eles.noteCategory.value) { notes.eles.noteCategory.value = standarizeAndFindInCategoryMap(noteDetails.noteCategory) };
+                if (!notes.eles.noteMemberReferenceNumber.value) { notes.eles.noteMemberReferenceNumber.value = noteDetails.noteMemberReferenceNumber };
+                if (!notes.eles.noteStringText.value) { notes.eles.noteStringText.value = convertLineBreakToSpace(noteDetails.noteMessage) };
+                eleFocus(notes.eles.noteStringText)
+                notes.eles.noteStringText.setSelectionRange(0, 0)
             };
         }(); // End Duplicate_Note
         !function caseNotes() { // SECTION_START Case_Notes_Only
             if (!caseIdVal) { return };
             !function noteEvents() {
-                if (!editMode || !tableHasRecords(caseNotesTableTbody)) { return };
+                if (!editMode || !tableHasRecords(notes.eles.caseNotesTableTbody)) { return };
                 let autoFormatSlider = createSlider({ textContent: "Auto-Formatting", title: "Auto-Format Note text when pasting and saving.", id: "autoFormat", checked: "checked", classes: "float-right-imp h4-line", })
-                h4objects.note.h4.insertAdjacentElement('afterend', autoFormatSlider)
+                h4objects.note.h4.insertAdjacentElement('afterend', autoFormatSlider.container)
                 !function spacingWhenTabKeyPressed() {
-                    noteStringText.addEventListener('keydown', keydownEvent => {
+                    notes.eles.noteStringText.addEventListener('keydown', keydownEvent => {
                         if (keydownEvent.key !== "Tab" || keydownEvent.shiftKey) { return };
                         keydownEvent.preventDefault()
-                        let preceedingCharacter = noteStringText.value.charAt(noteStringText.selectionStart-1)
+                        let preceedingCharacter = notes.eles.noteStringText.value.charAt(notes.eles.noteStringText.selectionStart-1)
                         insertTextAndMoveCursor( ["", "\n"].includes(preceedingCharacter) ? "             " : "    " )
                     });
                 }();
                 !function formatNoteOnPaste() {
-                    noteStringText.addEventListener('paste', pasteEvent => {
-                        if (!document.getElementById('autoFormat').checked) { return };
+                    notes.eles.noteStringText.addEventListener('paste', pasteEvent => {
+                        if (!autoFormatSlider.checkbox?.checked) { return };
                         let pastedText = (pasteEvent.clipboardData || window.clipboardData).getData("text")
-                        let formattedPastedText = noteStrTextAutoReplace(convertLineBreakToSpace(pastedText))
+                        let formattedPastedText = caseNotesStrTextReplace(convertLineBreakToSpace(pastedText))
                         if (pastedText !== formattedPastedText) {
                             pasteEvent.preventDefault()
                             insertTextAndMoveCursor(formattedPastedText)
@@ -4559,19 +4730,19 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     notesTableData.slice(0, 100).forEach(note => {
                         if ( note.noteSummary.indexOf("Disbursed child care") > -1 || note.noteCategory === "PMI/SMI Merge" ) {
                             hiddenTrCount++
-                            caseNotesTableTbody.children[note.rowIndex].classList.add('hiddenRow')
+                            notes.eles.caseNotesTableTbody.children[note.rowIndex].classList.add('hiddenRow')
                         };
                     });
                     if (!hiddenTrCount) { return };
                     const invisEle = document.createElement('div')
-                    let noteStyle = addCssStyleSheet()
+                    let noteStyle = addCSSStyleSheet()
                     noteStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
-                    caseNotesTableTbody.parentElement.classList.add('toggledTable')
+                    notes.eles.caseNotesTableTbody.parentElement.classList.add('toggledTable')
                     let unhideElementCaseNotes = createSlider({ textContent: 'Show ' + hiddenTrCount + ' Hidden Notes', title: "Shows or hides PMI Merge and CS disbursion auto-notes.", id: 'unhideElementCaseNotes', classes: 'float-right-imp h4-line', })
-                    document.getElementById('reset').insertAdjacentElement('afterend', unhideElementCaseNotes)
+                    document.getElementById('reset').insertAdjacentElement('afterend', unhideElementCaseNotes.container)
                     let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
-                    document.getElementById('unhideElementCaseNotes').addEventListener('click', clickEvent => {
-                        clickEvent.target.checked === true ? noteStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }") : noteStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
+                    unhideElementCaseNotes.checkbox.addEventListener('click', () => {
+                        unhideElementCaseNotes.checkbox.checked === true ? noteStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }") : noteStyle.replaceSync(toggleRule + " .hiddenRow { display: none; }")
                     });
                     queueMicrotask(() => { document.querySelector('tbody > tr:not(.hiddenRow)')?.click() })
                 }();
@@ -4585,7 +4756,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     }();
                     if (!nextStorableNoteRow) { return };
                     let nextStorableNote = notesTableData[nextStorableNoteRow]
-                    let today = Date.now(), tenYearsAgo = today - 315670320999
+                    let today = new Date().setHours(0, 0, 0, 0), tenYearsAgo = today - 315670320999
                     let lastNoteIsOld = Date.parse(nextStorableNote.noteCreateDate) < tenYearsAgo ? 1 : 0;
                     if (autoStoreNotes) {
                         if (!lastNoteIsOld) { sessionStorage.removeItem('MECH2.storeOldNotes.' + caseIdVal) }
@@ -4593,7 +4764,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     } else {
                         if (lastNoteIsOld) {
                             let autoStoreOld = createNewEle( 'button', { id: 'autoStoreOld', classList: 'form-button', title:"Archives eligible old (10 years+) notes.", type: 'button', textContent: 'Auto-Store Old', })
-                            notesActionsArea.setAttribute('class', 'col-lg-12 textInherit')
+                            notes.eles.notesActionsArea.setAttribute('class', 'col-lg-12 textInherit')
                             document.getElementById('storage').insertAdjacentElement('afterend', autoStoreOld)
                             autoStoreOld.addEventListener('click', () => {
                                 sessionStorage.setItem('MECH2.storeOldNotes.' + caseIdVal, true)
@@ -4613,7 +4784,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     }() ?? 0;
                     if (!nextStorableNoteRow) { return };
                     let nextStorableNote = notesTableData[nextStorableNoteRow]
-                    let today = Date.now(), sixMonthsAgo = today - 15865482466
+                    let today = new Date().setHours(0, 0, 0, 0), sixMonthsAgo = today - 15865482466
                     let isNoteStorable = Date.parse(nextStorableNote.noteCreateDate) < sixMonthsAgo ? 1 : 0;
                     if (autoStoreNotes) {
                         if (!isNoteStorable) { sessionStorage.removeItem('MECH2.storePMIandCSnotes.' + caseIdVal) }
@@ -4621,7 +4792,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                     } else {
                         if (isNoteStorable) {
                             let autoStoreCsSmi = createNewEle( 'button', { id: 'autoStoreCsSmi', classList: 'form-button', title: "Archives old (6mo+) CS Payment and PMI Merge notes.", type: 'button', textContent: 'Auto-Store Merge/CS', })
-                            notesActionsArea.setAttribute('class', 'col-lg-12 textInherit')
+                            notes.eles.notesActionsArea.setAttribute('class', 'col-lg-12 textInherit')
                             document.getElementById('storage').insertAdjacentElement('afterend', autoStoreCsSmi)
                             autoStoreCsSmi.addEventListener('click', () => {
                                 sessionStorage.setItem('MECH2.storePMIandCSnotes.' + caseIdVal, true)
@@ -4659,12 +4830,12 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         if (programInformationTrows.length > 15) {
             programInformationTrows.slice(16).map(ele => !stickyTrs.includes(ele) ? ele.classList.add('hiddenRow') : ele)
             if (document.querySelectorAll('.hiddenRow').length > 0) {
-                let overviewStyle = addCssStyleSheet()
+                let overviewStyle = addCSSStyleSheet()
                 const invisEle = document.createElement('div')
                 overviewStyle.replaceSync(doTableStyleToggle(invisEle, 'hiddenRow') + " .hiddenRow { display: none !important; }" );
                 let unhideElementProgInfo = createSlider({ textContent: 'Show hidden rows', title: "Shows or hides rows exceeding 20, including all 'HC' / 'WB' rows.", id: 'unhideElementProgInfo', classes: 'float-right-imp h4-line' }) // Reported Firefox bug: sticky rows > 20 break sticky.
-                h4objects.programinformation.h4.insertAdjacentElement('afterend', unhideElementProgInfo)
-                document.getElementById('unhideElementProgInfo').addEventListener('click', clickEvent => {
+                h4objects.programinformation.h4.insertAdjacentElement('afterend', unhideElementProgInfo.container)
+                unhideElementProgInfo.checkbox.addEventListener('click', clickEvent => {
                     let toggleRule = doTableStyleToggle(invisEle, 'hiddenRow')
                     if (clickEvent.target.checked === true) {
                         overviewStyle.replaceSync(toggleRule + " .hiddenRow { display: table-row; }")
@@ -4712,7 +4883,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
                 return memberDataArray.map( memberDataItem => { if ( (memberDataItem.keywords).includes(child[memberDataItem.key]) ) { return child.childReferenceNumber } })//.filter(item => item)
             }).flat().filter(item => item).join(', ')
             if (!noResponses) { return };
-            caseMemberTableChildren[member.rowIndex].firstElementChild.insertAdjacentHTML('beforeend', '<span class="float-right-imp" style="color: var(--textColorNegative);">' + noResponses + '</span>')
+            caseMemberTableChildren[member.rowIndex]?.firstElementChild?.insertAdjacentElement('beforeend', createNewEle("span", { classList: "float-right-imp", style: "color: var(--textColorNegative);", textContent: noResponses }))
         });
     }).catch(err => { console.trace(err) });
 }(); // SECTION_END Case_Parent;
@@ -4830,10 +5001,11 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         };
     } else if (editMode) {
         sessionStorage.removeItem('MECH2.suspendPlus45')
-        let today = Date.now()
+        let today = new Date().setHours(0, 0, 0, 0)
         $('#receiveDate').on('input change', jQueryEvent => { // forcedjQuery //
             if (!jQueryEvent.target.value || jQueryEvent.target.value.length !== 10) { return }
-            if (today - Date.parse(jQueryEvent.target.value) > 31536000000) { return };//365 days
+            if (dateFuncs.dateDiffInDays(jQueryEvent.target.value) > 365) { return };//365 days
+            // if (today - Date.parse(jQueryEvent.target.value) > 31536000000) { return };//365 days
             preventKeys(["Tab"])
             eleFocus(gbl.eles.save)
             $('.hasDatepicker').datepicker("hide")
@@ -4853,7 +5025,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     if (!editMode) { return };
     let memberSchoolStatus = document.getElementById('memberSchoolStatus'), memberSchoolType = document.getElementById('memberSchoolType'), memberKindergartenStart = document.getElementById('memberKindergartenStart'),
         memberSchoolVerification = document.getElementById('memberSchoolVerification'), memberHeadStartParticipant = document.getElementById('memberHeadStartParticipant'), memberReferenceNumberNewMember = document.getElementById('memberReferenceNumberNewMember')
-    let today = Date.now()
+    let today = new Date().setHours(0, 0, 0, 0)
     function fiftyPercentFinancialSupport() {
         let eightteenButStillHHmember = document.getElementById('memberFinancialSupport50PercentOrMore')
         eightteenButStillHHmember.classList.add('borderless')
@@ -4885,7 +5057,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
     let schoolMemberTableSelected = document.querySelectorAll('#schoolMemberTable > tbody > tr.selected')
     if (schoolMemberTableSelected.length === 1) {
         evalData({ pageName: 'CaseMember.htm', evalString: '0', }).then(memberArray => {
-            let memberNumber = schoolMemberTableSelected[0].firstElementChild.textContent
+            let memberNumber = schoolMemberTableSelected[0]?.firstElementChild?.textContent
             if (Number(memberNumber) > 2) { kindergartenStartDate(memberArray, memberNumber) }
         }).catch(err => { console.trace(err) });
     };
@@ -5131,7 +5303,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Client_Search;
 !function ContactInformation() {
     if (!"ContactInformation.htm".includes(thisPageNameHtm)) { return };
-    Array.from(document.querySelector('.content_40pad').querySelectorAll('br'), ele => { let textNode = ele.previousSibling; if (textNode?.nodeType === 3 && textNode?.length > 5) { doWrap({ ele: textNode }) } })
+    Array.from(document.querySelector('.content_40pad').querySelectorAll('br'), ele => { let textNode = ele.previousSibling; if (textNode?.nodeName === "#text" && textNode?.length > 5) { doWrap({ ele: textNode }) } })
 }(); // SECTION_END Contact Information;
 !function _Financial_Billing_Pages() {
 !function __BillsList() {
@@ -5157,13 +5329,15 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Electronic_Bills;
 if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     function fourWeekStart(date) {
-        let [ month, day, year ] = date.split('/'), baseParseDate = 1702252800000 // Date.UTC(2023, 12-1, 11); // month is -1 indexed;
-        let num = ( (Date.UTC(year, month-1, day) - baseParseDate) / 2419200000) // 28 days;
-        return ( num - Math.floor(num) )
-    };
-    async function getWorkerInfo() {
-        let workerData = await evalData({caseProviderNumber: caseIdVal, pageName: "CaseWorker.htm", dateRange: selectPeriodDates.parm3, evalString: '0', caseOrProvider: 'case'});
-        return workerData.find(data => data.progId === "CC")?.workerName.split(" ")[0] ?? ""
+        let baseDate = 1702252800000
+        // let [ month, day, year ] = date.split('/') // Date.UTC(2023, 12-1, 11); // month is -1 indexed;
+        // let num = ( (Date.UTC(year, month-1, day) - baseDate) / 2419200000) // 28 days;
+        // return ( num - Math.floor(num) )
+        date = sanitize.date(date, "number")
+        while (baseDate < date) {
+            baseDate = dateFuncs.addDays(baseDate, 28)
+        };
+        return { start: dateFuncs.formatDate(dateFuncs.addDays(baseDate, -28), 'mdyy'), end: dateFuncs.formatDate(dateFuncs.addDays(baseDate, -1), 'mdyy') }
     };
 !function __FinancialAbsentDayHolidayTracking() {
     if (!("FinancialAbsentDayHolidayTracking.htm").includes(thisPageNameHtm)) { return };
@@ -5178,9 +5352,9 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
 }(); // SECTION_END Financial_Billing_Registration_Fee_Tracking;
 !function __FinancialBilling() {
     if (!("FinancialBilling.htm").includes(thisPageNameHtm) || !caseIdVal) { return };
-    if (!document.querySelector('table#billingProviderTable > tbody').children[0].children[1]) { return };
-    listPageLinksAndList([ { listPageParm2Col: 4, listPageLinkTo: "ProviderInformation" } ])
-    !function shrinkPage() {
+    if (!document.querySelector('table#billingProviderTable > tbody')?.firstElementChild?.children[1]) { return };
+    listPageLinksAndList([ { listPageParm2Col: 4, listPageLinkTo: "ProviderInformation" } ]);
+    !function shrinkBillingPage() {
         if (countyInfo.info?.baseCssOnlyList?.includes(thisPageNameHtm)) { return };
         const regFeeAddDeleteDiv = document.querySelector('div:has(> #addRegistrationFee)'), regFeeAddDeleteDivParent = regFeeAddDeleteDiv.parentElement, regFeeTableParent = document.getElementById('billingRegistrationFeesTable_wrapper').parentElement
         regFeeAddDeleteDiv.removeAttribute('class'); regFeeAddDeleteDiv.setAttribute('style', "width: fit-content; display: inline-block; vertical-align: top; margin: 10px 0 0 4%;"); regFeeTableParent.insertAdjacentElement('afterend', regFeeAddDeleteDiv)
@@ -5212,7 +5386,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         }, 100);
         function addBillingRows(changedId) {
             let whichBilledWeek = changedId.indexOf("weekOne") > -1 ? totalHoursBilledWeekOne : totalHoursBilledWeekTwo, weekDaysChanged = changedId.indexOf("weekOne") > -1 ? weekOneDays : weekTwoDays
-            whichBilledWeek.value = weekDaysChanged.reduce((partialSum, e) => partialSum + parseInt(e.value), 0 )
+            whichBilledWeek.value = weekDaysChanged.reduce((partialSum, e) => partialSum + parseInt(e.value, 10), 0 )
             Number(totalHoursBilledWeekOne.value) + Number(totalHoursBilledWeekTwo.value) > Number(totalHoursOfCareAuthorized.value) ? totalHours.forEach( eleAdd => eleAdd.classList.add('red-outline') ) : totalHours.forEach( eleRemove => eleRemove.classList.remove('red-outline') )
         };
         billedHoursTbody.addEventListener('click', clickEvent => { if (clickEvent.target.nodeName === "INPUT") { clickEvent.target.select() } })
@@ -5260,12 +5434,12 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         let twoOrFourWeeks = createSlider({ textContent: "", title: "", id: "twoOrFourWeeks", classes: "slider-always-color" })
         let is2WkBilling = createNewEle('span', { id: 'is2WkBilling', textContent: '2-Week' }), billingEmailTemplate = createNewEle('button', { classList: 'form-button', id: 'billingEmailTemplate', textContent: 'Template', title: "Left click: Generate email using template. Right click: Copy email subject line." }), is4WkBilling = createNewEle('span', { id: 'is4WkBilling', style: 'opacity: .6;', textContent: '4-Week', })
         let weekBillingToggle = addTertEle('div', { id: 'weekBillingToggle', classList: 'db-container', })
-        weekBillingToggle.append(is2WkBilling, twoOrFourWeeks, is4WkBilling)
+        weekBillingToggle.append(is2WkBilling, twoOrFourWeeks.container, is4WkBilling)
         let copyButtons = addTertEle('div', { id: 'copyButtons', classList: 'db-container', })
         copyButtons.append(billingEmailTemplate)
-
-        twoOrFourWeeks.addEventListener('click', clickEvent => {
-            switch(clickEvent.target.checked) {
+        let fourWeeksRange = fourWeekStart(selectPeriodDates.start)
+        twoOrFourWeeks.checkbox.addEventListener('click', clickEvent => {
+            switch(twoOrFourWeeks.checkbox.checked) {
                 case true: is2WkBilling.style.opacity = ".6"; is4WkBilling.style.opacity = "1"; break;
                 case false: is4WkBilling.style.opacity = ".6"; is2WkBilling.style.opacity = "1"; break;
             };
@@ -5320,20 +5494,20 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                             let existingButtonTitle = billings.providers[childAtProvider.providerRow].buttonTitle.findIndex(i => i.indexOf(issueText) > -1)
                             billings.providers[childAtProvider.providerRow].buttonTitle[existingButtonTitle] = billings.providers[childAtProvider.providerRow].buttonTitle[existingButtonTitle].slice(0, -1) + ", " + childAtProvider.childName + ")"
                         } else {
-                            // addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - " + startEndData[startEnd].issueText + " (" + dateFuncs.formatDate(childAtProvider[startEnd], "mdyy") + ") is " + startEndData[startEnd].firstOrLast + " date of the period.");
-                            addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - " + issueText + " (" + dateFuncs.formatDate(childAtProvider[startEnd], "mdyy") + ") is " + firstOrLast + " date of the period.");
-                            // addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", startEndData[startEnd].issueText + " (" + childAtProvider.childName + ")")
-                            addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", issueText + " (" + childAtProvider.childName + ")")
+                            // addToNewArrInObj(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - " + startEndData[startEnd].issueText + " (" + dateFuncs.formatDate(childAtProvider[startEnd], "mdyy") + ") is " + startEndData[startEnd].firstOrLast + " date of the period.");
+                            addToNewArrInObj(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - " + issueText + " (" + dateFuncs.formatDate(childAtProvider[startEnd], "mdyy") + ") is " + firstOrLast + " date of the period.");
+                            // addToNewArrInObj(billings.providers[childAtProvider.providerRow], "buttonTitle", startEndData[startEnd].issueText + " (" + childAtProvider.childName + ")")
+                            addToNewArrInObj(billings.providers[childAtProvider.providerRow], "buttonTitle", issueText + " (" + childAtProvider.childName + ")")
                         };
                     };
                     // if (childAtProvider.startDate > periodStart) { createOrAdd(childAtProvider, "startDate") }
                     if (childAtProvider.startDate > periodStart) { createOrAdd(childAtProvider, "SA start date", "startDate", "after the first") }
                     // if (childAtProvider.endDate < periodEnd) { createOrAdd(childAtProvider, "endDate") }
                     if (childAtProvider.endDate < periodEnd) { createOrAdd(childAtProvider, "SA end date", "endDate", "before the last") }
-                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours (" + childAtProvider.childName + ")") }
+                    if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursOfCareAuthorized) { addToNewArrInObj(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - More hours billed than authorized: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursOfCareAuthorized + " authorized."); addToNewArrInObj(billings.providers[childAtProvider.providerRow], "buttonTitle", "Exceeds authorized hours (" + childAtProvider.childName + ")") }
                     if (childAtProvider.totalHoursBilled > childAtProvider.totalHoursAllowed && cappingInfo && (/secondary/i).test(cappingInfo)) {
-                        addToNewArray(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. " + cappingInfo)
-                        addToNewArray(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider (" + childAtProvider.childName + ")")
+                        addToNewArrInObj(billings.issues, childAtProvider.providerRow, childAtProvider.childName + " - Unpayable hours: " + childAtProvider.totalHoursBilled + " billed vs " + childAtProvider.totalHoursAllowed + " allowed. " + cappingInfo)
+                        addToNewArrInObj(billings.providers[childAtProvider.providerRow], "buttonTitle", "Unpayable Hours - Secondary Provider (" + childAtProvider.childName + ")")
                     };
                 };
                 if (!billings.issues) { return };
@@ -5345,32 +5519,24 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                     };
                 }();
             }();
-            function addToNewArray(obj, arrayName, value) {
-                if (!value) { return };
-                if (!obj[arrayName]) { obj[arrayName] = []}
-                if (obj[arrayName].includes(value)) { return };
-                obj[arrayName].push(value)
-            };
         });
         let billingTextIterator = 0;
         function billingTextCounter() { return billingTextIterator++ }
-        document.getElementById('copyButtons')?.addEventListener( 'click', clickEvent => copyBillingInfoForEmails(clickEvent.target.id, clickEvent.target.textContent, twoOrFourWeeks?.checked ? 4 : 2, "email" ) )
-        document.getElementById('copyButtons')?.addEventListener( 'contextmenu', clickEvent => { clickEvent.preventDefault(); copyBillingInfoForEmails(clickEvent.target.id, clickEvent.target.textContent, twoOrFourWeeks?.checked ? 4 : 2, "clipboard" ) })
-        async function copyBillingInfoForEmails(clickedButtonId, clickedButtonName, billingWeeks, emailOrClipboard) {
-            workerInfo ??= await getWorkerInfo()
+        document.getElementById('copyButtons')?.addEventListener( 'click', clickEvent => copyBillingInfoForEmails(clickEvent.target.id, clickEvent.target.textContent, twoOrFourWeeks.checkbox.checked ? 4 : 2, "email" ) )
+        document.getElementById('copyButtons')?.addEventListener( 'contextmenu', clickEvent => { clickEvent.preventDefault(); copyBillingInfoForEmails(clickEvent.target.id, clickEvent.target.textContent, twoOrFourWeeks.checkbox.checked ? 4 : 2, "clipboard" ) })
+        async function copyBillingInfoForEmails(buttonPID, clickedButtonName, billingWeeks, emailOrClipboard) {
+            workerInfo ??= await getWorkerName()
             let typeAndNameColumns = { FinancialBilling: { type: 1, name: 0, id: 4 }, FinancialBillingApproval: { type: 2, name: 1, id: 0 }, }
-            let billingFormDates = { start: dateFuncs.formatDate(selectPeriodDates.start, "mdyy"), end: dateFuncs.formatDate(selectPeriodDates.end, "mdyy"), }
-            if (billingWeeks === 4) {
-                fourWeekStart(selectPeriodDates.start) === 0.5 ? billingFormDates.start = dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.start, -14), "mdyy") : billingFormDates.end = dateFuncs.formatDate(dateFuncs.addDays(selectPeriodDates.end, 14), "mdyy")
-            };
+            let billingFormDates = !twoOrFourWeeks.checkbox.checked ? { start: dateFuncs.formatDate(selectPeriodDates.start, "mdyy"), end: dateFuncs.formatDate(selectPeriodDates.end, "mdyy"), } : fourWeeksRange
+            verbose(twoOrFourWeeks.checkbox.checked, billingFormDates, fourWeeksRange); return;
             let selectedTRow = billingProviderTableTbody.querySelector('tr.selected')
             let selectedTRowChildren = selectedTRow.children
             let selectedProviderName = clickedButtonName !== "Template" ? clickedButtonName : selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
             let emailSubject = selectedProviderName + '  Case: ' + caseIdVal + ', ' + caseName + '  ' + billingFormDates.start + '-' + billingFormDates.end
-            let emailBody = clickedButtonName === "Template" ? "" : billings.issues[clickedButtonId].join("%0A")
-            // if (clickedButtonId !== "billingEmailTemplate") { createCopy(clickedButtonId) }
+            let emailBody = clickedButtonName === "Template" ? "" : billings.issues[buttonPID].join("%0A")
+            // if (buttonPID !== "billingEmailTemplate") { createCopy(buttonPID) }
             if (emailOrClipboard === "email") {
-                copyTableData((clickedButtonId === "billingEmailTemplate" ? getChildNum( document.querySelector('#billingProviderTable .selected') ) : clickedButtonId))
+                copyTableData(createCopy( (buttonPID === "billingEmailTemplate" ? getChildNum( document.querySelector('#billingProviderTable .selected') ) : buttonPID) ));
                 if (clickedButtonName === "Template") {
                     window.open('mailto:' + workerInfo + '?subject=' + emailSubject, "_self")
                 } else {
@@ -5382,20 +5548,26 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                 copy(billingTextToCopy, billingTextToCopy, subjectOrBody ? "Copied email subject!" : "Copied email body!", "center")
             };
         };
-        function createCopy(clickedButtonId) {
-            let cloneHouse = document.querySelector('form').appendChild(document.createElement('div')), lineBreak = document.createElement('p') //'<p></p>'
+        function copyTableData(copiedData) {
+            Array.from( copiedData.querySelectorAll('.dataTables_sizing'), ele => { ele.removeAttribute('class') })
+            copyFormattedHTML( formatHTMLtoCopy({ htmlCode: copiedData, extraStyle: 'table.display, table.table { width: 60em; }' }) )
+        };
+        function createCopy(buttonPID) {
+            let cloneHouse = document.querySelector('form').appendChild(document.createElement('div')), lineBreak = () => document.createElement('p') //'<p></p>'
             cloneHouse.style.display = "none"
-            let billingProviderTableClone = document.getElementById('billingProviderTable').cloneNode(true), billingProviderTableCloneChildren = billingProviderTableClone.querySelector('tbody').children, billingProviderTableCloneProvider = billingProviderTableCloneChildren[clickedButtonId]
+            let billingProviderTableClone = document.getElementById('billingProviderTable').cloneNode(true),
+                billingProviderTableCloneChildren = billingProviderTableClone.querySelector('tbody').children,
+                billingProviderTableCloneProvider = Array.from(billingProviderTableCloneChildren[buttonPID])
             Array.from(billingProviderTableCloneChildren, providers => { if (providers !== billingProviderTableCloneProvider) { providers.remove() } })
             cloneHouse.appendChild(billingProviderTableClone)
-            cloneHouse.appendChild(lineBreak)
+            cloneHouse.appendChild(lineBreak())
 
             // !function testing() {
             //     return;
             //     const childBillingDataUnique = { children: [], dataArrays: [] };
-            //     const childBillingData = billings.providers[clickedButtonId].childrenInCare.forEach(childId => {
-            //         if (billings.children[childId][clickedButtonId].totalHoursBilled === 0) { return };
-            //         let childBillingData = [ billings.children[childId][clickedButtonId].totalHoursOfCareAuthorized, billings.children[childId][clickedButtonId].childTableData, billings.children[childId][clickedButtonId].dailyHours ];
+            //     const childBillingData = billings.providers[buttonPID].childrenInCare.forEach(childId => {
+            //         if (billings.children[childId][buttonPID].totalHoursBilled === 0) { return };
+            //         let childBillingData = [ billings.children[childId][buttonPID].totalHoursOfCareAuthorized, billings.children[childId][buttonPID].childTableData, billings.children[childId][buttonPID].dailyHours ];
             //         let childBillingIndex = findIndexOfArrs( childBillingData, childBillingDataUnique.dataArrays )
             //         if (childBillingIndex < 0) {
             //             childBillingDataUnique.children.push(childId)
@@ -5410,25 +5582,24 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             // else { testObj.membs.push(childId); testObj.stringified.push(JSON.stringify(newArray)); testObj.nonStringified.push(newArray); }
             // testObj.membs.forEach(groupOfMembs => mimic the below)
 
-            billings.providers[clickedButtonId].childrenInCare.forEach(childId => {
-                let childAtProviderData = billings.children[childId][clickedButtonId]
-                if (billings.children[childId][clickedButtonId].totalHoursBilled === 0) { return };
-                cloneHouse.append(createNewEle('p'), createNewEle('label', { textContent: "Total Hours of Care Authorized:" }), createNewEle('div', { textContent: billings.children[childId][clickedButtonId].totalHoursOfCareAuthorized }))
-                // cloneHouse.insertAdjacentHTML('beforeend', '<p></p><label>Total Hours of Care Authorized:</label><div>' + billings.children[childId][clickedButtonId].totalHoursOfCareAuthorized + '</div>')
+            billings.providers[buttonPID].childrenInCare.forEach(childId => {
+                let childAtProviderData = billings.children[childId][buttonPID]
+                if (billings.children[childId][buttonPID].totalHoursBilled === 0) { return };
+                cloneHouse.append(createNewEle('p'), createNewEle('label', { textContent: "Total Hours of Care Authorized:" }), createNewEle('div', { textContent: billings.children[childId][buttonPID].totalHoursOfCareAuthorized }))
+                // cloneHouse.insertAdjacentHTML('beforeend', '<p></p><label>Total Hours of Care Authorized:</label><div>' + billings.children[childId][buttonPID].totalHoursOfCareAuthorized + '</div>')
                 // let billingChildTableClone = document.getElementById('billingChildTable').cloneNode(true), billingChildTableCloneChildren = billingChildTableClone.querySelector('tbody').children
                 // let billingChildTableCloneSolo = [...billingChildTableCloneChildren].forEach(row => { if (row !== billingChildTableCloneChildren[0]) { row.remove() } })
-                // let rewriteDataChildren = [...billingChildTableCloneChildren[0].children].forEach((cell, i) => { cell.textContent = billings.children[childId][clickedButtonId].childTableData[i] })
+                // let rewriteDataChildren = [...billingChildTableCloneChildren[0].children].forEach((cell, i) => { cell.textContent = billings.children[childId][buttonPID].childTableData[i] })
                 // cloneHouse.appendChild(billingChildTableClone)
                 // let billedTimeTableClone = document.getElementById('billedTimeTable').cloneNode(true)
                 // cloneHouse.appendChild(billedTimeTableClone)
                 let tableTableClone = (function() {
                     let tableTable = document.querySelector('table.table').cloneNode(true)
-                    let dailyHoursData = billings.children[childId][clickedButtonId].dailyHours
+                    let dailyHoursData = billings.children[childId][buttonPID].dailyHours
                     Array.from( tableTable.querySelectorAll('tbody tr'), (tRow, tRowEnum) => { Array.from(tRow.querySelectorAll('input'), (input, inputEnum) => { input.parentElement.outerHTML = '<td class="col-lg-1">' + (dailyHoursData[tRowEnum][inputEnum] ?? "") + '</td>' }) });
                     return tableTable
                 })();
-                cloneHouse.appendChild(tableTableClone)
-                cloneHouse.appendChild(lineBreak)
+                cloneHouse.append(tableTableClone, lineBreak())
             });
             Array.from( cloneHouse.querySelectorAll('.dataTables_paginate, .paging_simple_numbers, .dataTables_scrollHead'), ele => { ele.remove() })
             let cloneToReturn = cloneHouse.cloneNode(true)
@@ -5441,11 +5612,6 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             haystackArray = haystackArray.map(arr => JSON.stringify(arr))
             needleArray = JSON.stringify(needleArray)
             return haystackArray.findIndex(arr => arr === needleArray)
-        };
-        function copyTableData(rowId) {
-            let copiedData = createCopy(rowId)
-            Array.from( copiedData.querySelectorAll('.dataTables_sizing'), ele => { ele.removeAttribute('class') })
-            copyFormattedHTML( formatHTMLtoCopy({ htmlCode: copiedData, extraStyle: 'table.display, table.table { width: 60em; }' }) )
         };
     }(); // END financial_info_for_emails
 }(); // SECTION_END Financial_Billing;
@@ -5539,18 +5705,17 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     // let screenshotButton = addTertEle('button', { type: 'button', id: 'screenshotButton', classList: 'form-button', textContent: 'Screenshot' })
     // screenshotButton.addEventListener('click', () => {})
     let billingProviderTableTbody = document.querySelector('table#billingProviderTable > tbody, table#financialBillingApprovalTable > tbody'), billingChildTable = document.getElementById('billingChildTable')
-    if (!billingProviderTableTbody.children[0].children[1]) { return };
+    if (!billingProviderTableTbody?.firstElementChild?.children[1]) { return };
     !function reselectSelectedProviderAndChild() { // when switching between these pages or editing Billing, remembers selected provider and child, and reselects on page load //financialBillingApprovalTable
         if (editMode) { return };
-        let billingEvalLookup = { FinancialBilling: { providerTd: 4, providerIdInArr: "providerId" }, FinancialBillingApproval: { providerTd: 0, providerIdInArr: "memberProviderId" }, }
+        let billingLookupMap = new Map([ ["FinancialBilling.htm", { providerTd: 4, providerIdInArr: "providerId" }], ["FinancialBillingApproval.htm", { providerTd: 0, providerIdInArr: "memberProviderId" }] ]).get(thisPageNameHtm);
         let billingProviderTableChildren = billingProviderTableTbody?.children
         gbl.eles.buttonPanelThree?.addEventListener('click', storeSelectedProviderAndChild)
         gbl.eles.edit?.addEventListener('click', storeSelectedProviderAndChild)
         function storeSelectedProviderAndChild() {
             let selectedProviderTRow = billingProviderTableTbody.querySelector('tr.selected')
             let selectedChildTRow = billingChildTable?.querySelector('tr.selected')?.rowIndex ?? ''
-            getChildNum(billingChildTable?.querySelector('tr.selected'))
-            let providerChildObj = { provider: selectedProviderTRow.children[billingEvalLookup[thisPageName].providerTd]?.textContent, child: selectedChildTRow }
+            let providerChildObj = { provider: selectedProviderTRow.children[billingLookupMap.providerTd]?.textContent, child: selectedChildTRow }
             if (selectedProviderTRow) { sessionStorage.setItem('MECH2.billingApproval.' + caseIdVal, JSON.stringify(providerChildObj) ) }
         };
         evalData().then(({ 0: billingProviderListDataArr } = {}) => {
@@ -5558,7 +5723,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             let lastSelected = sanitize.json( sessionStorage.getItem('MECH2.billingApproval.' + caseIdVal) ),
                 billingReferAndSelectedProvider = ( document.referrer.indexOf("FinancialBilling") > -1 && lastSelected?.provider )
             if (!billingReferAndSelectedProvider) { return };
-            let match = billingProviderListDataArr.find( (item, i) => { if (item[billingEvalLookup[thisPageName].providerIdInArr] === lastSelected?.provider) { billingProviderTableChildren[i].click() } });
+            let match = billingProviderListDataArr.find( (item, i) => { if (item[billingLookupMap.providerIdInArr] === lastSelected?.provider) { billingProviderTableChildren[i].click() } });
             lastSelected?.child && billingChildTable?.rows[lastSelected?.child]?.click()
             }).catch(err => { console.trace(err) });
     }();
@@ -5635,11 +5800,12 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         document.querySelector('h4').innerText = "Maximum Rates for " + providerType + " effective " + maximumRatesPeriod.value
     }();
     !function copyRatesData() {
-        addTertMulti( createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", checked: "checked" }) )
+        let toggleDifferentialRatesSlider = createSlider({ textContent: "Show Differential Rates", title: "Toggle differential rates being added to the provider payment rate table", id: "toggleDifferentialRatesSlider", checked: "checked" })
+        addTertMulti( toggleDifferentialRatesSlider.container )
         let copyRates = addTertEle( 'button', { type: 'button', classList: 'form-button', id: 'copyRates', textContent: 'Copy Rates', } )
         copyRates.addEventListener('click', copyRatesTable)
         let maxRatesSpans = Array.from(document.querySelectorAll('.maxRates'))
-        document.getElementById('toggleDifferentialRatesSlider').addEventListener( 'click', ele => unhideElement(maxRatesSpans, ele.target.checked) );
+        toggleDifferentialRatesSlider.checkbox.addEventListener( 'click', () => unhideElement(maxRatesSpans, toggleDifferentialRatesSlider.checkbox.checked) );
     }();
     function copyRatesTable() {
         let maxRatesClone = maxRatesTable.parentElement.cloneNode(true)
@@ -5660,8 +5826,8 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             if ( textbox2?.disabled ) {
                 textbox2.style.fieldSizing = "content"
                 function mergeTextboxesText() {
-                    let textboxText = textbox2.value ? textbox1.value + '\nPAGEBREAK\n\n                      WORKER COMMENTS\n============================================================\n\n' + textbox2.value + '\n\n============================================================' : textbox1.value
-                    return textboxText
+                    let letterTextboxText = textbox2.value ? textbox1.value + '\nPAGEBREAK\n\n                      WORKER COMMENTS\n============================================================\n\n' + textbox2.value + '\n\n============================================================' : textbox1.value
+                    return letterTextboxText
                 };
                 /* globals download, PDFLib */
                 function createPdfThenDownload(pdfText, pdfName) {
@@ -5700,7 +5866,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                             yellowTextBox({ textContent: "Failed to retrieve email address from Address page.", classList: "blackText" })
                             return
                         };
-                        const emailSubject = encodeURIComponent((nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal).toWellFormed())
+                        const emailSubject = encodeURIComponent( (nameFuncs.LastFirstToFirstL(pageTitle) + ' - CCAP case ' + caseIdVal).toWellFormed() )
                         window.open('mailto:' + emailAddress + '?subject=' + emailSubject, '_self')
                     })
                 })
@@ -5726,7 +5892,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         checkboxParent?.querySelector('input[type="checkbox"]:not(:disabled)')?.click()
     });
     document.querySelector('#caseData input#other')?.addEventListener('click', clickEvent => { document.getElementById('otherTextbox').value = clickEvent.target.checked ? 'See Worker Comments below' : '' })
-    Array.from(document.querySelectorAll('div.col-lg-offset-3'), ele => ele.firstElementChild.setAttribute("for", ele.querySelector('input.checkbox').id) )
+    Array.from(document.querySelectorAll('div.col-lg-offset-3'), ele => ele.firstElementChild?.setAttribute("for", ele.querySelector('input.checkbox').id) )
     function checkForSpecLetterText(pastedText) {
             if ( [ "CaseMemo.htm", "CaseNotices.htm" ].includes(thisPageNameHtm) && (/above the|to the above/).test(pastedText) ) {
                 yellowTextBox({ textContent: "Warning: The added text includes references to checkbox text found on the Special Letter." }, { textContent: "Adding this text to this letter may omit requesting some required documents." })
@@ -5758,39 +5924,18 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     };
     document.addEventListener('paste', pasteEventAHK )
     !function addTextareaButtons() {
-        let targetDiv = (function() { switch(thisPageNameHtm) {
-                case "CaseMemo.htm": return editableTextbox.closest('.form-group')
-                case "CaseNotices.htm": return editableTextbox.closest('.form-group').firstElementChild
-                default: return editableTextbox.closest('.col-lg-12')
-        } })();
-        if (!targetDiv) { return };
-        let textareaButtonText = {
-            sharedCustodySa() { return "* IMPORTANT: Your Child Care Assistance case can only pay a daycare when you have custody. You may be financially responsible for the time that you do not have custody, based on the contract you sign with your daycare provider." },
-            abpsInHh() {
-                let abpsInput = prompt("What is the absent parent's name?")
-                return abpsInput ? "I have been notified by Child Support that " + abpsInput + "'s address has been changed to match your address. If " + abpsInput + " is residing in your household, please submit the following verifications:"
-                    + "\n1. Verification of " + abpsInput + "'s participation in a CCAP eligible activity, such as employment or education;"
-                    + "\n2. Most recent 30 days income for " + abpsInput + ";"
-                    + "\n3. ID for " + abpsInput + ";"
-                    + "\n\nIf this household change is not accurate, please contact me for further instructions. Otherwise " + abpsInput + " will be added to your household in 15 days, which may impact your CCAP eligibility." : "" },
-            jsHoursUsed() { return "Your case is closing because you have expended your available job search hours.\nTo continue to be eligible for Child Care Assistance, you must have an eligible activity from one of the following:"
-                + "\n* Employment of a verified 20 hours per week minimum\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\n* Mental Health (child-only MFIP + doctor recommendation)\nContact me with any questions." },
-            extEligEnds() { return "Your case is closing because your 3 months of Extended Eligibility are ending and you have not reported participation in an eligible activity.\nTo continue to be eligible for Child Care Assistance,"
-                + " you must have an eligible activity from one of the following:\n* Employment\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan\n* Mental Health (child-only MFIP + doctor recommendation)\nContact me with any questions." },
-            closingUnpaidCopay() { return "Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n"
-                + "If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility." },
-            deniedOpen() { return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently open.\n\nYour CCAP case will remain open and has been updated with the information reported on this application." },
-            deniedPregnant() { return "To be eligible for the Child Care Assistance Program, you must have an eligible child in the household. Your application was denied as you do not meet this requirement.\n\nIf you reapply before your child is born, note that you must meet the eligibility requirements before the application's 30-day auto-deny date.\n(Children must be 6 weeks (42 days) old before they can start attending a Child Care Center or Family Child Care.)\n\nIf you are looking for help finding a daycare, visit https://parentaware.org/search or call 888-291-9811.\n\nChild Care Assistance cannot help pay a deposit fee to hold a position at a daycare; we are limited to registration fees and attendance fees." },
-            deniedTiOpen() { return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\n\nYour CCAP case is currently 'Temporarily Ineligible.'\n\nYour CCAP case has been updated with the information reported on this application.\n\nPlease contact me if you are unsure why your CCAP is temporarily ineligible." },
-            noNoticeProviderSwitch() { return "CCAP is required to give your currently authorized daycare provider notice 15 days in advance of an adverse change.\n\nYou reported a provider switch to CCAP that is sooner than the 15-day period, so we must contact your provider to confirm they were given proper notice and won't be billing after the switch date.\n\nOtherwise, the provider can bill absent days during those 15 days, and we may not be able to pay your new provider until after those 15 days." },
-            fosterChildCcap() { return "You must report receiving Child Care Assistance for a foster child if you receive payments from:\n• Foster Care maintenance\n    (Report to: child\"s Tribal or county case manager.)\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)" },
-            docSubmitInst() { return docSubmitInstructions(false) },
-            lnlSfsTraining() {
-                return "As a reminder, you must complete 'Supervising for Safety' through DevelopMN to receive payments for care provided past 90 days for any unrelated children. \nVisit: https://app.developtoolmn.org/v7/trainings/search\n"
-                    + "and search for Course Title:\n 'Supervising for Safety - Legal Nonlicensed'\nContact DCYF through the Provider Hub with questions about trainings or your registration." },
-        };
+        let editableTextboxParentDiv = function() { // can't do Map for this as it attempts to evaluate each value on creation //
+            switch(thisPageNameHtm) {
+                case "CaseMemo.htm": return editableTextbox.closest('.form-group');
+                case "CaseNotices.htm": return editableTextbox.closest('.form-group')?.firstElementChild;
+                case "CaseSpecialLetter.htm": return editableTextbox.closest('.col-lg-12');
+            };
+        }();
+        if (!editableTextbox || !editableTextboxParentDiv) { return };
+        if (editableTextboxParentDiv.className?.includes("col-lg-12")) { doWrap({ ele: editableTextbox }); editableTextboxParentDiv.style.display = "flex" };
         let textareaButtonTextRightClick = {
             docSubmitInst() { docSubmitInstructions(true) },
+            // otherButtonIds() {},
         };
         function docSubmitInstructions(docReset) {
             if (countyInfo.info?.docSubmitLocs && !docReset) { return countyInfo.info.docSubmitLocs };
@@ -5817,24 +5962,134 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             });
             return "docSubmitInst"
         };
+        let eligAct = {
+            emp: "\n* Employment",
+            plusAvg: " of an average of 20+ hours per week",
+            eduEsPlan: "\n* Education with an approved education plan\n* Activities listed on a DWP/MFIP Employment Plan",
+            mHealth: "\n* Mental Health (child-only MFIP + doctor recommendation)", // separated for future enhancement of checking CaseOverview for M01 being on MFIP, or the subprogram being Child-only MFIP //
+            provideCare: "\n* Unable to provide care alone (requires form completion)", // two-parent HH only //
+        };
+        function textareaPrompt(promptText) {
+            let planEndsName = prompt(promptText)
+            if (planEndsName === null) { return };
+            return planEndsName ? { name: planEndsName, possessive() { return this.name + "'s" }, have: " has " } : { name: "you", possessive() { return "your" }, have: " have " };
+        };
+        let textareaButtonText = {
+            abpsInHh() {
+                let priInputObj = textareaPrompt("What is the absent parent's name?")
+                if (priInputObj === null || priInputObj.name === "You") { return };
+                return "We have been notified by Child Support that " + priInputObj.possessive() + " address has been changed to match your address. If " + priInputObj.name + " is residing in your household, please submit the following verifications:"
+                    + "\n1. " + priInputObj.possessive() + " participation in a CCAP eligible activity, such as employment or education;"
+                    + "\n2. " + priInputObj.possessive() + " most recent 30 days income;"
+                    + "\n3. ID for " + priInputObj.name + ";"
+                    + "\n\nIf this household change is not accurate, please contact me for further instructions. Otherwise " + priInputObj.name + " will be added to your household in 15 days, which may impact your CCAP eligibility."
+            },
+            // Case Closing //
+            jsHoursUsed() {
+                let priInputObj = textareaPrompt("What is the name of the PRI with Job Search?\nLeave blank and click OK if there's only 1 PRI in the household.")
+                if (priInputObj === null) { return };
+                return "Your case is closing because " + priInputObj.possessive() + " 240 job search hours have been expended.\nTo continue to be eligible for Child Care Assistance, " + priInputObj.name + " must have an eligible activity from one of the following:"
+                    + eligAct.emp + eligAct.plusAvg + eligAct.eduEsPlan + eligAct.mHealth
+            },
+            extEligEnds() {
+                let priInputObj = textareaPrompt("What is the name of the PRI with Extended Eligibility?\nLeave blank and click OK if there's only 1 PRI in the household.")
+                if (priInputObj === null) { return };
+                return "Your case is closing because " + priInputObj.possessive() + " 3-month Extended Eligibility period is ending and participation in an eligible activity has not been reported.\nTo continue to be eligible for Child Care Assistance, " + priInputObj.name + " must have an eligible activity from one of the following:"
+                    + eligAct.emp + eligAct.eduEsPlan + eligAct.mHealth
+            },
+            unpaidCopay() {
+                return "Your case is closing because your provider indicated that you are not up-to-date paying your CCAP copayments.\nBefore your case closes, you must either submit a receipt confirming your copay has been paid, or your provider must contact us and confirm payment.\n"
+                    + "If your case closes, you will need to reapply and your copays must be paid in full as a requirement of eligibility."
+            },
+            // Extended Elig //
+            extEligPlanEnds() {
+                let priInputObj = textareaPrompt("Whose plan ended?\nLeave blank and click OK if there's only 1 PRI in the household.")
+                if (priInputObj === null) { return };
+                return nameFuncs.toTitleCase( priInputObj.possessive() ) + " Cash Assistance Employment Plan is no longer an eligible activity for Child Care Assistance and no other eligible activity has been reported.\n"
+                    + nameFuncs.toTitleCase(priInputObj.name) + priInputObj.have + "a 3-month grace period called 'Extended Eligibility' where your Child Care Assistance continues at the same hours as before."
+                    + "\n\nTo continue to be eligible for Child Care Assistance, by the end of the Extended Eligibility period " + priInputObj.name + " must have an eligible activity from one of the following:"
+                    + eligAct.emp + eligAct.eduEsPlan + eligAct.mHealth
+            },
+            extEligNewPRI() {
+                let priInputObj = textareaPrompt("What is the new PRI's name?")
+                if (priInputObj === null || priInputObj.name === "You") { return };
+                return priInputObj.name + " has been added to your CCAP case. When a parent is added to the household and they do not have a reported eligible activity, they are given a 3-month grace period called 'Extended Eligibility' where your Child Care Assistance continues at the same hours as before."
+                    + "\n\nTo continue to be eligible for Child Care Assistance, by the end of the Extended Eligibility period " + priInputObj.name + " must have an eligible activity from one of the following:"
+                    + eligAct.emp + eligAct.eduEsPlan + eligAct.mHealth + eligAct.provideCare
+            },
+            // Application Denied //
+            deniedOpen() {
+                return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\nYour CCAP case is currently open."
+                    + "\n\nYour CCAP case will remain open and has been updated with the information reported on this application."
+            },
+            deniedTiOpen() {
+                return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\nYour CCAP case is currently Temporarily Ineligible."
+                    + "\n\nYour CCAP case has been updated with the information reported on this application.\n\nPlease contact me if you are unsure why your CCAP is temporarily ineligible."
+            },
+            deniedPregnant() {
+                return "To be eligible for the Child Care Assistance Program, you must have an eligible child in the household. Your application was denied as you do not meet this requirement."
+                    + "\n\nIf you reapply before your child is born, note that you must meet the eligibility requirements before the application's 30-day auto-deny date."
+                    + "\n(Children must be 6 weeks (42 days) old before they can start attending a Child Care Center or Family Child Care.)\n\nIf you are looking for help finding a daycare, visit https://parentaware.org/search or call 888-291-9811."
+                    + "\n\nChild Care Assistance cannot help pay a deposit fee to hold a position at a daycare; we are limited to registration fees and attendance fees."
+            },
+            // Providing Info //
+            sharedCustodySa() {
+                return "* IMPORTANT: Your Child Care Assistance case can only pay a daycare when you have custody. You may be financially responsible for the time that you do not have custody, based on the contract you sign with your daycare provider."
+            },
+            noNoticeProviderSwitch() {
+                return "CCAP is required to give your currently authorized daycare provider notice 15 days in advance of an adverse change."
+                    + "\n\nYou reported a provider switch to CCAP that is sooner than the 15-day period, so we must confirm with your provider if they were given proper notice and won't be billing after the switch date."
+                    + "\n\nOtherwise, the provider can bill absent days during those 15 days, and we may not be able to pay your new provider until after those 15 days."
+            },
+            fosterChildCcap() {
+                return "You must report receiving Child Care Assistance for a foster child if you receive payments from:"
+                    + "\n• Foster Care maintenance\n    (Report to: child's Tribal or county case manager.)"
+                    + "\n• Northstar Kinship/Adoption Assistance\n    (Report to: adoption.assistance@state.mn.us.)"
+            },
+            lnlSfsTraining() {
+                return "You must complete the free 'Supervising for Safety' training through DevelopMN to receive CCAP payments for care provided past 90 days for any unrelated children.\n"
+                    + "Visit: https://app.developtoolmn.org/v7/trainings/search\nand search for Course Title:\n 'Supervising for Safety - Legal Nonlicensed'\nContact DCYF through the Provider Hub with questions about trainings or your registration."
+            },
+            // NOT YET IMPLEMENTED //
+            docSubmitInst() { return docSubmitInstructions(false) },
+        };
         const buttonSettings = [
-            { title: 'Client: Shared custody & CCAP payments', id: 'sharedCustodySa', textContent: 'Shared Custody SA', },
-            { title: "Client: ABPS allegedly in the household, need confirm/deny", id: 'abpsInHh', textContent: 'ABPS in HH', },
-            { title: 'Client: Job Search hours are expended. Defines eligible activities.', id: 'jsHoursUsed', textContent: 'JS Hours Used', },
-            { title: 'Client: Extended Eligibility ending. Defines eligible activities.', id: 'extEligEnds', textContent: 'Ext Elig Ends', },
-            { title: 'Client: Applied for CCAP with open CCAP case', id: 'deniedOpen', textContent: 'Denied, Case Open', },
-            { title: 'Client: Applied for CCAP before their child was born', id: 'deniedPregnant', textContent: 'Denied, Pregnant', },
-            { title: 'Client: Provider reported copay as unpaid, submit verification of it being paid', id: 'closingUnpaidCopay', textContent: 'Closing, Unpaid Copay', },
-            { title: 'Client: Client didn\'t give 15-day notice to CCAP of provider switch', id: 'noNoticeProviderSwitch', textContent: 'Provider Switch: Notice', },
-            { title: 'Client: Client must report receiving CCAP to their Foster Care case manager', id: 'fosterChildCcap', textContent: 'CCAP for Foster', },
-            !"CaseSpecialLetter.htm".includes(thisPageNameHtm) ? { title: 'LNL provider: Supervising for Safety training requirement', id: 'lnlSfsTraining', textContent: 'LNL SfS Training', } : {},
-            // { title: 'Locations for submitting documents. Right click to update.', id: 'docSubmitInst', textContent: 'Document Submittal', },
+            // { nodeName: 'div', textContent: "" },
+            { nodeName: "button", title: "To client:\nABPS allegedly in the household.\nNeed client to confirm or deny.", id: "abpsInHh", textContent: "ABPS in HH", },
+            { nodeName: "div", textContent: "Case Closing" },
+            { nodeName: "button", title: "To client:\nJob Search hours are expended.\nDefines eligible activities.", id: "jsHoursUsed", textContent: "JS Hours Used", },
+            { nodeName: "button", title: "To client:\nExtended Eligibility ending.\nDefines eligible activities.", id: "extEligEnds", textContent: "Ext Elig Ends", },
+            { nodeName: "button", title: "To client:\nProvider reported copay as unpaid.\nRequesting verification of it being paid.", id: "unpaidCopay", textContent: "Unpaid Copay", },
+            { nodeName: "div", textContent: "Extended Elig" },
+            { nodeName: "button", title: "To client:\nActivity is Extended Eligibility\nbecause MFIP plan is no longer eligible\nand no plan activities are eligible.\nDefines eligible activities.", id: "extEligPlanEnds", textContent: "Ext Elig - Plan Ends", },
+            { nodeName: "button", title: "To client:\nActivity is Extended Eligibility\nbecause of a new PRI.\nDefines eligible activities.", id: "extEligNewPRI", textContent: "Ext Elig - New PRI", },
+            { nodeName: "div", textContent: "Application Denied" },
+            { nodeName: "button", title: "To client:\nDenied: Applied for CCAP when CCAP already open.", id: "deniedOpen", textContent: "CCAP Case Open", },
+            { nodeName: "button", title: "To client:\nDenied: Applied for CCAP when CCAP already open\nand case is Temporarily Ineligible.", id: "deniedTiOpen", textContent: "CCAP Case Open, TI", },
+            { nodeName: "button", title: "To client:\nDenied: Applied for CCAP before their child was born.", id: "deniedPregnant", textContent: "Pregnant & No Children", },
+            { nodeName: "div", textContent: "Providing Info" },
+            { nodeName: "button", title: "To client:\nExplains CCAP hours when there is shared custody.", id: "sharedCustodySa", textContent: "Shared Custody SA", },
+            { nodeName: "button", title: "To client:\nClient didn't give 15-day notice\nto CCAP of provider switch.", id: "noNoticeProviderSwitch", textContent: "Provider Switch: Notice", },
+            { nodeName: "button", title: "To client:\nFoster child SA approved.\nClient must report receiving CCAP\nto their Foster Care case manager.", id: "fosterChildCcap", textContent: "CCAP for Foster", },
+            !"CaseSpecialLetter.htm".includes(thisPageNameHtm) ? { nodeName: "button", title: "To LNL provider:\nSupervising for Safety training info.", id: "lnlSfsTraining", textContent: "LNL SfS Training", } : {}, // can"t send letters to the provider on the Special Letter page //
+            // { nodeName: 'button', title: 'Locations for submitting documents. Right click to update.', id: 'docSubmitInst', textContent: 'Document Submittal', },
         ];
-        let textareaButtonsDiv = createNewEle('div', { classList: 'float-right-imp', id: 'textareaButtonsDiv', style: 'display: flex; flex-direction: column; gap: 8px;', })
-        targetDiv.appendChild(textareaButtonsDiv).append(...buttonSettings.map(({ title, id, textContent } = {}) => title && createNewEle( 'button', { type: "button", classList: "cButton", tabIndex: "-1", title, id, textContent }) ).filter(e => e));
+        let textareaButtonsStyle = addCSSStyleSheet("@scope (#textareaButtonsDiv) { display: flex; flex-direction: column; gap: 8px; div { border-top: double; width: 100%; margin: 10px 0 -10px; text-align: center; } }")
+        let textareaButtonsDiv = createNewEle('div', { classList: 'float-right-imp', id: 'textareaButtonsDiv', });
+        editableTextboxParentDiv.appendChild(textareaButtonsDiv).append(...buttonSettings.map( buttonData => createTextareaButtonsDivEles(buttonData) ).filter(e => e));
+        function createTextareaButtonsDivEles({ nodeName, title, id, textContent } = {}) {
+            switch(nodeName) {
+                case "button": return createNewEle( 'button', { type: "button", classList: "cButton", tabIndex: "-1", title, id, textContent });
+                case "div": return createNewEle('div', { textContent });
+            };
+        };
         textareaButtonsDiv?.addEventListener('click', clickEvent => {
             if (clickEvent.target.nodeName !== "BUTTON") { return };
-            insertTextAndMoveCursor( (editableTextbox.value ? '\n\n' : '') + textareaButtonText[clickEvent.target.id](), editableTextbox )
+            // function getTextToInsert(targetId) { return textareaButtonText[targetId]() };
+            // let textToInsert = getTextToInsert(clickEvent.target.id)
+            let textToInsert = textareaButtonText[clickEvent.target.id]()
+            if (!textToInsert) { return };
+            insertTextAndMoveCursor( (editableTextbox.value ? '\n\n' : '') + textToInsert, editableTextbox )
             doKeyup(editableTextbox)
         });
         textareaButtonsDiv?.addEventListener('contextmenu', contextmenuEvent => {
@@ -5849,7 +6104,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     !function __ProviderAddress() {
         if (!("ProviderAddress.htm").includes(thisPageNameHtm) || editMode) { return };
         let mailingStreet1 = document.getElementById('mailingStreet1'), addrBillFormDisplay = document.getElementById('addrBillFormDisplay'), mailingCountry = document.getElementById('mailingCountry')
-        let providerType = document.getElementById('providerData').children[3].firstElementChild.childNodes[2].textContent.trim()
+        let providerType = document.getElementById('providerData')?.children[3]?.firstElementChild?.childNodes[2]?.textContent?.trim()
         let providerName = ["Legal Non-licensed", "MN DHS Licensed Family"].includes(providerType) && pageTitle.indexOf(',') ? nameFuncs.commaNameObject(gbl.data.pageTitle).full : pageTitle
             addTertMulti(createNewEle("button", { type: "button", classList: "form-button", tabIndex: "-1", id: "copySiteHome", textContent: "Copy Site/Home Address" }),
             createNewEle("button", { type: "button", classList: "form-button", tabIndex: "-1", id: "copyMailing", textContent: "Copy Mailing Address" }) )
@@ -5932,7 +6187,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             let licenseNumbertext = licenseNumber.textContent; licenseNumber.textContent = ""
             licenseNumber.appendChild( createNewEle('a', { href: "https://licensinglookup.dhs.state.mn.us/Details.aspx?l=" + licenseNumbertext, target: "_blank", textContent: licenseNumbertext }) )
         };
-        let contactEmailURL = document.getElementById('contactEmailURL'), contactEmailURLaddress = contactEmailURL?.children[0]?.value
+        let contactEmailURL = document.getElementById('contactEmailURL'), contactEmailURLaddress = contactEmailURL?.firstElementChild?.value
         if (!contactEmailURLaddress) { return };
         contactEmailURL.outerHTML = '<a id="contactEmailURL" href="mailto:' + contactEmailURLaddress + '?subject=CCAP">' + contactEmailURLaddress + '</a>'
     }(); // SECTION_END Provider_Information;
@@ -5965,7 +6220,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         document.body.append(invisEle)
         invisEle.classList.add('inactiveToggle')
         const hiddenClassSet = new Set(['inactiveToggle', 'outOfAreaToggle'])
-        let searchStyle = addCssStyleSheet(), replaceStyle = doTableStyleToggle(invisEle, 'outOfAreaToggle')
+        let searchStyle = addCSSStyleSheet(), replaceStyle = doTableStyleToggle(invisEle, 'outOfAreaToggle')
         searchStyle.replaceSync( replaceStyle + " tbody .inactiveToggle { display: none !important; } tbody .outOfAreaToggle { display: none !important; }" );
         evalData().then(providerObj => {
             const { 0: providerArray } = providerObj
@@ -5981,14 +6236,16 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             };
             let openActiveNearby = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle, .outOfAreaToggle').length, openActive = providerSearchTableTbody.querySelectorAll('tr:not(.inactiveToggle').length
             let inactiveCount = document.getElementsByClassName('inactiveToggle').length, outOfAreaCount = document.getElementsByClassName('outOfAreaToggle').length
-            let inactiveToggle = inactiveCount > 0 ? createSlider({ textContent: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", }) : "", outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ textContent: "Show Out-of-Area", title: "Toggle showing providers that are further than 1 county away", id: "outOfAreaToggle", }) : ""
+            let inactiveToggle = inactiveCount > 0 ? createSlider({ textContent: "Show Inactive", title: "Toggle showing providers that are inactive", id: "inactiveToggle", }) : { container: '', checkbox: '' },
+                outOfAreaToggle = outOfAreaCount > 0 ? createSlider({ textContent: "Show Out-of-Area", title: "Toggle showing providers that are further than 1 county away", id: "outOfAreaToggle", }) : { container: '', checkbox: '' },
+                searchFilters = createNewEle('div', { id: 'searchFilters', style: 'gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;', })
             if ( (inactiveCount + outOfAreaCount) > 0 ) {
                 let h5element = document.querySelector('h5')
                 let h5elementText = document.querySelector('h5').innerText.split(".")
                 h5element.textContent = h5elementText[0] + ". " + openActiveNearby + " active local providers. " + openActive + " active providers total." + h5elementText[1] + "."
-                h5element.insertAdjacentElement( 'afterend', createNewEle('div', { id: 'searchFilters', style: 'gap: 30px; display: flex; justify-content: center; margin: -2px 0 5px;', }) )
-                .appendChild(inactiveToggle).insertAdjacentElement( 'afterend', outOfAreaToggle )
-                document.getElementById('searchFilters')?.addEventListener('click', clickEvent => {
+                h5element.insertAdjacentElement( 'afterend', searchFilters )
+                .appendChild(inactiveToggle.container).insertAdjacentElement( 'afterend', outOfAreaToggle.container )
+                searchFilters?.addEventListener('click', clickEvent => {
                     if (clickEvent.target.nodeName !== "INPUT") { return }
                     let replaceStyle = doTableStyleToggle(invisEle, clickEvent.target.id)
                     let nonHidden = hiddenClassSet.difference(new Set([...invisEle.classList])), hidden = hiddenClassSet.difference(nonHidden)
@@ -6003,6 +6260,10 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         Array.from(providerSearchTableTbody.querySelectorAll('a'), ele => { ele.target = '_self' })
     };
 }(); // SECTION_END Provider_Search;
+// !function ReportAProblem() {
+//     if (!("ReportAProblem.htm").includes(thisPageNameHtm)) { return };
+//     doWrap({ ele: document.querySelector('textarea') })
+// }(); // SECTION_END Report_A_Problem;
 !function _Transfers_ServicingAgency_Incoming_Outgoing() {
     if (!["ServicingAgencyIncomingTransfers.htm", "ServicingAgencyOutgoingTransfers.htm"].includes(thisPageNameHtm)) { return };
     listPageLinksAndList([{ listPageParm2Col: 5, listPageLinkTo: "CaseAddress" }])
@@ -6055,7 +6316,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
 }(); // SECTION_END Duplicate_Form_Buttons_Above_Form; must be after page specific changes //
 // 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
 // ////////////////////////////////////////////////////////////////////////// ELEMENT_FOCUS SECTION START \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-const firstEmptyElement = (values = ['']) => Array.from( document.querySelectorAll('.panel-box-format .form-control:not(:disabled, [readonly])') ).find( ele => values.includes(ele.value) );
+const firstEmptyElement = (values = ['']) => Array.from( document.querySelectorAll('.panel-box-format .form-control:not(:disabled, [readonly], .emptyExempt)') ).find( ele => values.includes(ele.value) );
 !function focusElement() {
     if (iFramed) { return };
     let ignoreRedTextErrors = false
@@ -6350,10 +6611,10 @@ function eleFocus(ele) {
                 };
             } else {
                 switch (keydownEvent.key) {
-                    case 'c':
-                    case 'n': visibleModal.querySelectorAll('.in input.form-button')[0].click(); break; // value: Cancel, No // visibleModal.querySelector(':is(#cancelActualDateEntry, #cancelOperation):not(:disabled)')?.click(); //
                     case 'o':
-                    case 'y': visibleModal.querySelectorAll('.in input.form-button')[1].click(); break; // value: Ok, Yes // visibleModal.querySelector(':is(#yes, #confirm, #okActualDateEntry):not(:disabled)')?.click(); //
+                    case 'y': visibleModal.querySelectorAll('.in input.form-button')[0].click(); break; // value: Ok, Yes // visibleModal.querySelector(':is(#yes, #confirm, #okActualDateEntry):not(:disabled)')?.click(); //
+                    case 'c':
+                    case 'n': visibleModal.querySelectorAll('.in input.form-button')[1].click(); break; // value: Cancel, No // visibleModal.querySelector(':is(#cancelActualDateEntry, #cancelOperation):not(:disabled)')?.click(); //
                 };
             };
         } else if (keydownEvent.ctrlKey) {
@@ -6388,29 +6649,30 @@ function eleFocus(ele) {
 }();
 !function openIdOnPasteFromAnywhere() { // Accepts paste input from non-input fields, assumes it to be case or provider #, loads the page with that #. Also allows pasting into the Provider ID field. Also switches worker ID on case list pages. //
     try {
-        let caseProviderOrWorkerInput = gbl.eles.caseIdElement ?? gbl.eles.providerIdElement ?? (thisPageNameHtm.indexOf("CaseList") > -1 && document.querySelector('form input.form-control:not(.borderless)'))
-        if (editMode || iFramed || caseProviderOrWorkerInput?.disabled || "TEXTAREA".includes(document.activeElement.nodeName)) { return };
+        let caseProviderNumberOrWorkerIdInput = gbl.eles.caseIdElement ?? gbl.eles.providerIdElement ?? ( thisPageNameHtm.indexOf("CaseList") > -1 && document.querySelector('form input.form-control:not(.borderless)') ) // ID element or input element on CaseList page //
+        if (editMode || iFramed || caseProviderNumberOrWorkerIdInput?.disabled || document.querySelector('textarea:not(:disabled, :read-only)')) { return };
         window.addEventListener('paste', async () => { // paste event never triggers on CaseList pages when in the input field //
-            navigator.clipboard.readText()
-                .then(pastedText => {
-                pastedText = parseInt(pastedText.trim(), 10)
-                // pastedText = pastedText.trim().split(/^0/).reverse()[0]
-                if ("INPUT".includes(document.activeElement.nodeName) && document.activeElement !== caseProviderOrWorkerInput) { return };
-                if ( (/^[0-9]{1,8}$/).test(pastedText) ) {
-                    if (thisPageNameHtm.indexOf("CaseList") > -1 || !caseProviderOrWorkerInput) { window.open('/ChildCare/CaseNotes.htm?parm2=' + pastedText, '_blank'); return };
-                    caseProviderOrWorkerInput.value = pastedText
-                    gbl.eles.submitButton.click()
-                } else if ( (/^x[0-9]{3,}[0-9A-Z]{3,}$/i).test(pastedText) && thisPageNameHtm.indexOf("CaseList") > -1 ) {
+            if ("TEXTAREA".includes(document.activeElement.nodeName)) { verbose("active element: ", document.activeElement, document.activeElement.nodeName); return };
+            // if ("TEXTAREA".includes(document.activeElement.nodeName)) { return };
+            navigator.clipboard.readText().then(pastedText => {
+                pastedText = pastedText.trim()
+                if ("INPUT".includes(document.activeElement.nodeName) && document.activeElement.className.includes('form-control') && document.activeElement !== caseProviderNumberOrWorkerIdInput) { verbose("active element: ", document.activeElement, document.activeElement.nodeName); return };
+                // if ("INPUT".includes(document.activeElement.nodeName) && document.activeElement.className.includes('form-control') && document.activeElement !== caseProviderNumberOrWorkerIdInput) { return };
+                if ( thisPageNameHtm.indexOf("CaseList") > -1 && (/^x[0-9]{3}[0-9A-Z]{3}$/i).test(pastedText) ) {
                     let nameDisplay = document.getElementById('nameDisplay')
                     if (!nameDisplay) { return };
-                    function clickSearch() { document.getElementById('search').click() };
                     triggerFnOnProgrammaticChange(nameDisplay, clickSearch)
-                    caseProviderOrWorkerInput.value = pastedText.toUpperCase()
-                    doChange(caseProviderOrWorkerInput)
+                    caseProviderNumberOrWorkerIdInput.value = pastedText.toUpperCase()
+                    doChange(caseProviderNumberOrWorkerIdInput)
+                } else if ( (/^[0-9]{1,8}$/).test(Number(pastedText)) ) {
+                    if (thisPageNameHtm.indexOf("CaseList") > -1 || !caseProviderNumberOrWorkerIdInput) { window.open('/ChildCare/CaseNotes.htm?parm2=' + Number(pastedText), '_blank'); return };
+                    caseProviderNumberOrWorkerIdInput.value = Number(pastedText)
+                    gbl.eles.submitButton.click()
                 };
             });
         });
     } catch (error) { console.trace(error) };
+    function clickSearch() { document.getElementById('search')?.click() };
 }();
 //
 //           datePicker related;
@@ -6419,7 +6681,7 @@ function eleFocus(ele) {
     datepickerDiv?.classList.add('hidden')
     Array.from(document.querySelectorAll('.hasDatepicker'), ele => {
         ele.addEventListener('click', () => datepickerDiv.classList.remove('hidden') ); // show when clicked //
-        ele.addEventListener('input', inputEvent => { if (inputEvent.data && parseInt(inputEvent.data) < 10) { datepickerDiv.classList.add('hidden') } }); // hide when typing //
+        ele.addEventListener('input', inputEvent => { if (inputEvent.data && parseInt(inputEvent.data, 10) < 10) { datepickerDiv.classList.add('hidden') } }); // hide when typing //
         ele.addEventListener('keydown', datepickerCtrlKeys); // allow copy/paste //
     });
     async function datepickerCtrlKeys(keydownEvent) {
@@ -6447,37 +6709,41 @@ function eleFocus(ele) {
     try { $.datepicker.setDefaults({ numberOfMonths: 3, showCurrentAtPos: 1, stepMonths: 3, maxDate: "+5y", }) } catch (error) { console.trace(error) };
 }(); // Sets jQ calendar to show 3 months //
 //
-function noteStrTextAutoReplace(noteStr) {
-    return noteStr
-        .replace(/\bSMI\b/i, "VMN") // replaces SMI with VMN (VerifyMN) //
-        .replace(/:,/g, ': ,') // Not sure what this was meant to fix // ":," to ": ," //
+function caseNotesStrTextReplace(textboxText) {
+    return textboxText
+        // .replace(/:,/g, ': ,') // Not sure what this was meant to fix // ":," to ": ," ??? //
         .replace(/^( {0,6}[A-Z ]{2,8}: *)/gm, (wholeMatch, captured1) => captured1.trim().padStart(9, ' ').padEnd(13, ' ') ) // Spacing around categories //
         .replace(/([a-z0-9]+)(\()/gi, "$1 $2").replace(/(\))([a-z0-9]+)/gi, "$1 $2") // Spacing around parentheses //
         .replace(/(?<!^x)([a-z]+)(?![0-9]+@)([0-9]+)$/gi, "$1 $2") // Spacing between letters and numbers // (unless it starts with "x") // (or followed by @ for email) //
-        .replace(/\u0009/g, "    ") // excel "tab" //
-        .replace(/^\n+/g, "\n") // Multiple new lines to single new line //
 };
-!function wordwrapTextareaElements() {
-    const editableTextareas = Array.from(document.querySelectorAll('textarea:not(:read-only)'))
-    if (!editableTextareas.length) { return };
+!function textareaWordWrapAndEvents() {
+    if (["CaseEditSummary.htm"].includes(thisPageNameHtm)) { return };
+    const textareas = Array.from(document.querySelectorAll('textarea')).map(ele => [ ele, ele.cols ]);
+    // const editableTextareas = Array.from(document.querySelectorAll('textarea:not(:read-only)')).map(ele => [ ele, ele.cols ]);
+    if (!textareas.length) { return };
+    textareas.forEach(([textbox] = []) => {
+        if (textbox.parentElement.nodeName !== "DIV") { doWrap({ ele: textbox }) };
+        textbox.parentElement.classList.add('textareaParent')
+        textbox.parentElement.addEventListener('click', () => { textbox.focus() })
+        if (textbox.parentElement.previousSibling.nodeName === "#text") { textbox.parentElement.previousSibling.remove() };
+    });
+    if (!document.querySelector('textarea:not(:read-only)')) { return };
+
     let saveButton = gbl.eles.save ?? gbl.eles.submitButton
     saveButton?.addEventListener('click', formatOnSave)
     function formatOnSave(saveEvent) {
-        let dontClickSave = 0
+        let dontClickSave = 0, maxColumns
         saveEvent.preventDefault()
-        if ("CaseNotes.htm".includes(thisPageNameHtm)) {
-            const noteSummary = document.getElementById('noteSummary'), noteStringText = document.getElementById('noteStringText')
-            noteSummary.value = noteSummary.value.slice(0, 50)
-            if (document.getElementById('autoFormat')?.checked === false) { return };
-            noteStringText.value = noteStrTextAutoReplace(noteStringText.value)
-        };
-        editableTextareas.forEach(textbox => {
-            textbox.value = textbox.value.replace(/–|—/g, '-').replace(/“|”/g, '"').replace(/‘|’/g, "'").replace(/•/g, '*') // replacing unsupported characters with generics //
-            let maxColumns = Math.round(textbox.cols/10)*10, maxRows = 30 // rounding because they set casenotes to be 97 instead of coding the html/css correctly;
+        textareas.forEach(([textbox] = []) => {
+            if (!textbox.value) { return };
+            let textboxRegExd = textAreaRegExReplacements(textbox.value)
+            maxColumns = getMaxColumns(textbox.cols)
+            let maxRows = 30
             textbox.style.width = textbox.getBoundingClientRect().width + 'px'
             textbox.removeAttribute("cols")
             textbox.removeAttribute("wrap")
-            let totalRows = splitStringAtWordBoundary(textbox, maxColumns, maxRows)
+            let [ newTextboxText, totalRows] = splitStrAtWordBoundary(textboxRegExd, maxColumns, maxRows)
+            textbox.value = newTextboxText
             if (totalRows > maxRows) {
                 if (!document.getElementById('maxRowsExceeded')) {
                     saveEvent.preventDefault()
@@ -6488,26 +6754,61 @@ function noteStrTextAutoReplace(noteStr) {
                 };
             };
         });
-        if (dontClickSave) { return };
+        if (dontClickSave) { textareas.forEach(([textbox, textboxCols] = []) => { textbox.setAttribute("cols", textboxCols) }); return }; // textarea will default to 20 columns if attribute not present //
         saveButton?.removeEventListener('click', formatOnSave)
         doClick(saveButton)
     };
-    function splitStringAtWordBoundary(textbox, maxColumns=60, maxRows=30) {
-        let tbVal = textbox.value, tbLen = textbox.value.length
-        if (tbVal.indexOf('\n') === -1 && ( tbLen <= maxColumns || ( tbLen === (maxColumns+1) && tbVal[ tbLen-1 ] === " " ) )) { return 1 };
-        const splitStringArray = tbVal.split('\n').map( item => doStringSplitAtBoundary(item) )
-        let tbRows = splitStringArray.length
-        textbox.value = splitStringArray.join('\n')
-        return tbRows;
-        function doStringSplitAtBoundary(stringItem) {
+    function getMaxColumns(textboxCols) {
+        switch(thisPageNameHtm) {
+            case "AlertWorkerCreatedAlert.htm": return 51
+            default: return Math.round(textboxCols/10)*10 // rounding because they set casenotes to be 97 and letters to 58 instead of coding the html/css correctly //
+        };
+    };
+    function textAreaRegExReplacements(textboxText) {
+        !function caseNotesChanges() {
+            if (!"CaseNotes.htm".includes(thisPageNameHtm)) { return };
+            const noteSummary = document.getElementById('noteSummary')
+            noteSummary.value = noteSummary.value.slice(0, 50)
+            if (document.getElementById('autoFormat')?.checked === false) { return };
+            textboxText = caseNotesStrTextReplace(textboxText)
+        }();
+        return textboxText
+            .replace(/–|—/g, '-').replace(/“|”/g, '"').replace(/‘|’/g, "'").replace(/•/g, '*') // replacing unsupported characters with generics //
+            .replace(/\u0009/g, "    ") // excel "tab" //
+            .replace(/^\n+/g, "\n") // Multiple new lines to single new line //
+            .replace(/(?<!%.*)\bSMI\b/i, "VMN") // replaces SMI with VMN (VerifyMN), but makes sure it's not referencing State Median Income (47% SMI) //
+    };
+    function splitStrAtWordBoundary(textboxText, maxColumns=60, maxRows=30) {
+        if (textboxText.indexOf('\n') === -1 && textboxText.trimEnd().length <= maxColumns) { return [ textboxText, 1 ] }; // No new lines, length less than 1 line //
+        const splitStrParagraphArray = textboxText.split('\n').map( item => getSplitStrSentencesArr(item, maxColumns) )
+        return [ splitStrParagraphArray.flat().join('\n'), splitStrParagraphArray.length ];
+
+        function getSplitStrSentencesArr(stringItem, maxColumns) { // operates from start of string to end of string //
+            if (stringItem.length === 0) { return [""] };
             const tempStringArray = []
-            while (stringItem.length > maxColumns) {
-                const lastSpaceIndex = stringItem.lastIndexOf(' ', maxColumns);
-                tempStringArray.push(stringItem.substring(0, lastSpaceIndex+1))
-                stringItem = stringItem.substring(lastSpaceIndex+1)
+            while (stringItem.trimEnd().length > maxColumns) {
+                let [ splitItemStart, splitItemEnd ] = splitAtLastSpaceOrDashSlash(stringItem, maxColumns), strItemStartLen = stringItem.length
+                tempStringArray.push(splitItemStart)
+                stringItem = splitItemEnd
+                if (stringItem.length >= strItemStartLen) { throw new Error("Error in getSplitStrSentencesArr logic. Length of stringItem either did not change or it increased.") }; // no infinite loops //
             };
-            stringItem.length && tempStringArray.push(stringItem) // last line;
-            return tempStringArray.join('\n');
+            stringItem.length && tempStringArray.push(stringItem) // last/only line;
+            return tempStringArray;
+        };
+        function splitAtLastSpaceOrDashSlash(strItem, maxCols) {
+            const lastSpaceIndex = strItem.lastIndexOf(' ', maxCols)+1; // position for (after the) last space within the limit of max columns //
+            let [ splitStrItemStart, splitStrItemEnd ] = [strItem.slice(0, lastSpaceIndex), strItem.slice(lastSpaceIndex)] // split after space prior to maxCols //
+            let nextWord = splitStrItemEnd.slice(0, splitStrItemEnd.search(/[A-Z]\b(?![/-])(?<![/-])/i)), nextWordAfter = nextWord.search(/(?<![0-9])[/-](?![0-9])/)+1 // no dashSlash in next word = 0, else loc after dashSlash //
+            // let nextWord = splitStrItemEnd.slice(0, splitStrItemEnd.search(/[A-Z]\b(?![/-])(?<![/-])/i)), nextWordAfter = nextWord.search(/[/-]/)+1 // no dashSlash in next word = 0, else loc after dashSlash //
+            return (!nextWordAfter || splitStrItemStart.length + nextWordAfter > maxCols) // does next word have a dashSlash? //
+                ? [ splitStrItemStart, splitStrItemEndPlusIndent(splitStrItemEnd) ] // no dashSlash. new line after space, next line starts with indent if needed //
+            : splitAtDash(splitStrItemStart, splitStrItemEnd, nextWordAfter) // yes dashSlash. new line after dashSlash (dashSlash ends at location "nextWordAfter" //
+
+            function splitStrItemEndPlusIndent(strItemEnd) { return (strItemEnd.indexOf("             ") === -1 && splitStrItemStart.search(/^             |^ *[A-Z]{2,8}:    /) > -1) ? "             " + strItemEnd : strItemEnd }; // if string starts with indent/category, prepend indent //
+            function splitAtDash(splitStrItemStart, splitStrItemEnd, nextWordAfter) {
+                let wordPlusDash = splitStrItemEnd.slice(0, nextWordAfter), stringAfterDash = splitStrItemEnd.slice(nextWordAfter)
+                return [ splitStrItemStart + wordPlusDash, splitStrItemEndPlusIndent(stringAfterDash) ];
+            };
         };
     };
 }();
@@ -6568,9 +6869,9 @@ setTimeout(() => { if (focusEle !== "blank" && !document.querySelector('.modal.i
 !function postLoadChanges() {
     !function fixToLabels() {
         Array.from(document.querySelectorAll('div.col-md-2 + label.col-lg-1:has(+ div.col-md-2)'), label => {
-            if ( (["DIV", "INPUT"].includes(label.nextElementSibling.nodeName) && label.nextElementSibling.firstElementChild?.type === "text") ) {
-                label.previousElementSibling.classList.add('to-next')
-                label.nextElementSibling.classList.add('to-next')
+            if ( (["DIV", "INPUT"].includes(label?.nextElementSibling?.nodeName) && label?.nextElementSibling?.firstElementChild?.type === "text") ) {
+                label?.previousElementSibling?.classList.add('to-next')
+                label?.nextElementSibling?.classList.add('to-next')
             };
         });
     }();
@@ -6586,7 +6887,7 @@ setTimeout(() => { if (focusEle !== "blank" && !document.querySelector('.modal.i
     !function changeTargetAttribToBlank() { if (!editMode) { ['Report\ a\ Problem', 'Maximum\ Rates'].forEach(ele => document.getElementById(ele)?.firstElementChild?.setAttribute('target', '_blank')) }; }();
     document.querySelector('h1')?.closest('div.row')?.classList.add('h1-parent-row');
     !function disableAutoComplete() {
-        if (!editMode || ["CaseNotes.htm", "CaseMemo.htm", "CaseSpecialLetter.htm", "CaseLetter.htm", ].includes(thisPageNameHtm)) { return };
+        if (!document.querySelector('form') || !editMode || ["CaseNotes.htm", "CaseMemo.htm", "CaseSpecialLetter.htm", "CaseLetter.htm", ].includes(thisPageNameHtm)) { return };
         document.querySelector('form').autocomplete = "off"
     }();
 }();
