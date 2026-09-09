@@ -5,14 +5,14 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.64
+// @version      0.6.65
 // ==/UserScript==
 /* globals jQuery, $ */
 
 'use strict';
 console.time('mec2functions load time');
 let verboseMode = 1;
-verbose("PBF to not div:", document.querySelectorAll('.panel-box-format > :is(select, input, output, a, span, p):not([type=hidden]):not([style*="display: none"])')) // for custom zoom CSS // found on client search, provider search //
+// verbose("PBF to not div:", document.querySelectorAll('.panel-box-format > :is(select, input, output, a, span, p):not([type=hidden]):not([style*="display: none"])')) // for custom zoom CSS // found on client search, provider search //
 const thisPageNameHtm = window.location.pathname.indexOf("//") === 0 ? window.location.pathname.slice(12) : (window.location.pathname.slice(11) || "Login.htm"), thisPageName = thisPageNameHtm.slice(0, -4);
 const rederrortextContent = Array.from([...document.querySelectorAll('strong.rederrortext:not(div.error_alertbox_new > strong.rederrortext, #memberHelpDeskPanel strong)'), ...document.querySelectorAll('.error_alertbox_new:has(> strong)')], ele => ele.innerText.trim()).filter(ele => ele);
 if ( ["Logout.htm", "ExceptionError.htm"].includes(thisPageNameHtm) || rederrortextContent?.find(ele => ele.indexOf('You have been logged out.') > -1) ) { clearStorageItems(); return; }
@@ -167,6 +167,7 @@ const dateFuncs = {
         return dateToGet;
     },
     parm3date(dateVal) { return dateVal.replace(/\D/g, '') },
+    today: new Date().setHours(0, 0, 0, 0),
 };
 const numberFuncs = {
     toUSD(num) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format( sanitize.number(num) ) },
@@ -5321,15 +5322,8 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
 }(); // SECTION_END Electronic_Bills;
 if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     function fourWeekStart(date) {
-        let baseDate = 1702252800000
-        // let [ month, day, year ] = date.split('/') // Date.UTC(2023, 12-1, 11); // month is -1 indexed;
-        // let num = ( (Date.UTC(year, month-1, day) - baseDate) / 2419200000) // 28 days;
-        // return ( num - Math.floor(num) )
-        date = sanitize.date(date, "number")
-        while (baseDate < date) {
-            baseDate = dateFuncs.addDays(baseDate, 28)
-        };
-        return { start: dateFuncs.formatDate(dateFuncs.addDays(baseDate, -28), 'mdyy'), end: dateFuncs.formatDate(dateFuncs.addDays(baseDate, -1), 'mdyy') }
+        let baseDate = 1702274400000, days28 = 2419200000, bwpToAdd = Math.round((new Date(date).setHours(0, 0, 0, 0) - baseDate) / days28, 0), fourWeekBillingDay1 = dateFuncs.addDays(baseDate, (bwpToAdd*28))
+        return { start: dateFuncs.formatDate(fourWeekBillingDay1), end: dateFuncs.formatDate(dateFuncs.addDays(fourWeekBillingDay1, +27), 'mdyy') }
     };
 !function __FinancialAbsentDayHolidayTracking() {
     if (!("FinancialAbsentDayHolidayTracking.htm").includes(thisPageNameHtm)) { return };
@@ -5520,7 +5514,6 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             workerInfo ??= await getWorkerName()
             let typeAndNameColumns = { FinancialBilling: { type: 1, name: 0, id: 4 }, FinancialBillingApproval: { type: 2, name: 1, id: 0 }, }
             let billingFormDates = !twoOrFourWeeks.checkbox.checked ? { start: dateFuncs.formatDate(selectPeriodDates.start, "mdyy"), end: dateFuncs.formatDate(selectPeriodDates.end, "mdyy"), } : fourWeeksRange
-            verbose(twoOrFourWeeks.checkbox.checked, billingFormDates, fourWeeksRange); return;
             let selectedTRow = billingProviderTableTbody.querySelector('tr.selected')
             let selectedTRowChildren = selectedTRow.children
             let selectedProviderName = clickedButtonName !== "Template" ? clickedButtonName : selectedTRowChildren[typeAndNameColumns[thisPageName].name].textContent
