@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.68
+// @version      0.6.69
 // ==/UserScript==
 /* globals jQuery */
 
@@ -3903,14 +3903,13 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
             let tempInelig = { type: type.value, reason: reason.value, start: beginDate.value, end: allowedExpirationDate.value }
             sessionStorage.setItem('MECH2.TI.' + caseIdVal, JSON.stringify(tempInelig))
         });
-        // triggerFnOnInputValuechanged(beginDate);
-        // Array.from(["valuechanged", "keyup"], eventType => { beginDate.addEventListener(eventType, beginDateChanged) });
         triggerFnOnInputKeyupValuechangedDates(beginDate, beginDateChanged)
         function beginDateChanged() {
-            if (beginDate.value.length < 10) { return };
-            beginDate = sanitize.date(beginDate); if (!beginDate) { return };
-            if (dateFuncs.dateDiffInDays(beginDate.value) > 365) { return };
-            let extEligPlus90 = dateFuncs.formatDate( dateFuncs.addDays(beginDate.value, 90), "ddmmyyyy" )
+            let beginDateVal = beginDate.value
+            if (beginDateVal.length < 10) { return };
+            beginDate = sanitize.date(beginDateVal); if (!beginDateVal) { return };
+            if (dateFuncs.dateDiffInDays(beginDateVal) > 365) { return };
+            let extEligPlus90 = dateFuncs.formatDate( dateFuncs.addDays(beginDateVal, 90), "mmddyyyy" )
             allowedExpirationDate.value = extEligPlus90
             doChange('#allowedExpirationDate')
             eleFocus(gbl.eles.save)
