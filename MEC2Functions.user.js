@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.69
+// @version      0.6.70
 // ==/UserScript==
 /* globals jQuery */
 
@@ -130,7 +130,7 @@ const dateFuncs = {
         secondDate = secondDate === undefined ? new Date() : sanitize.date(secondDate, "date")
         const utc1 = Date.UTC(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
         const utc2 = Date.UTC(secondDate.getFullYear(), secondDate.getMonth(), secondDate.getDate());
-        return Math.floor((utc2 - utc1) / this.dayInMs);
+        return Math.abs( Math.floor((utc2 - utc1) / this.dayInMs) );
     },
     dateDiffInMonths(firstDate, secondDate) {
         firstDate = sanitize.date(firstDate, "date")
@@ -2152,7 +2152,6 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             aclTbody.addEventListener('click', clickEvent => { if ( clickEvent.target.classList.contains("cSpan") ) { redetTbodyEvent(clickEvent.target) } });
             const suspendedcaseListNumberArray = openCaseLists.suspended.map(tr => {
                 let redetDateNumber = sanitize.date(tr.children[4].textContent, "number"), dateDiff = dateFuncs.dateDiffInDays(redetDateNumber)
-                // let redetDateNumber = sanitize.date(tr.children[4].textContent, "number"), dateDiff = (redetDateNumber - dateFuncs.today) / dateFuncs.dayInMs
                 switch (true) {
                     case redetDateNumber <= dateFuncs.today: { addSpan({ tr, child: 3, attribObj: { textContent: "Closing" } }); break }
                     case dateDiff > 180: { addSpan({ tr, child: 3, attribObj: { textContent: "6+ months out" } }); break; }
