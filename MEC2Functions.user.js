@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.70
+// @version      0.6.71
 // ==/UserScript==
 /* globals jQuery */
 
@@ -2002,71 +2002,91 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
         let afterResults = createNewEle( 'div', { id: 'afterResults', style: 'display: inline-flex; gap: 5px;', }); afterResults.append( aclQuerySelect, getAclData, exportLoadedData )
         caseResultsData.insertAdjacentElement('afterend', afterResults)
         let csvDataOutput = {};
-        function addSpan({ tr, child, extraClasses="", baseClasses="ACLaddedSpan float-right-imp tableAmend", attribObj={}, dataObj }) {
+        function addSpan({ spanCell, extraClasses="", baseClasses="ACLaddedSpan float-right-imp tableAmend", attribObj={}, dataObj }) {
             if (!attribObj.textContent) { return };
-            let addedSpan = tr.children[child].appendChild( createNewEle('span', Object.assign(attribObj, { classList: [baseClasses, extraClasses].flat().filter(e=>e).join(' ') }), dataObj ))
+            let addedSpan = createNewEle('span', Object.assign(attribObj, { classList: [baseClasses, extraClasses].flat().filter(e=>e).join(' ') }), dataObj )
+            spanCell.appendChild( addedSpan )
+            return addedSpan;
         };
-        function addDivSpan({ tr, child, baseClasses="ACLaddedSpan float-right-imp tableAmend", extraClasses="", spansArray }) {
-            if (!spansArray) { return };
-            let addedDiv = tr.children[child].appendChild( createNewEle('div', { classList: [baseClasses, extraClasses].flat().filter(e=>e).join(' ') } ))
-            // tr.children[child].insertAdjacentElement('beforeend', createNewEle('div', { classList: ([ baseClasses, extraClasses ].filter(e=>e).join(' ')) }) ).append((
-            // Array.isArray(spansArray[0])
-            // ? ...spansArray.map(spanArr => createNewEle('span', ) // blarg '<span' + (spanArr[1] ?? "") + '>' + spanArr[0] + '</span>') Object.assign({ textContent: spanArr[0] }, spanArr[1] ?? {})
-            // : ...spansArray.map(spanText => createNewEle('span', { textContent: spanText }) )
-            //)
-            tr.children[child].insertAdjacentHTML('beforeend', '<div class="' + ([ baseClasses, extraClasses ].flat().filter(e=>e).join(' ')) + '">'
-                                                  + ( Array.isArray(spansArray[0])
-                                                  ? spansArray.map(spanArr => '<span' + (spanArr[1] ?? "") + '>' + spanArr[0] + '</span>').join("") // array of arrays;
-                                                  : spansArray.map(spanText => '<span>' + spanText + '</span>').join("") ) // array of text;
-                                                  + '</div>');
-            // createNewEle('span', { title: spanArr[1], textContent: spanArr[0] })
-            // createNewEle('span', { textContent: spanText })
+        function addDivSpan({ divSpanCell, baseClasses="ACLaddedSpan float-right-imp tableAmend", extraClasses="", spansArr=[], spansObj={} }) {
+        // function addDivSpan({ tr, child, baseClasses="ACLaddedSpan float-right-imp tableAmend", extraClasses="", spansArray }) {
+            let addedSpans = spansArr.length ? spansArr.map(spanAttribs => createNewEle('span', spanAttribs )) : [ spansObj ];
+            if (!addedSpans) { return };
+            let addedDiv = createNewEle('div', { classList: [baseClasses, extraClasses].flat().filter(e=>e).join(' ') })
+            addedDiv.append(...addedSpans)
+            divSpanCell.append( addedDiv )
+            // divSpanCell.insertAdjacentHTML('beforeend', '<div class="' + ([ baseClasses, extraClasses ].flat().filter(e=>e).join(' ')) + '">'
+            //                                       + ( Array.isArray(spansArray[0])
+            //                                       ? spansArray.map(spanArr => '<span' + (spanArr[1] ?? "") + '>' + spanArr[0] + '</span>').join("") // array of arrays;
+            //                                       : spansArray.map(spanText => '<span>' + spanText + '</span>').join("") ) // array of text;
+            //                                       + '</div>');
         };
         function removeSpans() { Array.from(document.querySelectorAll('.ACLaddedSpan'), ele => ele.remove()) };
         async function checkEditSummary() {
             const errorMap = new Map([ // 🅐 🅑 🅒 🅓 🅔 🅕 🅖 🅗 🅘 🅙 🅚 🅛 🅜 🅝 🅞 🅟 🅠 🅡 🅢 🅣 🅤 🅥 🅦 🅧 🅨 🅩 // 🅰 🅱 🅲 🅳 🅴 🅵 🅶 🅷 🅸 🅹 🅺 🅻 🅼 🅽 🅾 🅿 🆀 🆁 🆂 🆃 🆄 🆅 🆆 🆇 🆈 🆉 // 🄌 ➊ ➋ ➌ ➍ ➎ ➏ ➐ ➑ ➒ ➓
-                ["Subsidized Housing is missing. This information is needed for federal reporting.", { uniLetter: "➑", errTitle: "Subsidized Housing." } ],
-                ["Subsidized Housing is unknown. This information is needed for federal reporting.", { uniLetter: "➑", errTitle: "Subsidized Housing." } ],
-                ["Head Start Participation is missing.", { uniLetter: "🅗", errTitle: "Head Start participation missing." } ],
-                ["Alien ID Number is missing. It is required when an Immigration page has been entered.", { uniLetter: "🅘", errTitle: "Alien ID # missing." } ],
-                ["Race is missing.", { uniLetter: "🅡", errTitle: "Race is missing." } ],
-                ["Heritage Hispanic/Latino is missing.", { uniLetter: "🅛", errTitle: "Latino/Hispanic heritage missing." } ],
-                ["An Employment Activity page exists but person has no Earned Income page.", { uniLetter: "🅔", errTitle: "Employment activity, no earned income." } ],
-                ["An Earned Income page exists but this person does not have an Employment Activity page.", { uniLetter: "🅔", errTitle: "Earned income, no employment activity." } ],
-                ["School page does not exist for parental adult with claimed Education Activity.", { uniLetter: "🅢", errTitle: "Education activity, no school page." } ],
-                ["Kindergarten Start date has passed. Child is not listed as attending school.", { uniLetter: "🅚", errTitle: "Kindergarten start date passed." } ],
-                ["Next Good Cause Review date is prior to the current biweekly period. Complete the review and update the Good Cause Review date.", { uniLetter: "🅖", errTitle: "Good Cause review due." } ],
-                ["Forms Completed is missing.", { uniLetter: "🅲", errTitle: "CSE: Forms Completed is missing." } ],
-                ["Each child must be listed on a total combination of two Child Support Enforcement and/or Parent pages.", { uniLetter: "🅿", errTitle: "Parent or CSE needed for child." } ],
-                ["Funding Availability page is missing.", { uniLetter: "🅵", errTitle: "Funding Availability page is missing." } ],
-                ["County of residence has changed. The Financially Responsible Agency will be incorrect unless a Transfer page is completed.", { uniLetter: "🆃", errTitle: "Residence county changed - needs transfer." } ],
-                ["Total Hours of Care Authorized on the Child's Provider page exceeds the 120 hour limit in a biweekly period.", { uniLetter: "🅐", errTitle: "Authorized hours > 120." } ],
+                // ["Subsidized Housing is missing. This information is needed for federal reporting.", { uniLetter: "➑", errTitle: "Subsidized Housing." } ],
+                // ["Subsidized Housing is unknown. This information is needed for federal reporting.", { uniLetter: "➑", errTitle: "Subsidized Housing." } ],
+                // ["Head Start Participation is missing.", { uniLetter: "🅗", errTitle: "Head Start participation missing." } ],
+                // ["Alien ID Number is missing. It is required when an Immigration page has been entered.", { uniLetter: "🅘", errTitle: "Alien ID # missing." } ],
+                // ["Race is missing.", { uniLetter: "🅡", errTitle: "Race is missing." } ],
+                // ["Heritage Hispanic/Latino is missing.", { uniLetter: "🅛", errTitle: "Latino/Hispanic heritage missing." } ],
+                // ["An Employment Activity page exists but person has no Earned Income page.", { uniLetter: "🅔", errTitle: "Employment activity, no earned income." } ],
+                // ["An Earned Income page exists but this person does not have an Employment Activity page.", { uniLetter: "🅔", errTitle: "Earned income, no employment activity." } ],
+                // ["School page does not exist for parental adult with claimed Education Activity.", { uniLetter: "🅢", errTitle: "Education activity, no school page." } ],
+                // ["Kindergarten Start date has passed. Child is not listed as attending school.", { uniLetter: "🅚", errTitle: "Kindergarten start date passed." } ],
+                // ["Next Good Cause Review date is prior to the current biweekly period. Complete the review and update the Good Cause Review date.", { uniLetter: "🅖", errTitle: "Good Cause review due." } ],
+                // ["Forms Completed is missing.", { uniLetter: "🅲", errTitle: "CSE: Forms Completed is missing." } ],
+                // ["Each child must be listed on a total combination of two Child Support Enforcement and/or Parent pages.", { uniLetter: "🅿", errTitle: "Parent or CSE needed for child." } ],
+                // ["Funding Availability page is missing.", { uniLetter: "🅵", errTitle: "Funding Availability page is missing." } ],
+                // ["County of residence has changed. The Financially Responsible Agency will be incorrect unless a Transfer page is completed.", { uniLetter: "🆃", errTitle: "Residence county changed - needs transfer." } ],
+                // ["Total Hours of Care Authorized on the Child's Provider page exceeds the 120 hour limit in a biweekly period.", { uniLetter: "🅐", errTitle: "Authorized hours > 120." } ],
+                ["Subsidized Housing is missing. This information is needed for federal reporting.", [ "➑", "Subsidized Housing." ] ],
+                ["Subsidized Housing is unknown. This information is needed for federal reporting.", [ "➑", "Subsidized Housing." ] ],
+                ["Head Start Participation is missing.", [ "🅗", "Head Start participation missing." ] ],
+                ["Alien ID Number is missing. It is required when an Immigration page has been entered.", [ "🅘", "Alien ID # missing." ] ],
+                ["Race is missing.", [ "🅡", "Race is missing." ] ],
+                ["Heritage Hispanic/Latino is missing.", [ "🅛", "Latino/Hispanic heritage missing." ] ],
+                ["An Employment Activity page exists but person has no Earned Income page.", [ "🅔", "Employment activity, no earned income." ] ],
+                ["An Earned Income page exists but this person does not have an Employment Activity page.", [ "🅔", "Earned income, no employment activity." ] ],
+                ["School page does not exist for parental adult with claimed Education Activity.", [ "🅢", "Education activity, no school page." ] ],
+                ["Kindergarten Start date has passed. Child is not listed as attending school.", [ "🅚", "Kindergarten start date passed." ] ],
+                ["Next Good Cause Review date is prior to the current biweekly period. Complete the review and update the Good Cause Review date.", [ "🅖", "Good Cause review due." ] ],
+                ["Forms Completed is missing.", [ "🅲", "CSE: Forms Completed is missing." ] ],
+                ["Each child must be listed on a total combination of two Child Support Enforcement and/or Parent pages.", [ "🅿", "Parent or CSE needed for child." ] ],
+                ["Funding Availability page is missing.", [ "🅵", "Funding Availability page is missing." ] ],
+                ["County of residence has changed. The Financially Responsible Agency will be incorrect unless a Transfer page is completed.", [ "🆃", "Residence county changed - needs transfer." ] ],
+                ["Total Hours of Care Authorized on the Child's Provider page exceeds the 120 hour limit in a biweekly period.", [ "🅐", "Authorized hours > 120." ] ],
             ]);
             h4objects.maxiscase.h4.parentElement.style.position = "relative"
-            h4objects.maxiscase.siblings[0].insertAdjacentHTML(
-                'beforeend', ''
-                  + '<div style="position: absolute; top: 0; left: 45cqw; width: 54cqw; line-height: 20px;">'
-                  + '<div style="display: grid; grid-template-columns: 5fr 6fr 10fr;">'
-                      + '<div style="padding-left: 2cqw;">🅧: Warning</div><div>Edit Summary Key</div><div>🆇: Inhibiting</div>'
-                  + '</div>'
-                  + '<div style="display: grid; grid-template-columns: 1fr 1fr;">'
-                      + '<div>🅔 Employment/Income, missing other</div><div>🅲 CSE Forms Completed missing</div>'
-                      + '<div>🅢 Education activity, no school page</div><div>🅿 Parent or CSE needed for child</div>'
-                      + '<div>➑ Subsidized Housing</div><div>🆃 Transfer needed - moved</div>'
-                      + '<div>🅡/🅛 Race/Heritage</div><div>🅵 Funding Availability missing</div>'
-                      + '<div>🅐 Authorized Hours > 120</div><div></div>'
-                      + '<div>🅚/🅗 Kindergarten/Head Start</div><div></div>'
-                  + '</div>')
+            h4objects.maxiscase.siblings[0].insertAdjacentElement(
+                'beforeend', ...arrangeElements([
+                    createNewEle("div", { style: "position: absolute; top: 0; left: 45cqw; width: 54cqw; line-height: 20px;" }),
+                    [createNewEle("div", { style: "display: grid; grid-template-columns: 5fr 6fr 10fr;" }),
+                     [createNewEle("div", { style: "padding-left: 2cqw;", textContent: "🅧: Warning</div>" }),
+                      createNewEle("div", { textContent: "Edit Summary Key" }),
+                      createNewEle("div", { textContent: "🆇: Inhibiting" }),
+                     ],
+                     createNewEle("div", { style: "display: grid; grid-template-columns: 1fr 1fr;" }),
+                     [...Array.from([
+                         "🅔 Employment/Income, missing other", "🅲 CSE Forms Completed missing",
+                         "🅢 Education activity, no school page", "🅿 Parent or CSE needed for child",
+                         "➑ Subsidized Housing", "🆃 Transfer needed - moved",
+                         "🅡/🅛 Race/Heritage", "🅵 Funding Availability missing",
+                         "🅐 Authorized Hours > 120", "",
+                         "🅚/🅗 Kindergarten/Head Start", "",
+                     ], textContent => createNewEle('div', { textContent }) )],
+                    ],
+                ])
+            );
             forAwaitMultiCaseEval(caseListNumberArray, "CaseEditSummary.htm").then(result => {
                 for (let caseNum in result) {
                     let currCase = result[caseNum][0]
                     if (!currCase) { continue };
-                    let allErrors = currCase.map(error => {
-                        const foundError = errorMap.get(error.editDescription) ?? { uniLetter: "🅤", errTitle: ' title="' + (error.editDescription.length > 60 ? error.editDescription.slice(0, 60) + '&#8230;' : error.editDescription ) + '"' }
-                        return [ foundError.uniLetter, ' title="' + foundError.errTitle + '"' ]
-                    })
-                    const uniqueErrors = reduceArrToUniques(allErrors)
-                    addDivSpan({ tr: caseListObject[caseNum], child: 3, baseClasses: "absPos ACLaddedSpan tableAmend", spansArray: uniqueErrors })
+                    const allErrorsArr = currCase.map(error => {
+                        const [ uniLetter, errTitle ] = errorMap.get(error.editDescription) ?? [ "🅤", (error.editDescription.length < 61 ? error.editDescription : error.editDescription.slice(0, 60) + '&#8230;') ];
+                        return { textContent: uniLetter, title: errTitle };
+                    });
+                    addDivSpan({ divSpanCell: caseListObject[caseNum].children[3], baseClasses: "absPos ACLaddedSpan tableAmend", spansArray: allErrorsArr });
                 };
             });
         };
@@ -2076,7 +2096,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     let currCase = result[caseNum][0][0]
                     let residenceCity = nameFuncs.toTitleCase(currCase.residenceCity)
                     let mailingCity = currCase.mailingCity?.length ? " / " + nameFuncs.toTitleCase(currCase.mailingCity) : ''
-                    addSpan({ tr: caseListObject[caseNum], child: 3, attribObj: { textContent: '(' + residenceCity + mailingCity + ')' } })
+                    addSpan({ spanCell: caseListObject[caseNum].children[3], attribObj: { textContent: '(' + residenceCity + mailingCity + ')' } })
                 };
             });
         };
@@ -2084,8 +2104,9 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
             forAwaitMultiCaseEval(caseListNumberArray, "CaseAddress.htm").then(result => {
                 for (let caseNum in result) {
                     let currCase = result[caseNum][0][0]
-                    let phones = [ currCase.phone1, currCase.phone2, currCase.phone3 ].filter(e => e)
-                    addDivSpan({ tr: caseListObject[caseNum], child: 3, spansArray: phones, extraClasses: 'separate' })
+                    let phones = [ currCase.phone1, currCase.phone2, currCase.phone3 ].filter(e => e).join('\n')
+                    // let phones = [ currCase.phone1, currCase.phone2, currCase.phone3 ].filter(e => e)
+                    addDivSpan({ divSpanCell: caseListObject[caseNum].children[3], spansObj: { textContent: phones }, extraClasses: 'separate' });
                 };
             });
         };
@@ -2098,7 +2119,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     const tr = caseListObject[caseNum]
                     const jobSearchMap = jobSearchFilter.map(item => "M" + item.memberReferenceNumber + ": " + item.originalHoursPerWeek).join("\n")
                     let jobSearchStyle = jobSearchFilter.filter(item => ( item.originalHoursPerWeek === "1" && tr.children[2].textContent.indexOf('Active') > -1).length ) ? "font-weight: bold; color: var(--textColorNegative);" : ""
-                    addSpan({ tr, child: 3, attribObj: { textContent: "JS: " + jobSearchMap, style: jobSearchStyle } })
+                    addSpan({ spanCell: tr.children[3], attribObj: { textContent: "JS: " + jobSearchMap, style: jobSearchStyle } })
                 };
             });
         };
@@ -2110,7 +2131,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     for (let row in result[caseNum][0]) {
                         let selfEmployActivity = result[caseNum][0][row].employmentActivityDescription
                         if (selfEmployActivity === "Self-employment") {
-                            addSpan({ tr: caseListObject[caseNum], child: 3, attribObj: { textContent: "Self-employed" } })
+                            addSpan({ spanCell: caseListObject[caseNum].children[3], attribObj: { textContent: "Self-employed" } })
                             break selfEmployLoop
                         };
                     };
@@ -2128,7 +2149,7 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                             let subprogram = filteredResult[caseNum][0].programNameHistory
                             let tr = caseListObject[caseNum], trTdText = tr.children[3].textContent
                             if ( ((subprogram === "CCMF" && mfipStatus !== "Active") || (mfipStatus === "Active" && subprogram !== "CCMF")) && inRange(mfipDateDiff, 31, 359)) {
-                                addSpan({ tr, child: 3, attribObj: { textContent: trTdText + " (MFIP: " + mfipStatus + " - " + mfipDate + ")" } })
+                                addSpan({ spanCell: tr.children[3], attribObj: { textContent: trTdText + " (MFIP: " + mfipStatus + " - " + mfipDate + ")" } })
                             };
                         };
                     };
@@ -2144,19 +2165,20 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 for (let caseNum in filteredResult) {
                     let foundNoteDate = filteredResult[caseNum].find(note => note.noteCreator === findNotesByWorker)?.noteCreateDate
                     if (!foundNoteDate) { continue };
-                    addSpan({ tr: caseListObject[caseNum], child: 3, attribObj: { textContent: foundNoteDate } })
+                    addSpan({ spanCell: caseListObject[caseNum].children[3], attribObj: { textContent: foundNoteDate } })
                 };
             });
         };
         async function redetDateVsSuspendDate() {
             aclTbody.addEventListener('click', clickEvent => { if ( clickEvent.target.classList.contains("cSpan") ) { redetTbodyEvent(clickEvent.target) } });
             const suspendedcaseListNumberArray = openCaseLists.suspended.map(tr => {
+                let caseNum = tr.id
                 let redetDateNumber = sanitize.date(tr.children[4].textContent, "number"), dateDiff = dateFuncs.dateDiffInDays(redetDateNumber)
                 switch (true) {
-                    case redetDateNumber <= dateFuncs.today: { addSpan({ tr, child: 3, attribObj: { textContent: "Closing" } }); break }
-                    case dateDiff > 180: { addSpan({ tr, child: 3, attribObj: { textContent: "6+ months out" } }); break; }
-                    case dateDiff < 46: { addSpan({ tr, child: 3, attribObj: { textContent: "Mailed" } }); break; }
-                    default: { return tr.id }
+                    case redetDateNumber <= dateFuncs.today: { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "Closing" } }); break }
+                    case dateDiff > 180: { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "6+ months out" } }); break; }
+                    case dateDiff < 46: { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "Mailed" } }); break; }
+                    default: { return caseNum }
                 };
             }).filter(ele => ele);
             forAwaitMultiCaseEval(suspendedcaseListNumberArray, "CaseOverview.htm").then(result => {
@@ -2165,20 +2187,20 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     let caseStatus = result[caseNum][0][0]
                     let suspendDate = (function() {
                         switch(caseStatus?.programStatusHistory) {
-                            case "Inactive": { addSpan({ tr, child: 3, attribObj: { textContent: "Closing" } }); return undefined }
-                            case "Temporarily Ineligible": { addSpan({ tr, child: 3, attribObj: { textContent: "Temporarily Ineligible" } }); return undefined }
+                            case "Inactive": { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "Closing" } }); return undefined }
+                            case "Temporarily Ineligible": { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "Temporarily Ineligible" } }); return undefined }
                             case "Suspend": { return caseStatus.programBeginDateHistory }
                             default: return undefined
                         };
                     }());
-                    if (!suspendDate) { if (!tr.children[3].children.length) { addSpan({ tr, child: 3, attribObj: { textContent: "Status Issue" } }) }; continue };
+                    if (!suspendDate) { if (!tr.children[3].children.length) { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "Status Issue" } }) }; continue };
                     let suspendDateNumber = sanitize.date(suspendDate, "number"), suspendToRedetDiff = Math.floor( (redetDateNumber - suspendDateNumber) / dateFuncs.dayInMs )
                     switch(true) {
-                        case suspendToRedetDiff < 335: { addSpan({ tr, child: 3, attribObj: { textContent: "Est. suspend < 1 year" } }); continue }
-                        case suspendToRedetDiff > 414: { addSpan({ tr, child: 3, attribObj: { textContent: "Closes before Redet" } }); continue }
+                        case suspendToRedetDiff < 335: { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "Est. suspend < 1 year" } }); continue }
+                        case suspendToRedetDiff > 414: { addSpan({ spanCell: tr.children[3], attribObj: { textContent: "Closes before Redet" } }); continue }
                         case inRange(suspendToRedetDiff, 335, 414): {
                             let delayDate = dateFuncs.formatDate( dateFuncs.addDays( suspendDateNumber, 416), "mmddyyyy" )
-                            addSpan({ tr, child: 3, extraClasses: 'cSpan delay', attribObj: { textContent: "est. suspend " + suspendToRedetDiff + " days", title: 'Set new Redet date to ' + delayDate, }, dataObj: { delayDate } })
+                            addSpan({ spanCell: tr.children[3], extraClasses: 'cSpan delay', attribObj: { textContent: "est. suspend " + suspendToRedetDiff + " days", title: 'Set new Redet date to ' + delayDate, }, dataObj: { delayDate } })
                         };
                     };
                 };
@@ -2187,14 +2209,14 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                 let aclIframe = createNewEle("iframe", { id: "aclIframe", name: "aclIframe", style: "width: 100%; height: 100%;" }), iframeContainer = createNewEle("div", { id: "iframeContainer", style: "height: 400px;" });
                 iframeContainer.append(aclIframe);
                 gbl.eles.footerLinks.insertAdjacentElement('beforebegin', iframeContainer)
-                let tr = redetEventSpan.closest('tr'), delayDate = redetEventSpan.dataset.delayDate, eventcaseIdVal = tr.id
+                let tr = redetEventSpan.closest('tr'), delayDate = redetEventSpan.dataset.delayDate, caseNum = tr.id
                 if (redetEventSpan.className.includes("delay")) {
-                    let delayDateObj = JSON.stringify({ id: eventcaseIdVal, delayDate })
+                    let delayDateObj = JSON.stringify({ id: caseNum, delayDate })
                     sessionStorage.setItem('MECH2.suspendPlus45', delayDateObj)
-                    delayRedetDate(redetEventSpan, eventcaseIdVal, aclIframe).then(finishedEventSpan => {
+                    delayRedetDate(redetEventSpan, caseNum, aclIframe).then(finishedEventSpan => {
                         finishedIframeActivity(iframeContainer, finishedEventSpan, "element");
-                        let noteDelayButton = addSpan({ tr, child: 3, extraClasses: 'cSpan', attribObj: { textContent: "Note Delay", title: "Auto-Note Delay", }, dataObj: { delayDate } });
-                        noteDelayButton.addEventListener('click', event => { redetDelayCaseNote(eventcaseIdVal, dateFuncs.formatDate(delayDate, "mdyy")); noteDelayButton.textContent = "Case Noted ✔"; })
+                        let noteDelayButton = addSpan({ spanCell: tr.children[3], extraClasses: 'cSpan', attribObj: { textContent: "Note Delay", title: "Auto-Note Delay", }, dataObj: { delayDate } });
+                        noteDelayButton.addEventListener('click', event => { redetDelayCaseNote(caseNum, dateFuncs.formatDate(delayDate, "mdyy")); noteDelayButton.textContent = "Case Noted ✔"; })
                     });
                 };
                 function finishedIframeActivity(iframeContainer, finishedEventSpan, removeElementOrClass="class") {
@@ -2219,10 +2241,10 @@ if (!iFramed && ( caseIdVal || "CaseApplicationInitiation.htm".includes(thisPage
                     redetiframe.src = "/ChildCare/CaseRedetermination.htm?parm2=" + tRowId
                 });
             };
-            function redetDelayCaseNote(eventcaseIdVal, delayDate) {
+            function redetDelayCaseNote(caseNum, delayDate) {
                 formStoreEnterAutoNote({
-                    caseIdVal: eventcaseIdVal,
-                    noteCategory: "Redeterminaton Delayed",
+                    caseIdVal: caseNum,
+                    noteCategory: "Redeterminaton Other",
                     noteSummary: "Redetermination delayed: suspended 1 year",
                     noteMessage: "Redetermination delayed to " + delayDate + " so that the mailing date is after the case closure date for being suspended for 1 year."
                 });
