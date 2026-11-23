@@ -5,7 +5,7 @@
 // @author       MECH2
 // @match        http://mec2.childcare.dhs.state.mn.us/*
 // @match        https://mec2.childcare.dhs.state.mn.us/*
-// @version      0.6.71
+// @version      0.6.73
 // ==/UserScript==
 /* globals jQuery */
 
@@ -1679,7 +1679,7 @@ function htmlToEleRegEx(htmlText) {
 !function mapTableWithHeaders() {
     Array.from(document.querySelectorAll('.dataTables_scrollBody'), table => {
         let tableHead = table.previousElementSibling?.querySelector('thead tr')
-        tableHead.addEventListener('contextmenu', contextmenuEvent => {
+        tableHead?.addEventListener('contextmenu', contextmenuEvent => {
             contextmenuEvent.preventDefault()
             let tableMap = Array.from(
                 table.querySelectorAll('tbody > tr'), tr => Array.from(
@@ -3908,7 +3908,7 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
 }(); // SECTION_END Highlight_eligibility_results;
 !function __CaseEligibilityResultApproval() {
     if (!("CaseEligibilityResultApproval.htm").includes(thisPageNameHtm)) { return };
-    if (editMode) {
+    // if (editMode) {
         let beginDate = document.getElementById('beginDate'), reason = document.getElementById('reason'), type = document.getElementById('type'), allowedExpirationDate = document.getElementById('allowedExpirationDate')
         if (sessionStorage.getItem('MECH2.TI.' + caseIdVal) !== null) {
             let tempInelig = sanitize.json(sessionStorage.getItem('MECH2.TI.' + caseIdVal))
@@ -3928,14 +3928,14 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         function beginDateChanged() {
             let beginDateVal = beginDate.value
             if (beginDateVal.length < 10) { return };
-            beginDate = sanitize.date(beginDateVal); if (!beginDateVal) { return };
+            beginDateVal = dateFuncs.formatDate(beginDateVal, "mmddyyyy"); if (!beginDateVal) { return };
             if (dateFuncs.dateDiffInDays(beginDateVal) > 365) { return };
             let extEligPlus90 = dateFuncs.formatDate( dateFuncs.addDays(beginDateVal, 90), "mmddyyyy" )
             allowedExpirationDate.value = extEligPlus90
             doChange('#allowedExpirationDate')
             eleFocus(gbl.eles.save)
         };
-    };
+    // };
 }(); // SECTION_END Case_Eligibility_Result_Approval;
 !function __CaseEligibilityResultFinancial() {
     if (!("CaseEligibilityResultFinancial.htm").includes(thisPageNameHtm)) { return };
@@ -3996,41 +3996,42 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
     let ceiAddressLabelsAndDivs = [...ceiAddressLabels, ...ceiAddressLabels.map(ele => ele.nextElementSibling) ]
     let ceiAddressGroups = ['ceiEmpCountry', 'ceiEmpStreet', 'ceiEmpStreet2', 'ceiEmpCity', 'ceiEmpStateOrProvince', 'ceiEmpZipOrPostalCode', 'ceiPhone', ].map(ele => document.getElementById(ele)?.closest('.form-group'))
     // self-employment //
-    const getCeiGrossIncomeFiftyPct = () => (ceiGrossIncome.value * .5).toFixed(2)
-    let selfEmployCalc = {
+    const getCeiGrossIncomeFiftyPct = () => Math.trunc( Math.max(0, sanitize.number(ceiGrossIncome.value)) * 100 / 2 ) /100
+    let selfEmployCalcEles = {
         seiHoursCalcDiv: createNewEle('div', { classList: "col-lg-12 hidden", style: "text-align: center; cursor: pointer;", id:"seiHoursCalcDiv", title: "Click to copy" }),
         seiHoursText: createNewEle('output', { id:"seiHoursText" }),
         seiHoursCalculation: createNewEle('output', { style: "padding-left: 0 !important;", id: "seiHoursCalculation" }),
         autoFiftyPercent: createNewEle('div', { id: "autoFiftyPercent" }),
-        fiftyPercentGross: createNewEle('output', { id: "fiftyPercentGross" }),
+        fiftyPercentOfGross: createNewEle('output', { id: "fiftyPercentOfGross" }),
         useFiftyPercent: createNewEle('button', { type: "button", id: "useFiftyPercent", classList: "cButton", tabIndex: "27", textContent: "Use 50%" })
     };
     h4objects.annualselfemploymentcalculation.h4.parentElement.append( ...arrangeElements(
-        [selfEmployCalc.seiHoursCalcDiv,
+        [selfEmployCalcEles.seiHoursCalcDiv,
          [createNewEle('label', { textContent: "Hours Per Week: " }),
-          selfEmployCalc.seiHoursText,
-          selfEmployCalc.seiHoursCalculation
+          selfEmployCalcEles.seiHoursText,
+          selfEmployCalcEles.seiHoursCalculation
          ],
         ]
     ));
     function addHoursPerWeekToSelfEmployment() {
-        selfEmployCalc.seiHoursText.textContent = '"Total Income" of ' + ceiTotalIncome.value + ' / 52 weeks / $7.25 = '
-        selfEmployCalc.seiHoursCalculation.value = Math.trunc(Math.floor(100*( sanitize.number(ceiTotalIncome.value) )/52/7.25)/10)/10 + " hours/week"
+        selfEmployCalcEles.seiHoursText.textContent = '"Total Income" of ' + (ceiTotalIncome.value < 0 ? "-$" : "$") + Intl.NumberFormat('en-US').format(Math.abs(ceiTotalIncome.value) || 0) + ' / 52 weeks / $7.25 = '
+        let hoursPerWeekCalc = Math.trunc( Math.max(0, ceiTotalIncome.value) * 10 / (52*7.25) )/10
+        selfEmployCalcEles.seiHoursCalculation.value = hoursPerWeekCalc + " hours/week"
     };
-    if (selfEmployCalc.seiHoursCalculation.value) { addHoursPerWeekToSelfEmployment() }
+    function updateFiftyPct() { selfEmployCalcEles.fiftyPercentOfGross.value = getCeiGrossIncomeFiftyPct() };
+    if (selfEmployCalcEles.seiHoursCalculation.value) { addHoursPerWeekToSelfEmployment() };
     if (editMode) {
-        ceiGrossIncome.parentElement.insertAdjacentElement( 'afterend', selfEmployCalc.autoFiftyPercent).append( createNewEle('label', { classList: 'textR', textContent: "50%: " }), selfEmployCalc.fiftyPercentGross, selfEmployCalc.useFiftyPercent)
-        selfEmployCalc.fiftyPercentGross.value = getCeiGrossIncomeFiftyPct()
-        ceiGrossIncome.addEventListener('blur', () => { selfEmployCalc.fiftyPercentGross.value = getCeiGrossIncomeFiftyPct(); addHoursPerWeekToSelfEmployment() })
-        ceiGrossAllowExps.addEventListener('input', addHoursPerWeekToSelfEmployment)
-        selfEmployCalc.useFiftyPercent.addEventListener('click', () => {
+        ceiGrossIncome.parentElement.insertAdjacentElement( 'afterend', selfEmployCalcEles.autoFiftyPercent).append( createNewEle('label', { classList: 'textR', textContent: "50%: " }), selfEmployCalcEles.fiftyPercentOfGross, selfEmployCalcEles.useFiftyPercent)
+        updateFiftyPct()
+        triggerFnOnInputValuechanged(ceiGrossIncome, updateFiftyPct)
+        triggerFnOnInputValuechanged(ceiTotalIncome, addHoursPerWeekToSelfEmployment)
+        selfEmployCalcEles.useFiftyPercent.addEventListener('click', () => {
             ceiGrossAllowExps.value = getCeiGrossIncomeFiftyPct()
             doChange(ceiGrossAllowExps)
-            addHoursPerWeekToSelfEmployment()
             eleFocus(gbl.eles.save)
         });
     };
-    selfEmployCalc.seiHoursCalcDiv.addEventListener('click', clickEvent => copy(selfEmployCalc.seiHoursCalcDiv.textContent, selfEmployCalc.seiHoursCalcDiv.textContent, "Copied!", "center"))
+    selfEmployCalcEles.seiHoursCalcDiv.addEventListener('click', clickEvent => copy(selfEmployCalcEles.seiHoursCalcDiv.textContent, selfEmployCalcEles.seiHoursCalcDiv.textContent, "Copied!", "center"))
     // all employment //
     h4objects.actualincome.h4.click();
     tabIndxNegOne('#providerId, #providerSearch, #ceiCPUnitType, #ceiNbrUnits, #ceiTotalIncome, #ceiPaymentChange')
@@ -4039,12 +4040,12 @@ if (thisPageNameHtm.indexOf("CaseEligibilityResult") !== 0) { return };
         if (ceiIncomeTypeValue === "Self-employment") {
             unhideElement(h4objects.annualselfemploymentcalculation.siblings, true)
             unhideElement(h4objects.incomeprojection.siblings, false)
-            unhideElement(selfEmployCalc.seiHoursCalcDiv, true)
+            unhideElement(selfEmployCalcEles.seiHoursCalcDiv, true)
             addHoursPerWeekToSelfEmployment()
         } else if (ceiIncomeTypeValue !== "Self-employment" || (!editMode && !ceiTotalIncome?.value)) {
             unhideElement(h4objects.annualselfemploymentcalculation.siblings, false)
             unhideElement(h4objects.incomeprojection.siblings, true)
-            unhideElement(selfEmployCalc.seiHoursCalcDiv, false)
+            unhideElement(selfEmployCalcEles.seiHoursCalcDiv, false)
         };
     };
     checkEmploymentType()
@@ -5276,7 +5277,7 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
         if (!document.getElementById('resetbtn')) { return };
         Array.from(document.querySelectorAll('input.form-control, select.form-control'), ele => { ele.removeAttribute('disabled') });
         const clientSearchMapMerged = new Map([ [0, "ssnReq"], [2, "lastNameReq"], [3, "firstNameReq"], [5, "genderReq"], [6, "birthdateReq"], [8, "pmiReq"] ].map( ([tableChild, eleId] = []) => [ tableChild, document.getElementById(eleId).value ]) )
-        const ignore = [1,4,7], segmentedValues = [0, 2, 3, 6];
+        const ignore = [1,4,7], segmentedValues = [0, 2, 3, 6]; // SSN, First, Last, DoB //
         const searchTableTbodyRows = Array.from(searchTableTbody.children, trow => {
             Array.from(trow.children, (td, i) => {
                 if (ignore.includes(i)) { return };
@@ -5292,7 +5293,12 @@ if (!("CaseServiceAuthorizationOverview.htm").includes(thisPageNameHtm)) { retur
             let delineatingChar = searchStr.match(/[-/ ]/)?.[0]
             if (!delineatingChar) { return };
             let tdEleSplit = tdEleTextContent.split(delineatingChar)
-            let tdEleInnerHTML = searchStr.split(delineatingChar)?.map( (strSection, i) => strSection === tdEleSplit[i] ? '<span class="match">' + tdEleSplit[i] + '</span>' : tdEleSplit[i] )?.join(delineatingChar)
+            let joiningChar = tdEleTextContent.includes(delineatingChar) ? delineatingChar : ''
+            let tdEleInnerHTML = searchStr.split(delineatingChar)?.map((strSection, i) => {
+                let tdEleSplitComparer = tdEleSplit.length > 1 ? tdEleSplit[i] : tdEleSplit[0]
+                let tdEleSplitReturner = tdEleSplit.length > 1 ? tdEleSplit[i] : ''
+                return strSection === tdEleSplitComparer ? '<span class="match">' + tdEleSplitComparer + '</span>' : tdEleSplitReturner
+            })?.filter(e=>e).join(joiningChar)
             if (searchStr === tdEleInnerHTML || tdEleInnerHTML?.length < 3) { return false };
             tdEle.innerHTML = tdEleInnerHTML
         };
@@ -5938,8 +5944,13 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         function docSubmitInstructions(docReset) {
             if (countyInfo.info?.docSubmitLocs && !docReset) { return countyInfo.info.docSubmitLocs };
             let docLocationQuestions = [ ["Email?", "docEmailAddress", "input", "width: 100%;"], ["Fax?", "docFaxNumber", "input", "width: 100%;"], ["Mailing?", "docMailingAddress", "textarea", "height: 4lh; width: 93%; resize: none;"] ];
-            let docDialogBox = document.body.appendChild( createNewEle('dialog', { id: "docDialogBox", style: "margin: auto; padding: 5px; width: 25cqw; border: none !important; outline: 2px solid var(--borderColor3);" }) ), docForm = docDialogBox.appendChild( createNewEle('form', { method: "dialog", style: "display: flex; flex-direction: column; gap: 8px; margin: 0 auto !important; padding: 6px;" }) )
-            docForm.append(...docLocationQuestions.map(([textContent, id, docNodeName, style] = []) => { let questionContainer = createNewEle('div'); questionContainer.append( createNewEle('label', { textContent, style: "width: 100%;" }), createNewEle( docNodeName, { id, style, classList: "form-control", value: countyInfo.info?.docSubmitLocs?.[id] ?? "" }) ); return questionContainer; }) );
+            let docDialogBox = document.body.appendChild( createNewEle('dialog', { id: "docDialogBox", style: "margin: auto; padding: 5px; width: 25cqw; border: none !important; outline: 2px solid var(--borderColor3);" }) ),
+                docForm = docDialogBox.appendChild( createNewEle('form', { method: "dialog", style: "display: flex; flex-direction: column; gap: 8px; margin: 0 auto !important; padding: 6px;" }) )
+            docForm.append(...docLocationQuestions.map(([textContent, id, docNodeName, style] = []) => {
+                let questionContainer = createNewEle('div');
+                questionContainer.append( createNewEle('label', { textContent, style: "width: 100%;" }), createNewEle( docNodeName, { id, style, classList: "form-control", value: countyInfo.info?.docSubmitLocs?.[id] ?? "" }) );
+                return questionContainer;
+            }) );
             let docButtonContainer = docForm.appendChild( createNewEle('div', { id: "docButtonContainer", style: "display: flex; gap: 10px; justify-content: center;" }) )
             // createNewEle('textarea', { id: 'docMailingAddress', style: '', })
             // createNewEle('input', { id: 'docEmailAddress', style: '', })
@@ -5956,7 +5967,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                         docDialogBox.close()
                         return countyInfo.info.docSubmitLocs;
                     }
-                }
+                };
             });
             return "docSubmitInst"
         };
@@ -6018,7 +6029,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             // Application Denied //
             deniedOpen() {
                 return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\nYour CCAP case is currently open."
-                    + "\n\nYour CCAP case will remain open and has been updated with the information reported on this application."
+                    + "\n\nYour CCAP case status has not changed and has been updated with the information reported on the application."
             },
             deniedTiOpen() {
                 return "Recently you submitted an application for the Child Care Assistance Program (CCAP). Your request has been denied for the following reason:\nYour CCAP case is currently Temporarily Ineligible."
@@ -6030,9 +6041,9 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
                     + "\n(Children must be 6 weeks (42 days) old before they can start attending a Child Care Center or Family Child Care.)\n\nIf you are looking for help finding a daycare, visit https://parentaware.org/search or call 888-291-9811."
                     + "\n\nChild Care Assistance cannot help pay a deposit fee to hold a position at a daycare; we are limited to registration fees and attendance fees."
             },
-            // Providing Info //
+            // Informational //
             sharedCustodySa() {
-                return "* IMPORTANT: Your Child Care Assistance case can only pay a daycare when you have custody. You may be financially responsible for the time that you do not have custody, based on the contract you sign with your daycare provider."
+                return "* IMPORTANT: Your Child Care Assistance case can only pay a daycare when you have custody. You may be financially responsible for the time that you do not have custody, based on your contract with your daycare provider."
             },
             noNoticeProviderSwitch() {
                 return "CCAP is required to give your currently authorized daycare provider notice 15 days in advance of an adverse change."
@@ -6053,7 +6064,7 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
         };
         const buttonSettings = [
             // { nodeName: 'div', textContent: "" },
-            { nodeName: "button", title: "To client:\nABPS allegedly in the household.\nNeed client to confirm or deny.", id: "abpsInHh", textContent: "ABPS in HH", },
+            { nodeName: "button", title: "To client:\nABPS allegedly in the household.\nNeed client to confirm or deny.\n(Prompt will ask for ABPS name.)", id: "abpsInHh", textContent: "ABPS in HH", },
             { nodeName: "div", textContent: "Case Closing" },
             { nodeName: "button", title: "To client:\nJob Search hours are expended.\nDefines eligible activities.", id: "jsHoursUsed", textContent: "JS Hours Used", },
             { nodeName: "button", title: "To client:\nExtended Eligibility ending.\nDefines eligible activities.", id: "extEligEnds", textContent: "Ext Elig Ends", },
@@ -6065,10 +6076,10 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
             { nodeName: "button", title: "To client:\nDenied: Applied for CCAP when CCAP already open.", id: "deniedOpen", textContent: "CCAP Case Open", },
             { nodeName: "button", title: "To client:\nDenied: Applied for CCAP when CCAP already open\nand case is Temporarily Ineligible.", id: "deniedTiOpen", textContent: "CCAP Case Open, TI", },
             { nodeName: "button", title: "To client:\nDenied: Applied for CCAP before their child was born.", id: "deniedPregnant", textContent: "Pregnant & No Children", },
-            { nodeName: "div", textContent: "Providing Info" },
+            { nodeName: "div", textContent: "Informational" },
             { nodeName: "button", title: "To client:\nExplains CCAP hours when there is shared custody.", id: "sharedCustodySa", textContent: "Shared Custody SA", },
-            { nodeName: "button", title: "To client:\nClient didn't give 15-day notice\nto CCAP of provider switch.", id: "noNoticeProviderSwitch", textContent: "Provider Switch: Notice", },
-            { nodeName: "button", title: "To client:\nFoster child SA approved.\nClient must report receiving CCAP\nto their Foster Care case manager.", id: "fosterChildCcap", textContent: "CCAP for Foster", },
+            { nodeName: "button", title: "To client:\nClient didn't give CCAP a 15-day notice\nof their provider switch, so confirmation\nof the last billing date is needed.", id: "noNoticeProviderSwitch", textContent: "Provider Switch: Notice", },
+            { nodeName: "button", title: "To client:\nFoster child SA approved.\nClient must report receiving CCAP\nto their Foster Care case manager.\n(Tells client who to contact.)", id: "fosterChildCcap", textContent: "CCAP for Foster", },
             !"CaseSpecialLetter.htm".includes(thisPageNameHtm) ? { nodeName: "button", title: "To LNL provider:\nSupervising for Safety training info.", id: "lnlSfsTraining", textContent: "LNL SfS Training", } : {}, // can"t send letters to the provider on the Special Letter page //
             // { nodeName: 'button', title: 'Locations for submitting documents. Right click to update.', id: 'docSubmitInst', textContent: 'Document Submittal', },
         ];
@@ -6193,14 +6204,13 @@ if (thisPageNameHtm.indexOf("Financial") !== 0) { return };
     }(); // SECTION_END Provider_Notices;
     !function __ProviderOverview() {
         if (!["ProviderOverview.htm", "getProviderOverview.htm"].includes(thisPageNameHtm)) { return }
-        let licenseNumber = document.querySelector('label[for=providerLicenseNumber]').closest('.form-group').querySelector('.col-lg-8')
-        if (licenseNumber.innerText) {
-            let licenseNumbertext = licenseNumber.innerText; licenseNumber.textContent = ""
-            licenseNumber.appendChild( createNewEle('a', { href: "https://licensinglookup.dhs.state.mn.us/Details.aspx?l=" + licenseNumbertext, target: "_blank", textContent: licenseNumbertext }) )
+        let licenseNumber = document.querySelector('label[for=providerLicenseNumber]').closest('.form-group').querySelector('div:not(.visible-lg, .visible-sm)')
+        if (licenseNumber?.innerText) {
+            licenseNumber.replaceChildren( createNewEle('a', { href: "https://licensinglookup.dhs.state.mn.us/Details.aspx?l=" + licenseNumber.innerText, target: "_blank", textContent: licenseNumber.innerText }) )
         };
-        let contactEmailURL = document.getElementById('contactEmailURL'), contactEmailURLaddress = contactEmailURL?.firstElementChild?.value
+        let contactEmailURL = document.getElementById('contactEmailURL'), contactEmailURLaddress = contactEmailURL?.querySelector('input')?.value
         if (!contactEmailURLaddress) { return };
-        contactEmailURL.outerHTML = '<a id="contactEmailURL" href="mailto:' + contactEmailURLaddress + '?subject=CCAP">' + contactEmailURLaddress + '</a>'
+        contactEmailURL.replaceWith( createNewEle("a", { id: "contactEmailURL", href: "mailto:" + contactEmailURLaddress + "?subject=CCAP", textContent: contactEmailURLaddress }) )
     }(); // SECTION_END Provider_Information;
     !function __ProviderPaymentHistory() {
         if (!("ProviderPaymentHistory.htm").includes(thisPageNameHtm)) { return };
@@ -6614,11 +6624,12 @@ function eleFocus(ele) {
 // 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
 !function keyboardHotkeys() {
     if (iFramed) { return };
+    let altKeyList = ["FinancialPaymentDetail.htm"].includes(thisPageNameHtm) ? [ "a", "c", "d", "e", "n", "o", "p", "r", "s", "w", "y", ] : [ "a", "c", "d", "e", "n", "o", "p", "r", "s", "w", "y", "ArrowLeft", "ArrowRight", ]
     window.addEventListener('keydown', keydownEvent => {
         if (keydownEvent.key === "Alt") { keydownEvent.preventDefault(); return; }; // alt pressed without additional key;
         if (keydownEvent.key === "Tab" && keydownEvent.target.classList?.contains('hasDatepicker') && keydownEvent.target.value.length > 0 && keydownEvent.target.value.length < 10) { keydownEvent.preventDefault() }; // no tabbing out of date fields prematurely //
         if (keydownEvent.altKey) {
-            if (![ "a", "c", "d", "e", "n", "o", "p", "r", "s", "w", "y", "ArrowLeft", "ArrowRight", ].includes(keydownEvent.key)) { return };
+            if (!altKeyList.includes(keydownEvent.key)) { return };
             keydownEvent.preventDefault()
             let visibleModal = Array.from(document.querySelectorAll('.modal')).filter(ele => ele.checkVisibility())[0]
             if (!visibleModal) {
@@ -6895,10 +6906,9 @@ setTimeout(() => { if (focusEle !== "blank" && !document.querySelector('.modal.i
 !function postLoadChanges() {
     !function fixToLabels() {
         Array.from(document.querySelectorAll('div.col-md-2 + label.col-lg-1:has(+ div.col-md-2)'), label => {
-            if ( (["DIV", "INPUT"].includes(label?.nextElementSibling?.nodeName) && label?.nextElementSibling?.firstElementChild?.type === "text") ) {
-                label?.previousElementSibling?.classList.add('to-next')
-                label?.nextElementSibling?.classList.add('to-next')
-            };
+            let nextSibling = label?.nextElementSibling, prevSibling = label?.previousElementSibling
+            if ( ["DIV", "INPUT"].includes(nextSibling?.nodeName) && Array.from(nextSibling?.children).some(ele => ele.nodeName === "INPUT" && ele.type === "text") ) { Array.from([prevSibling, nextSibling], sibling => { sibling.classList.add('to-next')}); };
+            label.classList.add('to-label')
         });
     }();
     !function tabIndexFixes() {
